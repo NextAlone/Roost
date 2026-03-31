@@ -38,6 +38,12 @@ final class AppState {
         activeTabID[projectID] = tabID
     }
 
+    func selectTabByIndex(_ index: Int, projectID: UUID) {
+        let projectTabs = tabsForProject(projectID)
+        guard index >= 0, index < projectTabs.count else { return }
+        activeTabID[projectID] = projectTabs[index].id
+    }
+
     func ensureTabExists(for project: Project) {
         if tabsForProject(project.id).isEmpty {
             createTab(for: project)

@@ -17,7 +17,7 @@ struct TerminalBridge: NSViewRepresentable {
     let onFocus: () -> Void
 
     final class Coordinator {
-        var previouslyFocused = false
+        var wasFocused = false
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -28,7 +28,7 @@ struct TerminalBridge: NSViewRepresentable {
         view.onTitleChange = { [weak state] title in
             state?.title = title
         }
-        context.coordinator.previouslyFocused = focused
+        context.coordinator.wasFocused = focused
         if focused {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 view.window?.makeFirstResponder(view)
@@ -39,12 +39,11 @@ struct TerminalBridge: NSViewRepresentable {
 
     func updateNSView(_ nsView: GhosttyTerminalNSView, context: Context) {
         nsView.onFocus = onFocus
-        let wasFocused = context.coordinator.previouslyFocused
-        context.coordinator.previouslyFocused = focused
-        if focused && !wasFocused {
-            DispatchQueue.main.async {
-                nsView.window?.makeFirstResponder(nsView)
-            }
+        let wasFocused = context.coordinator.wasFocused
+        context.coordinator.wasFocused = focused
+        guard focused, !wasFocused else { return }
+        DispatchQueue.main.async {
+            nsView.window?.makeFirstResponder(nsView)
         }
     }
 }

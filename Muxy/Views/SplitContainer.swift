@@ -4,6 +4,7 @@ import AppKit
 struct SplitContainer: View {
     let branch: SplitBranch
     let focusedID: UUID?
+    let isActiveTab: Bool
     let onFocus: (UUID) -> Void
     let onSplit: (UUID, SplitDirection) -> Void
     let onClose: (UUID) -> Void
@@ -48,6 +49,6 @@ struct SplitContainer: View {
     }
 
     private func child(_ node: SplitNode) -> some View {
-        PaneNode(node: node, focusedID: focusedID, onFocus: onFocus, onSplit: onSplit, onClose: onClose)
+        PaneNode(node: node, focusedID: focusedID, isActiveTab: isActiveTab, onFocus: onFocus, onSplit: onSplit, onClose: onClose)
     }
 }

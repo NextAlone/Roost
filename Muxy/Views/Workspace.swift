@@ -8,7 +8,7 @@ struct TerminalArea: View {
         ZStack {
             ForEach(appState.tabsForProject(project.id)) { tab in
                 let isActive = tab.id == appState.activeTabID[project.id]
-                PaneTree(tab: tab, projectPath: project.path)
+                PaneTree(tab: tab, projectPath: project.path, isActiveTab: isActive)
                     .id(tab.id)
                     .opacity(isActive ? 1 : 0)
                     .allowsHitTesting(isActive)

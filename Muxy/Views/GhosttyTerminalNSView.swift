@@ -130,6 +130,19 @@ final class GhosttyTerminalNSView: NSView {
         ghostty_surface_set_size(surface, w, h)
     }
 
+    private static let appShortcutKeys: Set<String> = [
+        "q", "t", "w", "d",
+        "1", "2", "3", "4", "5", "6", "7", "8", "9",
+        "[", "]"
+    ]
+
+    private func isAppShortcut(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command) else { return false }
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        return Self.appShortcutKeys.contains(key)
+    }
+
     override var acceptsFirstResponder: Bool { true }
 
     override func becomeFirstResponder() -> Bool {
@@ -189,6 +202,7 @@ final class GhosttyTerminalNSView: NSView {
         }
 
         if flags.contains(.command) {
+            if isAppShortcut(event) { return }
             var keyEvent = buildKeyEvent(from: event, action: action)
             keyEvent.text = nil
             _ = ghostty_surface_key(surface, keyEvent)
@@ -247,6 +261,7 @@ final class GhosttyTerminalNSView: NSView {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if isAppShortcut(event) { return false }
         guard event.type == .keyDown, let surface else { return false }
         var keyEvent = buildKeyEvent(from: event, action: event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS)
         keyEvent.text = nil

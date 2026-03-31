@@ -18,7 +18,7 @@ struct TabStrip: View {
         HStack(spacing: 0) {
             HStack {
                 Spacer()
-                IconButton(symbol: "plus", size: 11, action: onAddProject)
+                IconButton(symbol: "plus", action: onAddProject)
             }
             .padding(.horizontal, 8)
             .frame(width: 160)
@@ -38,9 +38,9 @@ struct TabStrip: View {
 
             if let project {
                 HStack(spacing: 0) {
-                    IconButton(symbol: "square.split.2x1", size: 10) { postSplit(.horizontal) }
-                    IconButton(symbol: "square.split.1x2", size: 10) { postSplit(.vertical) }
-                    IconButton(symbol: "plus", size: 10) { appState.createTab(for: project) }
+                    IconButton(symbol: "square.split.2x1") { postSplit(.horizontal) }
+                    IconButton(symbol: "square.split.1x2") { postSplit(.vertical) }
+                    IconButton(symbol: "plus") { appState.createTab(for: project) }
                 }
                 .padding(.trailing, 4)
             }
@@ -70,7 +70,7 @@ private struct TabCell: View {
         HStack(spacing: 0) {
             HStack(spacing: 6) {
                 Image(systemName: "terminal")
-                    .font(.system(size: 10))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(active ? MuxyTheme.text : MuxyTheme.textMuted)
 
                 Text(title)
@@ -84,7 +84,7 @@ private struct TabCell: View {
             .frame(height: 32)
             .overlay(alignment: .trailing) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(MuxyTheme.textDim)
                     .padding(.trailing, 10)
                     .opacity(active || hovered ? 1 : 0)

@@ -3,6 +3,7 @@ import SwiftUI
 struct PaneNode: View {
     let node: SplitNode
     let focusedID: UUID?
+    let isActiveTab: Bool
     let onFocus: (UUID) -> Void
     let onSplit: (UUID, SplitDirection) -> Void
     let onClose: (UUID) -> Void
@@ -12,13 +13,14 @@ struct PaneNode: View {
         case .pane(let state):
             TerminalPane(
                 state: state,
-                focused: focusedID == state.id,
+                focused: isActiveTab && focusedID == state.id,
                 onFocus: { onFocus(state.id) }
             )
         case .split(let branch):
             SplitContainer(
                 branch: branch,
                 focusedID: focusedID,
+                isActiveTab: isActiveTab,
                 onFocus: onFocus,
                 onSplit: onSplit,
                 onClose: onClose

@@ -3,11 +3,13 @@ import SwiftUI
 struct PaneTree: View {
     let tab: TerminalTab
     let projectPath: String
+    let isActiveTab: Bool
 
     var body: some View {
         PaneNode(
             node: tab.rootNode,
             focusedID: tab.focusedPaneID,
+            isActiveTab: isActiveTab,
             onFocus: { tab.focusedPaneID = $0 },
             onSplit: { id, dir in
                 splitPane(id, direction: dir)

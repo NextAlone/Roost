@@ -58,6 +58,16 @@ struct MuxyCommands: Commands {
             .keyboardShortcut("w", modifiers: [.command, .shift])
         }
 
+        CommandGroup(after: .windowList) {
+            ForEach(1...9, id: \.self) { index in
+                Button("Tab \(index)") {
+                    guard let projectID = appState.activeProjectID else { return }
+                    appState.selectTabByIndex(index - 1, projectID: projectID)
+                }
+                .keyboardShortcut(KeyEquivalent(Character("\(index)")), modifiers: .command)
+            }
+        }
+
         CommandGroup(after: .toolbar) {
             Button("Next Pane") {
                 guard let projectID = appState.activeProjectID,

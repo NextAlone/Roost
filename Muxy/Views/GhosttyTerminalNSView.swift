@@ -29,6 +29,9 @@ final class GhosttyTerminalNSView: NSView {
         metalLayer.pixelFormat = .bgra8Unorm
         metalLayer.isOpaque = false
         metalLayer.framebufferOnly = false
+        metalLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        metalLayer.needsDisplayOnBoundsChange = true
+        metalLayer.presentsWithTransaction = true
         return metalLayer
     }
 
@@ -109,16 +112,21 @@ final class GhosttyTerminalNSView: NSView {
     }
 
     private func updateMetalLayerSize() {
-        guard let surface, let metalLayer = layer as? CAMetalLayer else { return }
+        guard let surface else { return }
         let scale = Double(window?.backingScaleFactor ?? 2.0)
-        metalLayer.contentsScale = CGFloat(scale)
 
-        let backingSize = convertToBacking(bounds).size
-        metalLayer.drawableSize = backingSize
+        if let metalLayer = layer as? CAMetalLayer {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            metalLayer.contentsScale = CGFloat(scale)
+            CATransaction.commit()
+        }
+
         ghostty_surface_set_content_scale(surface, scale, scale)
 
-        let w = UInt32(max(1, backingSize.width))
-        let h = UInt32(max(1, backingSize.height))
+        let scaledSize = convertToBacking(bounds).size
+        let w = UInt32(max(1, scaledSize.width))
+        let h = UInt32(max(1, scaledSize.height))
         ghostty_surface_set_size(surface, w, h)
     }
 

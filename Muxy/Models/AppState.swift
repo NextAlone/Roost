@@ -29,6 +29,9 @@ final class AppState {
         if activeTabID[projectID] == tabID {
             activeTabID[projectID] = tabs[projectID]?.last?.id
         }
+        if tabsForProject(projectID).isEmpty {
+            activeProjectID = nil
+        }
     }
 
     func selectTab(_ tabID: UUID, projectID: UUID) {

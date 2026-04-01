@@ -17,10 +17,6 @@ final class GhosttyService {
     }
 
     private func initializeGhostty() {
-        if getenv("NO_COLOR") != nil {
-            unsetenv("NO_COLOR")
-        }
-
         resolveGhosttyResources()
 
         let result = ghostty_init(UInt(CommandLine.argc), CommandLine.unsafeArgv)
@@ -29,13 +25,10 @@ final class GhosttyService {
             return
         }
 
-        guard let cfg = ghostty_config_new() else {
-            print("[Muxy] ghostty_config_new failed")
+        guard let cfg = loadMuxyGhosttyConfig() else {
+            print("[Muxy] ghostty_config failed")
             return
         }
-
-        ghostty_config_load_default_files(cfg)
-        ghostty_config_finalize(cfg)
 
         var rt = ghostty_runtime_config_s()
         rt.userdata = Unmanaged.passUnretained(self).toOpaque()
@@ -100,10 +93,7 @@ final class GhosttyService {
 
     func reloadConfig() {
         guard let app else { return }
-        guard let newConfig = ghostty_config_new() else { return }
-        ghostty_config_load_default_files(newConfig)
-        ghostty_config_load_recursive_files(newConfig)
-        ghostty_config_finalize(newConfig)
+        guard let newConfig = loadMuxyGhosttyConfig() else { return }
         ghostty_app_update_config(app, newConfig)
         let oldConfig = self.config
         self.config = newConfig
@@ -111,24 +101,39 @@ final class GhosttyService {
         configVersion += 1
     }
 
+    private func loadMuxyGhosttyConfig() -> ghostty_config_t? {
+        guard let cfg = ghostty_config_new() else { return nil }
+        let configPath = MuxyConfig.shared.ghosttyConfigPath
+        configPath.withCString { ptr in
+            ghostty_config_load_file(cfg, ptr)
+        }
+        ghostty_config_finalize(cfg)
+        return cfg
+    }
+
     func tick() {
         guard let app else { return }
         ghostty_app_tick(app)
     }
 
+    private static let allowedResourceParents = [
+        "/Applications/Ghostty.app/Contents/Resources/ghostty",
+        NSHomeDirectory() + "/Applications/Ghostty.app/Contents/Resources/ghostty"
+    ]
+
     private func resolveGhosttyResources() {
-        guard getenv("GHOSTTY_RESOURCES_DIR") == nil else { return }
-
-        let candidates = [
-            "/Applications/Ghostty.app/Contents/Resources/ghostty",
-            "\(NSHomeDirectory())/Applications/Ghostty.app/Contents/Resources/ghostty"
-        ]
-
-        for path in candidates {
-            if FileManager.default.fileExists(atPath: "\(path)/shell-integration") {
-                setenv("GHOSTTY_RESOURCES_DIR", path, 1)
+        if let existing = getenv("GHOSTTY_RESOURCES_DIR").map({ String(cString: $0) }) {
+            guard Self.allowedResourceParents.contains(where: { existing.hasPrefix($0) }) else {
+                unsetenv("GHOSTTY_RESOURCES_DIR")
                 return
             }
+            return
+        }
+
+        for path in Self.allowedResourceParents {
+            guard FileManager.default.fileExists(atPath: path + "/shell-integration") else { continue }
+            setenv("GHOSTTY_RESOURCES_DIR", path, 1)
+            return
         }
     }
 }

@@ -6,54 +6,18 @@ final class ThemeService {
     static let shared = ThemeService()
     private init() {}
 
-    private static let configPath = NSHomeDirectory() + "/.config/ghostty/config"
-
     func loadThemes() async -> [ThemePreview] {
         await Task.detached { Self.discoverThemes() }.value
     }
 
     func currentThemeName() -> String? {
-        guard let content = try? String(contentsOfFile: Self.configPath, encoding: .utf8) else {
-            return nil
-        }
-        for line in content.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard trimmed.hasPrefix("theme") else { continue }
-            let afterKey = trimmed.dropFirst("theme".count).trimmingCharacters(in: .whitespaces)
-            guard afterKey.hasPrefix("=") else { continue }
-            return afterKey.dropFirst().trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-        }
-        return nil
+        MuxyConfig.shared.configValue(for: "theme")?.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
     }
 
     func applyTheme(_ name: String) {
-        writeThemeToConfig(name)
+        let sanitized = name.filter { $0 != "\"" && $0 != "\n" && $0 != "\r" }
+        MuxyConfig.shared.updateConfigValue("theme", value: "\"\(sanitized)\"")
         GhosttyService.shared.reloadConfig()
-    }
-
-    private func writeThemeToConfig(_ name: String) {
-        let themeLine = "theme = \"\(name)\""
-        let configDir = (Self.configPath as NSString).deletingLastPathComponent
-        try? FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true)
-
-        guard let content = try? String(contentsOfFile: Self.configPath, encoding: .utf8) else {
-            try? themeLine.write(toFile: Self.configPath, atomically: true, encoding: .utf8)
-            return
-        }
-
-        var lines = content.components(separatedBy: "\n")
-        var replaced = false
-        for (i, line) in lines.enumerated() {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard trimmed.hasPrefix("theme"), trimmed.dropFirst("theme".count).trimmingCharacters(in: .whitespaces).hasPrefix("=") else {
-                continue
-            }
-            lines[i] = themeLine
-            replaced = true
-            break
-        }
-        if !replaced { lines.insert(themeLine, at: 0) }
-        try? lines.joined(separator: "\n").write(toFile: Self.configPath, atomically: true, encoding: .utf8)
     }
 
     private nonisolated static func discoverThemes() -> [ThemePreview] {

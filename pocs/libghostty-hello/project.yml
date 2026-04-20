@@ -9,6 +9,22 @@ settings:
     SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "13.0"
     PRODUCT_BUNDLE_IDENTIFIER: sh.roost.libghostty-hello
+    CLANG_CXX_LIBRARY: "libc++"
+    # GhosttyKit.xcframework ships a static libghostty.a that pulls in C++ STL,
+    # Carbon (TIS APIs), Metal / QuartzCore / IOSurface / UniformTypeIdentifiers.
+    # Mirror manaflow-ai/cmux's link line verbatim.
+    OTHER_LDFLAGS:
+      - "-lc++"
+      - "-framework"
+      - "Metal"
+      - "-framework"
+      - "QuartzCore"
+      - "-framework"
+      - "IOSurface"
+      - "-framework"
+      - "UniformTypeIdentifiers"
+      - "-framework"
+      - "Carbon"
 
 targets:
   LibghosttyHello:
@@ -17,15 +33,12 @@ targets:
     sources:
       - path: Sources
     dependencies:
+      # GhosttyKit is a static archive packaged as xcframework. Do NOT embed:
+      # embedding forces codesign on libghostty.a as if it were a framework,
+      # which fails.
       - framework: ../../vendor/GhosttyKit.xcframework
-        embed: true
-      # Transitive dependencies of libghostty.a (matches manaflow-ai/cmux):
-      - sdk: Metal.framework
-      - sdk: QuartzCore.framework
-      - sdk: IOSurface.framework
-      - sdk: UniformTypeIdentifiers.framework
-      - sdk: Carbon.framework    # TISCopyCurrentKeyboardLayoutInputSource etc.
-      - sdk: libc++.tbd          # std::* (libghostty embeds C++ harfbuzz/oniguruma)
+        embed: false
+        link: true
     info:
       path: Info.plist
       properties:

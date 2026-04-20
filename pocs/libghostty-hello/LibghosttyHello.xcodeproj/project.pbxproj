@@ -8,6 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		3788B57B9C801CA7F755A770 /* GhosttyKit.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3B3CD832481033BDA5A6BEF8 /* GhosttyKit.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		5AF2579E0D81863621DDCE9C /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4695001A875FC8E34361BC14 /* Metal.framework */; };
+		5EF13DC42C19BB99A0102A28 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C39EE381FE711723F2DBED2E /* UniformTypeIdentifiers.framework */; };
+		875B39D9E8947520C4540FBC /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 91BD22D9E8CA0BDD2393C61F /* Carbon.framework */; };
+		8D364469C2332C356B6FB919 /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A715B7C520E04FDB1865F3CE /* libc++.tbd */; };
+		9EB35950D4D44728853F8960 /* IOSurface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52553E8CDAB045D4433ED927 /* IOSurface.framework */; };
+		A6E7901082A5E6CA882163B0 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB483995FD716B7481FDD6F4 /* QuartzCore.framework */; };
 		BAE0B59BDE4052C8471AFE2D /* GhosttyKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B3CD832481033BDA5A6BEF8 /* GhosttyKit.xcframework */; };
 		C61C8163D94D3C5407CD79F3 /* LibghosttyHelloApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70F50169CC7FA890E5BB0A10 /* LibghosttyHelloApp.swift */; };
 		D0EC2E78DF43C36E9887DFF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29101DE6207FE564715E939D /* ContentView.swift */; };
@@ -30,8 +36,14 @@
 /* Begin PBXFileReference section */
 		29101DE6207FE564715E939D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3B3CD832481033BDA5A6BEF8 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyKit.xcframework; path = ../../vendor/GhosttyKit.xcframework; sourceTree = "<group>"; };
+		4695001A875FC8E34361BC14 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		52553E8CDAB045D4433ED927 /* IOSurface.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOSurface.framework; path = System/Library/Frameworks/IOSurface.framework; sourceTree = SDKROOT; };
 		70F50169CC7FA890E5BB0A10 /* LibghosttyHelloApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibghosttyHelloApp.swift; sourceTree = "<group>"; };
 		75DC06FE4A0152E9A5707BE4 /* LibghosttyHello.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LibghosttyHello.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		91BD22D9E8CA0BDD2393C61F /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+		A715B7C520E04FDB1865F3CE /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
+		C39EE381FE711723F2DBED2E /* UniformTypeIdentifiers.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UniformTypeIdentifiers.framework; path = System/Library/Frameworks/UniformTypeIdentifiers.framework; sourceTree = SDKROOT; };
+		FB483995FD716B7481FDD6F4 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -40,6 +52,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				BAE0B59BDE4052C8471AFE2D /* GhosttyKit.xcframework in Frameworks */,
+				5AF2579E0D81863621DDCE9C /* Metal.framework in Frameworks */,
+				A6E7901082A5E6CA882163B0 /* QuartzCore.framework in Frameworks */,
+				9EB35950D4D44728853F8960 /* IOSurface.framework in Frameworks */,
+				5EF13DC42C19BB99A0102A28 /* UniformTypeIdentifiers.framework in Frameworks */,
+				875B39D9E8947520C4540FBC /* Carbon.framework in Frameworks */,
+				8D364469C2332C356B6FB919 /* libc++.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -57,7 +75,13 @@
 		C9F7B8AD44A55A7BCDFB9FED /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				91BD22D9E8CA0BDD2393C61F /* Carbon.framework */,
 				3B3CD832481033BDA5A6BEF8 /* GhosttyKit.xcframework */,
+				52553E8CDAB045D4433ED927 /* IOSurface.framework */,
+				A715B7C520E04FDB1865F3CE /* libc++.tbd */,
+				4695001A875FC8E34361BC14 /* Metal.framework */,
+				FB483995FD716B7481FDD6F4 /* QuartzCore.framework */,
+				C39EE381FE711723F2DBED2E /* UniformTypeIdentifiers.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

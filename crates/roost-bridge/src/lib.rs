@@ -5,8 +5,6 @@
 
 mod jj;
 
-use std::path::{Path, PathBuf};
-
 #[swift_bridge::bridge]
 mod ffi {
     // MARK: - Sessions
@@ -107,10 +105,12 @@ fn roost_prepare_session(agent: &str) -> ffi::SessionSpec {
 fn roost_prepare_session_in(agent: &str, working_directory: &str) -> ffi::SessionSpec {
     let agent_norm = agent.trim().to_lowercase();
 
+    // Always wrap through a login shell so the agent inherits the user's
+    // PATH / rc exports (jj, node, etc.). GUI-launched apps only get launchd's
+    // thin PATH, so a direct exec leaves agents unable to find their siblings.
     let command = match agent_norm.as_str() {
         "" | "shell" | "bash" | "zsh" => String::new(),
-        name => resolve_command_for(name)
-            .unwrap_or_else(|| format!("/bin/zsh -il -c {name}")),
+        name => format!("/bin/zsh -lc {name}"),
     };
 
     ffi::SessionSpec {
@@ -118,29 +118,6 @@ fn roost_prepare_session_in(agent: &str, working_directory: &str) -> ffi::Sessio
         working_directory: working_directory.to_string(),
         agent_kind: agent_norm,
     }
-}
-
-/// Walk the usual binary install locations on macOS for a given agent name.
-fn resolve_command_for(agent: &str) -> Option<String> {
-    let home = std::env::var("HOME").ok()?;
-    let candidates = [
-        PathBuf::from(format!("{home}/.local/bin/{agent}")),
-        PathBuf::from(format!("/opt/homebrew/bin/{agent}")),
-        PathBuf::from(format!("/usr/local/bin/{agent}")),
-    ];
-    candidates
-        .into_iter()
-        .find(|p| is_executable(p))
-        .map(|p| p.to_string_lossy().into_owned())
-}
-
-fn is_executable(p: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    p.metadata()
-        .ok()
-        .filter(|m| m.is_file())
-        .map(|m| m.permissions().mode() & 0o111 != 0)
-        .unwrap_or(false)
 }
 
 // MARK: - jj bindings (thin delegate to jj::* with FFI struct conversion)

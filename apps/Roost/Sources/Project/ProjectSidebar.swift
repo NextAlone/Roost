@@ -26,6 +26,11 @@ struct ProjectSidebar: View {
     @State private var collapsed: Set<Project.ID> = []
     @State private var renamingID: Project.ID?
     @State private var renameDraft: String = ""
+    /// Drag state so we can fade the source row and animate an insertion
+    /// marker at the hover target.
+    @State private var draggingID: Project.ID?
+    @State private var dropTargetID: Project.ID?
+    @State private var dropAtEnd: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,40 +43,65 @@ struct ProjectSidebar: View {
                     SectionHeader(title: "Projects")
 
                     ForEach(projectBuckets) { bucket in
-                        bucketRow(for: bucket)
-                            .onDrag({
-                                NSItemProvider(
-                                    object: bucket.id.uuidString as NSString
-                                )
-                            }, preview: {
-                                DragPreview(label: bucket.name)
-                            })
-                            .onDrop(
-                                of: [.plainText],
-                                delegate: ProjectDropDelegate(
-                                    store: store,
-                                    target: .before(bucket.id)
-                                )
+                        VStack(spacing: 0) {
+                            // Insertion marker: animated line above the
+                            // target row while dragging over it.
+                            if dropTargetID == bucket.id
+                                && draggingID != bucket.id
+                                && draggingID != nil
+                            {
+                                InsertionMarker()
+                                    .transition(.opacity.combined(with: .scale))
+                            }
+                            bucketRow(for: bucket)
+                                .opacity(draggingID == bucket.id ? 0.35 : 1)
+                        }
+                        .onDrag({
+                            draggingID = bucket.id
+                            return NSItemProvider(
+                                object: bucket.id.uuidString as NSString
                             )
-                    }
-
-                    // Tail drop zone: lets the user drop a project at the
-                    // very bottom of the list (targets don't exist below
-                    // the last row). Invisible; grows enough to catch a
-                    // reasonable drop.
-                    Color.clear
-                        .frame(height: 40)
-                        .contentShape(Rectangle())
+                        }, preview: {
+                            DragPreview(label: bucket.name)
+                        })
                         .onDrop(
                             of: [.plainText],
                             delegate: ProjectDropDelegate(
                                 store: store,
-                                target: .end
+                                target: .before(bucket.id),
+                                draggingID: $draggingID,
+                                dropTargetID: $dropTargetID,
+                                dropAtEnd: $dropAtEnd
                             )
                         )
+                    }
+
+                    // Tail drop zone + insertion marker for drop-at-end.
+                    VStack(spacing: 0) {
+                        if dropAtEnd && draggingID != nil {
+                            InsertionMarker()
+                                .transition(.opacity.combined(with: .scale))
+                        }
+                        Color.clear
+                            .frame(height: 40)
+                            .contentShape(Rectangle())
+                    }
+                    .onDrop(
+                        of: [.plainText],
+                        delegate: ProjectDropDelegate(
+                            store: store,
+                            target: .end,
+                            draggingID: $draggingID,
+                            dropTargetID: $dropTargetID,
+                            dropAtEnd: $dropAtEnd
+                        )
+                    )
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 6)
+                .animation(.spring(response: 0.25, dampingFraction: 0.8), value: dropTargetID)
+                .animation(.spring(response: 0.25, dampingFraction: 0.8), value: dropAtEnd)
+                .animation(.easeOut(duration: 0.12), value: draggingID)
             }
 
             Divider()
@@ -511,6 +541,18 @@ private struct CountBadge: View {
     }
 }
 
+// MARK: - Drop insertion marker
+
+private struct InsertionMarker: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 1.5)
+            .fill(Color.accentColor)
+            .frame(height: 3)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+    }
+}
+
 // MARK: - Drag preview & drop
 
 private struct DragPreview: View {
@@ -539,6 +581,35 @@ enum DropTarget {
 private struct ProjectDropDelegate: DropDelegate {
     let store: ProjectStore
     let target: DropTarget
+    @Binding var draggingID: Project.ID?
+    @Binding var dropTargetID: Project.ID?
+    @Binding var dropAtEnd: Bool
+
+    func dropEntered(info: DropInfo) {
+        switch target {
+        case .before(let id):
+            // Don't mark the dragged row itself as the target — the source
+            // row already fades; an insertion marker on top would be noise.
+            if draggingID != id { dropTargetID = id }
+            dropAtEnd = false
+        case .end:
+            dropTargetID = nil
+            dropAtEnd = true
+        }
+    }
+
+    func dropExited(info: DropInfo) {
+        switch target {
+        case .before(let id):
+            if dropTargetID == id { dropTargetID = nil }
+        case .end:
+            dropAtEnd = false
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
 
     func performDrop(info: DropInfo) -> Bool {
         guard let provider = info.itemProviders(for: [.plainText]).first
@@ -551,13 +622,12 @@ private struct ProjectDropDelegate: DropDelegate {
                 case .before(let id): store.move(srcID, before: id)
                 case .end:            store.moveToEnd(srcID)
                 }
+                draggingID = nil
+                dropTargetID = nil
+                dropAtEnd = false
             }
         }
         return true
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
     }
 }
 

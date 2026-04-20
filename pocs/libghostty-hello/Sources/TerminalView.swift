@@ -2,6 +2,12 @@ import AppKit
 import SwiftUI
 import GhosttyKit
 
+extension Notification.Name {
+    /// Posted when ghostty requests the active surface close (child exit +
+    /// `wait_after_command=true` -> user dismisses).
+    static let roostSurfaceClosed = Notification.Name("sh.roost.poc.surfaceClosed")
+}
+
 // MARK: - Runtime (one per process)
 
 /// Singleton wrapper that creates `ghostty_app_t` once and survives for the
@@ -41,7 +47,11 @@ final class GhosttyRuntime {
             read_clipboard_cb: { _, _, _ in false },
             confirm_read_clipboard_cb: { _, _, _, _ in },
             write_clipboard_cb: { _, _, _, _, _ in },
-            close_surface_cb: { _, _ in }
+            close_surface_cb: { _, _ in
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .roostSurfaceClosed, object: nil)
+                }
+            }
         )
 
         guard let handle = ghostty_app_new(&runtime, config) else {
@@ -93,7 +103,10 @@ final class TerminalNSView: NSView {
         cfg.env_vars = nil
         cfg.env_var_count = 0
         cfg.initial_input = nil
-        cfg.wait_after_command = false
+        // When running an explicit command (agent CLI) rather than a login
+        // shell, keep the surface alive after exit so the user can read the
+        // status and dismiss with Enter. ghostty then calls close_surface_cb.
+        cfg.wait_after_command = (command != nil)
         cfg.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
 
         // ghostty_surface_new copies these strings internally, so pointer

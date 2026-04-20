@@ -12,6 +12,9 @@ struct ContentView: View {
             Divider()
             content
         }
+        .onReceive(NotificationCenter.default.publisher(for: .roostSurfaceClosed)) { _ in
+            launched = nil
+        }
     }
 
     private var header: some View {

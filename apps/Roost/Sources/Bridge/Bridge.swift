@@ -26,7 +26,9 @@ enum RoostBridge {
     // MARK: jj
 
     static func isJjRepo(dir: String) -> Bool {
-        roost_is_jj_repo(dir)
+        let result = roost_is_jj_repo(dir)
+        NSLog("[Roost] isJjRepo dir=%@ result=%d", dir, result ? 1 : 0)
+        return result
     }
 
     static func jjVersion() throws -> String {

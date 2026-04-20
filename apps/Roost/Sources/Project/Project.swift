@@ -51,6 +51,9 @@ final class ProjectStore: ObservableObject {
         for idx in projects.indices {
             let wasJj = projects[idx].isJjRepo
             let nowJj = RoostBridge.isJjRepo(dir: projects[idx].path)
+            NSLog("[Roost] refreshVcs name=%@ path=%@ was=%d now=%d",
+                  projects[idx].name, projects[idx].path,
+                  wasJj ? 1 : 0, nowJj ? 1 : 0)
             if wasJj != nowJj {
                 projects[idx].isJjRepo = nowJj
             }

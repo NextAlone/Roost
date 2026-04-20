@@ -7,6 +7,7 @@
 //! background I/O tasks; the RPC surface that lets clients create/kill
 //! sessions lands in M7 P3.
 
+pub mod osc;
 pub mod registry;
 pub mod ring;
 pub mod spawn;

@@ -8,15 +8,40 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::dto::{HostInfo, RevisionEntry, SessionSpec, StatusEntry, WorkspaceEntry};
+use crate::dto::{
+    AgentSpec, HostInfo, RevisionEntry, SessionId, SessionInfo, SessionSpec, SessionState,
+    StatusEntry, WorkspaceEntry,
+};
 
 /// Handshake envelope sent by the client as the very first frame on a fresh
-/// connection. `auth_token` must match the manifest; `client_version` must
-/// match hostd on MAJOR.
+/// **control** connection. `auth_token` must match the manifest;
+/// `client_version` must match hostd on MAJOR.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Hello {
     pub auth_token: String,
     pub client_version: String,
+}
+
+/// First frame on a **data** connection. Hostd identifies the connection
+/// type by trying to parse this first; on success it switches to raw byte
+/// passthrough (replaying the session's ring, then live broadcast).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttachHello {
+    pub auth_token: String,
+    pub session_id: SessionId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttachAck {
+    pub ok: bool,
+    pub server_version: String,
+    pub error: Option<String>,
+    /// Bytes the client should treat as scrollback (UTF-8 lossy ok).
+    /// Sent inline as base64 so the data conn stays line-delimited until
+    /// the very next byte (raw stream begins immediately after this frame).
+    /// Empty if the ring is empty.
+    #[serde(default)]
+    pub replay_b64: String,
 }
 
 /// Hostd's reply to `Hello`. On success, `ok=true` and the rest is informational.
@@ -130,6 +155,21 @@ pub mod methods {
     pub const WORKSPACE_STATUS: &str = "workspace_status";
     pub const BOOKMARK_CREATE: &str = "bookmark_create";
     pub const BOOKMARK_FORGET: &str = "bookmark_forget";
+
+    // Sessions (M7).
+    pub const CREATE_SESSION: &str = "create_session";
+    pub const LIST_SESSIONS: &str = "list_sessions";
+    pub const KILL_SESSION: &str = "kill_session";
+    pub const RESIZE_SESSION: &str = "resize_session";
+    pub const SEND_INPUT: &str = "send_input";
+}
+
+/// Server→client notification method names (sent as JSON-RPC frames with
+/// `method` and no `id`).
+pub mod events {
+    pub const SESSION_STATE: &str = "session_state";
+    pub const SESSION_EXITED: &str = "session_exited";
+    pub const SESSION_OSC: &str = "session_osc";
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -228,6 +268,71 @@ pub fn major_of(version: &str) -> &str {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionSpecResult {
     pub spec: SessionSpec,
+}
+
+// MARK: - Session params/results (M7)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateSessionParams {
+    pub spec: AgentSpec,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateSessionResult {
+    pub info: SessionInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionListResult {
+    pub sessions: Vec<SessionInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KillSessionParams {
+    pub session_id: SessionId,
+    /// POSIX signal number. Hostd default to SIGTERM if 0/missing.
+    #[serde(default)]
+    pub signal: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResizeSessionParams {
+    pub session_id: SessionId,
+    pub rows: u16,
+    pub cols: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendInputParams {
+    pub session_id: SessionId,
+    /// base64 of the raw bytes to feed to the agent's stdin. Optional
+    /// path; data conn is preferred for high-bandwidth I/O.
+    pub data_b64: String,
+}
+
+// MARK: - Event payloads
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionStateEvent {
+    pub session_id: SessionId,
+    pub state: SessionState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionExitedEvent {
+    pub session_id: SessionId,
+    pub exit_code: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionOscEvent {
+    pub session_id: SessionId,
+    /// OSC sequence number (9, 99, 777, ...). The bridge / UI cares only
+    /// about a small whitelist; non-whitelisted OSCs aren't broadcast.
+    pub seq: u32,
+    /// Payload between `;` and the OSC terminator. Sent as plain string;
+    /// non-UTF8 input is replaced with U+FFFD.
+    pub payload: String,
 }
 
 /// Unused today (host_info has no params) but keeps call sites symmetric.

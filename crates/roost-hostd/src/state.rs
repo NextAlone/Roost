@@ -9,6 +9,7 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use rand::RngCore;
 use sqlx::SqlitePool;
 
+use crate::events::EventBus;
 use crate::session::Registry;
 
 pub struct HostState {
@@ -17,8 +18,8 @@ pub struct HostState {
     pub started_at_epoch_ms: u64,
     #[allow(dead_code)]
     pub db: SqlitePool,
-    #[allow(dead_code)]
     pub sessions: Arc<Registry>,
+    pub events: EventBus,
 }
 
 impl HostState {
@@ -37,6 +38,7 @@ impl HostState {
             started_at_epoch_ms: now,
             db,
             sessions: Arc::new(Registry::new()),
+            events: EventBus::new(),
         }
     }
 

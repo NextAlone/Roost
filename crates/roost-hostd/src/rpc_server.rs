@@ -1,37 +1,53 @@
-//! UDS listener + JSON-RPC dispatch.
+//! UDS listener + connection multiplexer.
 //!
-//! Each connection: hello frame first; on success, a request/response loop
-//! using `LinesCodec` for newline-delimited JSON. Dispatch is sync (jj is
-//! sync), wrapped in `tokio::task::spawn_blocking` + `catch_unwind` so a
-//! panic in one handler doesn't take the daemon down.
+//! Each accepted connection's first frame decides its role:
+//!   * `AttachHello { auth_token, session_id }`  → **data** conn.
+//!     After the AttachAck, the conn switches to raw byte passthrough:
+//!     ring replay → live broadcast→stdout, stdin→PTY writer mpsc.
+//!   * `Hello { auth_token, client_version }`     → **control** conn.
+//!     JSON-RPC request/response loop with concurrent server-pushed
+//!     notifications drained from the EventBus.
+//!
+//! Detection: read the first newline frame, attempt `AttachHello` first
+//! (its `session_id` field is required and won't match a `Hello`).
 
 use std::os::unix::fs::PermissionsExt;
 use std::panic::AssertUnwindSafe;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use bytes::Bytes;
 use futures_util::{SinkExt, StreamExt};
-use roost_core::dto::{HostInfo, RevisionEntry, StatusEntry, WorkspaceEntry};
+use roost_core::dto::{
+    HostInfo, RevisionEntry, SessionId, SessionState, StatusEntry, WorkspaceEntry,
+};
 use roost_core::paths;
 use roost_core::rpc::{
-    self, AddWorkspaceParams, BookmarkParams, DirParams, ForgetWorkspaceParams, Hello, HelloAck,
-    HostInfoResult, IsJjRepoParams, IsJjRepoResult, Manifest, RenameWorkspaceParams, RepoDirParams,
-    Request, Response, RevisionResult, RpcError, StatusResult, StringResult, WorkspaceDirParams,
-    WorkspaceListResult, WorkspaceResult,
+    self, AddWorkspaceParams, AttachAck, AttachHello, BookmarkParams, CreateSessionParams,
+    CreateSessionResult, ForgetWorkspaceParams, Hello, HelloAck, HostInfoResult, IsJjRepoParams,
+    IsJjRepoResult, KillSessionParams, Manifest, RenameWorkspaceParams, RepoDirParams, Request,
+    ResizeSessionParams, Response, RevisionResult, RpcError, SendInputParams, SessionListResult,
+    StatusResult, StringResult, WorkspaceDirParams, WorkspaceListResult, WorkspaceResult,
 };
 use serde::Serialize;
 use serde_json::Value;
 use tokio::fs;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::signal::unix::{SignalKind, signal};
+use tokio::sync::mpsc;
 use tokio_util::codec::{Framed, LinesCodec};
 use tracing::{error, info, warn};
 
 use crate::manifest;
+use crate::session::{registry::SessionEntry, spawn::spawn_session};
 use crate::state::HostState;
 
+const NOTIF_QUEUE_DEPTH: usize = 256;
+
 pub async fn run(state: Arc<HostState>) -> Result<()> {
-    // Bind UDS first so failure surfaces before we touch the manifest.
     let dir = paths::hostd_dir();
     fs::create_dir_all(&dir)
         .await
@@ -48,7 +64,6 @@ pub async fn run(state: Arc<HostState>) -> Result<()> {
     fs::set_permissions(&socket, sock_perms).await?;
     info!("listening on {}", socket.display());
 
-    // Now manifest — atomic 0600 write.
     let pid = std::process::id();
     let m = Manifest {
         pid,
@@ -94,11 +109,16 @@ async fn handle_conn(stream: UnixStream, state: Arc<HostState>) -> Result<()> {
     let codec = LinesCodec::new_with_max_length(8 * 1024 * 1024);
     let mut framed = Framed::new(stream, codec);
 
-    // ---- handshake ----
     let first = framed
         .next()
         .await
-        .ok_or_else(|| anyhow::anyhow!("client closed before hello"))??;
+        .ok_or_else(|| anyhow::anyhow!("client closed before first frame"))??;
+
+    // Try AttachHello first (its `session_id` field forces that arm only when
+    // the field is present and parseable as a UUID).
+    if let Ok(att) = serde_json::from_str::<AttachHello>(&first) {
+        return handle_data_conn(framed, state, att).await;
+    }
 
     let hello: Hello = match serde_json::from_str(&first) {
         Ok(h) => h,
@@ -112,7 +132,14 @@ async fn handle_conn(stream: UnixStream, state: Arc<HostState>) -> Result<()> {
             return Ok(());
         }
     };
+    handle_control_conn(framed, state, hello).await
+}
 
+async fn handle_control_conn(
+    mut framed: Framed<UnixStream, LinesCodec>,
+    state: Arc<HostState>,
+    hello: Hello,
+) -> Result<()> {
     if hello.auth_token != state.auth_token {
         let ack = HelloAck {
             ok: false,
@@ -146,30 +173,181 @@ async fn handle_conn(stream: UnixStream, state: Arc<HostState>) -> Result<()> {
     };
     send_json(&mut framed, &ack).await?;
 
-    // ---- request/response loop ----
-    while let Some(line) = framed.next().await {
-        let line = line?;
-        let req: Request = match serde_json::from_str(&line) {
-            Ok(r) => r,
-            Err(e) => {
-                let resp = Response {
-                    jsonrpc: "2.0".into(),
-                    id: 0,
-                    result: None,
-                    error: Some(RpcError {
-                        code: rpc::error_codes::PARSE_ERROR,
-                        message: format!("parse error: {e}"),
-                    }),
-                };
-                send_json(&mut framed, &resp).await?;
-                continue;
-            }
-        };
+    // Concurrent tasks: writer drains the outbound mpsc, reader processes
+    // requests + queues responses, event forwarder pushes notifications.
+    // Both reader and event forwarder funnel through the writer so frames
+    // can't interleave at the byte level.
+    let (sink, mut stream) = framed.split();
+    let (out_tx, mut out_rx) = mpsc::channel::<String>(NOTIF_QUEUE_DEPTH);
 
-        let resp = dispatch(&state, req).await;
-        send_json(&mut framed, &resp).await?;
+    let mut writer_task = tokio::spawn(async move {
+        let mut sink = sink;
+        while let Some(line) = out_rx.recv().await {
+            if sink.send(line).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    let reader_out = out_tx.clone();
+    let reader_state = state.clone();
+    let reader_task = tokio::spawn(async move {
+        while let Some(line) = stream.next().await {
+            let line = match line {
+                Ok(l) => l,
+                Err(_) => break,
+            };
+            let req: Request = match serde_json::from_str(&line) {
+                Ok(r) => r,
+                Err(e) => {
+                    let resp = error_response(0, rpc::error_codes::PARSE_ERROR, e.to_string());
+                    let _ = send_to_writer(&reader_out, &resp).await;
+                    continue;
+                }
+            };
+            let resp = dispatch(&reader_state, req).await;
+            if send_to_writer(&reader_out, &resp).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    let event_out = out_tx.clone();
+    let mut events_rx = state.events.subscribe();
+    let event_task = tokio::spawn(async move {
+        loop {
+            match events_rx.recv().await {
+                Ok(env) => {
+                    let frame = serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "method": env.method,
+                        "params": env.params,
+                    });
+                    let line = match serde_json::to_string(&frame) {
+                        Ok(s) => s,
+                        Err(_) => continue,
+                    };
+                    if event_out.send(line).await.is_err() {
+                        break;
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    warn!("event subscriber lagged by {n} frames");
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    });
+
+    // When the reader dies (peer closed) we drop the last out_tx so the
+    // writer task exits cleanly. The event task gets aborted too — it could
+    // otherwise sit on the broadcast forever.
+    drop(out_tx);
+    let _ = reader_task.await;
+    event_task.abort();
+    let _ = (&mut writer_task).await;
+    Ok(())
+}
+
+async fn send_to_writer<T: Serialize>(
+    tx: &mpsc::Sender<String>,
+    msg: &T,
+) -> std::result::Result<(), mpsc::error::SendError<String>> {
+    let line = serde_json::to_string(msg).unwrap_or_else(|_| "{}".into());
+    tx.send(line).await
+}
+
+async fn handle_data_conn(
+    mut framed: Framed<UnixStream, LinesCodec>,
+    state: Arc<HostState>,
+    att: AttachHello,
+) -> Result<()> {
+    if att.auth_token != state.auth_token {
+        let ack = AttachAck {
+            ok: false,
+            server_version: roost_core::HOSTD_VERSION.into(),
+            error: Some("bad auth_token".into()),
+            replay_b64: String::new(),
+        };
+        send_json(&mut framed, &ack).await?;
+        return Ok(());
     }
 
+    let Some((stdin_tx, mut bcast_rx, replay)) = state.sessions.with(att.session_id, |entry| {
+        let (snap, rx) = entry.subscribe();
+        (entry.stdin_tx.clone(), rx, snap)
+    }) else {
+        let ack = AttachAck {
+            ok: false,
+            server_version: roost_core::HOSTD_VERSION.into(),
+            error: Some(format!("unknown session {}", att.session_id)),
+            replay_b64: String::new(),
+        };
+        send_json(&mut framed, &ack).await?;
+        return Ok(());
+    };
+
+    let ack = AttachAck {
+        ok: true,
+        server_version: roost_core::HOSTD_VERSION.into(),
+        error: None,
+        replay_b64: STANDARD.encode(&replay),
+    };
+    send_json(&mut framed, &ack).await?;
+
+    // Switch to raw byte mode: split the underlying UnixStream out of Framed
+    // and drop the codec.
+    let parts = framed.into_parts();
+    let stream = parts.io;
+    let (mut read_half, mut write_half) = stream.into_split();
+
+    let sid = att.session_id;
+    let stdin_tx_for_read = stdin_tx.clone();
+    let read_task = tokio::spawn(async move {
+        let mut buf = vec![0u8; 4096];
+        loop {
+            match read_half.read(&mut buf).await {
+                Ok(0) => break,
+                Ok(n) => {
+                    let chunk = Bytes::copy_from_slice(&buf[..n]);
+                    if stdin_tx_for_read.send(chunk).await.is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    let write_task = tokio::spawn(async move {
+        loop {
+            match bcast_rx.recv().await {
+                Ok(chunk) => {
+                    if write_half.write_all(&chunk).await.is_err() {
+                        break;
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    });
+
+    // Either side closes → tear the other down. Mark detached only if the
+    // child is still alive — never overwrite an Exited state set by the
+    // wait task.
+    tokio::select! {
+        _ = read_task => {}
+        _ = write_task => {}
+    }
+    if let Some(info) = state.sessions.get_info(att.session_id) {
+        if info.state != SessionState::Exited {
+            state
+                .sessions
+                .set_state(att.session_id, SessionState::Detached);
+        }
+    }
+    info!(%sid, "data conn closed");
     Ok(())
 }
 
@@ -187,41 +365,71 @@ async fn dispatch(state: &Arc<HostState>, req: Request) -> Response {
     let method = req.method.clone();
     let params = req.params.unwrap_or(Value::Null);
 
-    // Domain handlers are sync (jj is sync). Run on blocking pool and wrap in
+    // Domain handlers split across sync (jj — runs on blocking pool) and
+    // async (sessions — touch tokio channels). Wrap sync ones in
     // catch_unwind so a single bad call can't kill the daemon.
-    let state_for = state.clone();
-    let join = tokio::task::spawn_blocking(move || {
-        let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
-            handle_method(&state_for, &method, params)
-        }));
-        match result {
-            Ok(r) => r,
-            Err(panic) => {
-                let msg = panic_message(&panic);
-                Err(RpcError::panic(format!("handler panicked: {msg}")))
-            }
+    if is_async_method(&method) {
+        let outcome = handle_async_method(state, &method, params).await;
+        match outcome {
+            Ok(value) => ok_response(id, value),
+            Err(err) => Response {
+                jsonrpc: "2.0".into(),
+                id,
+                result: None,
+                error: Some(err),
+            },
         }
-    })
-    .await;
+    } else {
+        let state_for = state.clone();
+        let join = tokio::task::spawn_blocking(move || {
+            let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                handle_sync_method(&state_for, &method, params)
+            }));
+            match result {
+                Ok(r) => r,
+                Err(panic) => {
+                    let msg = panic_message(&panic);
+                    Err(RpcError::panic(format!("handler panicked: {msg}")))
+                }
+            }
+        })
+        .await;
 
-    let outcome = match join {
-        Ok(r) => r,
-        Err(e) => Err(RpcError::internal(format!("join error: {e}"))),
-    };
+        let outcome = match join {
+            Ok(r) => r,
+            Err(e) => Err(RpcError::internal(format!("join error: {e}"))),
+        };
 
-    match outcome {
-        Ok(value) => Response {
-            jsonrpc: "2.0".into(),
-            id,
-            result: Some(value),
-            error: None,
-        },
-        Err(err) => Response {
-            jsonrpc: "2.0".into(),
-            id,
-            result: None,
-            error: Some(err),
-        },
+        match outcome {
+            Ok(value) => ok_response(id, value),
+            Err(err) => Response {
+                jsonrpc: "2.0".into(),
+                id,
+                result: None,
+                error: Some(err),
+            },
+        }
+    }
+}
+
+fn ok_response(id: u64, value: Value) -> Response {
+    Response {
+        jsonrpc: "2.0".into(),
+        id,
+        result: Some(value),
+        error: None,
+    }
+}
+
+fn error_response(id: u64, code: i32, msg: impl Into<String>) -> Response {
+    Response {
+        jsonrpc: "2.0".into(),
+        id,
+        result: None,
+        error: Some(RpcError {
+            code,
+            message: msg.into(),
+        }),
     }
 }
 
@@ -235,7 +443,109 @@ fn panic_message(p: &(dyn std::any::Any + Send)) -> String {
     }
 }
 
-fn handle_method(state: &HostState, method: &str, params: Value) -> Result<Value, RpcError> {
+fn is_async_method(method: &str) -> bool {
+    use rpc::methods::*;
+    matches!(
+        method,
+        CREATE_SESSION | LIST_SESSIONS | KILL_SESSION | RESIZE_SESSION | SEND_INPUT
+    )
+}
+
+async fn handle_async_method(
+    state: &Arc<HostState>,
+    method: &str,
+    params: Value,
+) -> Result<Value, RpcError> {
+    use rpc::methods::*;
+
+    match method {
+        CREATE_SESSION => {
+            let p: CreateSessionParams = decode(params)?;
+            let spawned = spawn_session(p.spec, Some(state.events.clone()))
+                .map_err(|e| RpcError::domain(e.to_string()))?;
+            let id = spawned.id;
+            let info = spawned.entry.info.clone();
+            state.sessions.insert(spawned.entry);
+
+            // Emit Running state on insert + arm exit watcher.
+            state.events.emit_session_state(rpc::SessionStateEvent {
+                session_id: id,
+                state: SessionState::Running,
+            });
+
+            let exited_rx = spawned.exited_rx;
+            let registry = state.sessions.clone();
+            let events = state.events.clone();
+            tokio::spawn(async move {
+                let code = exited_rx.await.ok().flatten();
+                registry.set_exit(id, code);
+                events.emit_session_state(rpc::SessionStateEvent {
+                    session_id: id,
+                    state: SessionState::Exited,
+                });
+                events.emit_session_exited(rpc::SessionExitedEvent {
+                    session_id: id,
+                    exit_code: code,
+                });
+            });
+
+            ok(CreateSessionResult { info })
+        }
+        LIST_SESSIONS => {
+            let sessions = state.sessions.list();
+            ok(SessionListResult { sessions })
+        }
+        KILL_SESSION => {
+            let p: KillSessionParams = decode(params)?;
+            let pid = state
+                .sessions
+                .get_info(p.session_id)
+                .and_then(|i| i.pid)
+                .ok_or_else(|| {
+                    RpcError::domain(format!("session {} has no pid", p.session_id))
+                })?;
+            let signal = if p.signal == 0 { libc::SIGTERM } else { p.signal };
+            // SAFETY: kill(pid, sig) is the standard process-signaling API;
+            // unsafe wrapping is required because it's a libc binding.
+            let rc = unsafe { libc::kill(pid as libc::pid_t, signal) };
+            if rc != 0 {
+                let err = std::io::Error::last_os_error();
+                return Err(RpcError::domain(format!("kill failed: {err}")));
+            }
+            ok(rpc::Empty::default())
+        }
+        RESIZE_SESSION => {
+            let p: ResizeSessionParams = decode(params)?;
+            let sent = state
+                .sessions
+                .with(p.session_id, |entry| entry.resize_tx.send((p.rows, p.cols)).is_ok());
+            match sent {
+                Some(true) => ok(rpc::Empty::default()),
+                Some(false) => Err(RpcError::domain("resize channel closed")),
+                None => Err(RpcError::domain(format!("unknown session {}", p.session_id))),
+            }
+        }
+        SEND_INPUT => {
+            let p: SendInputParams = decode(params)?;
+            let bytes = STANDARD
+                .decode(p.data_b64.as_bytes())
+                .map_err(|e| RpcError::invalid_params(format!("data_b64: {e}")))?;
+            let tx = state
+                .sessions
+                .with(p.session_id, |entry| entry.stdin_tx.clone());
+            let Some(tx) = tx else {
+                return Err(RpcError::domain(format!("unknown session {}", p.session_id)));
+            };
+            tx.send(Bytes::from(bytes))
+                .await
+                .map_err(|_| RpcError::domain("session stdin closed"))?;
+            ok(rpc::Empty::default())
+        }
+        other => Err(RpcError::method_not_found(other)),
+    }
+}
+
+fn handle_sync_method(state: &HostState, method: &str, params: Value) -> Result<Value, RpcError> {
     use rpc::methods::*;
 
     match method {
@@ -244,7 +554,7 @@ fn handle_method(state: &HostState, method: &str, params: Value) -> Result<Value
                 version: roost_core::HOSTD_VERSION.to_string(),
                 pid: std::process::id(),
                 uptime_secs: state.uptime_secs(),
-                session_count: 0,
+                session_count: state.sessions.count() as u32,
             };
             ok(HostInfoResult { info })
         }
@@ -327,5 +637,13 @@ fn decode<T: serde::de::DeserializeOwned>(v: Value) -> Result<T, RpcError> {
     serde_json::from_value(v).map_err(|e| RpcError::invalid_params(e.to_string()))
 }
 
-#[allow(unused_imports)]
-use DirParams as _;
+// SessionId FromStr is only used in places that may parse string IDs from
+// CLI args later; keep the import live so the rustc warning is suppressed.
+#[allow(dead_code)]
+fn _force_use_session_id_from_str(s: &str) -> Option<SessionId> {
+    SessionId::from_str(s).ok()
+}
+
+// Capture for unused-but-conceptually-shared SessionEntry import.
+#[allow(dead_code)]
+fn _force_use_session_entry(_e: &SessionEntry) {}

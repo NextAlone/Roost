@@ -16,12 +16,15 @@ use std::time::SystemTime;
 use bytes::Bytes;
 use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
 use roost_core::dto::{AgentSpec, SessionId, SessionInfo, SessionState};
+use roost_core::rpc::SessionOscEvent;
 use thiserror::Error;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{info, warn};
 
+use super::osc::OscScanner;
 use super::registry::SessionEntry;
 use super::ring::{DEFAULT_CAPACITY_BYTES, RingBuffer};
+use crate::events::EventBus;
 
 const STDIN_CHANNEL_DEPTH: usize = 64;
 const BROADCAST_CHANNEL_DEPTH: usize = 256;
@@ -47,7 +50,11 @@ pub struct Spawned {
 
 /// Open a PTY, exec the agent on the slave, install reader / writer / wait
 /// background tasks, return the registry entry for the caller to insert.
-pub fn spawn_session(spec: AgentSpec) -> Result<Spawned, SpawnError> {
+///
+/// `events`: optional event bus. When `Some`, the reader task feeds an OSC
+/// scanner that emits `session_osc` events for whitelisted sequences. None
+/// in tests (so the test crate doesn't need to spin up an EventBus).
+pub fn spawn_session(spec: AgentSpec, events: Option<EventBus>) -> Result<Spawned, SpawnError> {
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
@@ -93,7 +100,7 @@ pub fn spawn_session(spec: AgentSpec) -> Result<Spawned, SpawnError> {
     let (stdin_tx, stdin_rx) = mpsc::channel::<Bytes>(STDIN_CHANNEL_DEPTH);
     let (resize_tx, resize_rx) = mpsc::unbounded_channel::<(u16, u16)>();
 
-    spawn_reader_task(reader, ring.clone(), broadcast_tx.clone(), id);
+    spawn_reader_task(reader, ring.clone(), broadcast_tx.clone(), id, events.clone());
     spawn_writer_task(writer, stdin_rx, id);
     spawn_resize_task(pair.master, resize_rx, id);
     let exited_rx = spawn_wait_task(child, id);
@@ -150,9 +157,11 @@ fn spawn_reader_task(
     ring: Arc<Mutex<RingBuffer>>,
     tx: broadcast::Sender<Bytes>,
     id: SessionId,
+    events: Option<EventBus>,
 ) {
     tokio::task::spawn_blocking(move || {
         let mut buf = [0u8; READ_BUF_SIZE];
+        let mut osc = OscScanner::new();
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => {
@@ -167,6 +176,18 @@ fn spawn_reader_task(
                     // No subscribers is fine — broadcast::send returns Err
                     // in that case; we don't care.
                     let _ = tx.send(Bytes::copy_from_slice(chunk));
+
+                    // OSC scanning is per-byte but cheap; only allocate
+                    // the SessionOscEvent on a hit.
+                    if let Some(ev) = events.as_ref() {
+                        osc.push(chunk, |seq, payload| {
+                            ev.emit_session_osc(SessionOscEvent {
+                                session_id: id,
+                                seq,
+                                payload: payload.to_string(),
+                            });
+                        });
+                    }
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                 Err(e) => {
@@ -287,7 +308,7 @@ mod tests {
     /// output, which is also single-token-per-arg).
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn smoke_echo_lands_in_ring() {
-        let s = spawn_session(spec("/bin/echo roost-pty-smoke")).expect("spawn");
+        let s = spawn_session(spec("/bin/echo roost-pty-smoke"), None).expect("spawn");
         let exit = tokio::time::timeout(Duration::from_secs(5), s.exited_rx)
             .await
             .expect("child exited in time")
@@ -312,7 +333,7 @@ mod tests {
     /// platform/version drift where slave_spawn doesn't TIOCSCTTY.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn smoke_child_has_controlling_tty() {
-        let s = spawn_session(spec("/usr/bin/tty")).expect("spawn");
+        let s = spawn_session(spec("/usr/bin/tty"), None).expect("spawn");
         tokio::time::timeout(Duration::from_secs(5), s.exited_rx)
             .await
             .expect("child exited in time")

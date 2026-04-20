@@ -249,6 +249,51 @@ impl Client {
         )?;
         Ok(())
     }
+
+    // MARK: - Session RPCs (M7)
+
+    pub fn create_session(&self, spec: AgentSpec) -> Result<SessionInfo> {
+        let r: rpc::CreateSessionResult =
+            self.call(methods::CREATE_SESSION, &rpc::CreateSessionParams { spec })?;
+        Ok(r.info)
+    }
+
+    pub fn list_sessions(&self) -> Result<Vec<SessionInfo>> {
+        let r: rpc::SessionListResult = self.call(methods::LIST_SESSIONS, &rpc::Empty::default())?;
+        Ok(r.sessions)
+    }
+
+    pub fn kill_session(&self, session_id: SessionId, signal: i32) -> Result<()> {
+        let _: rpc::Empty = self.call(
+            methods::KILL_SESSION,
+            &rpc::KillSessionParams { session_id, signal },
+        )?;
+        Ok(())
+    }
+
+    pub fn resize_session(&self, session_id: SessionId, rows: u16, cols: u16) -> Result<()> {
+        let _: rpc::Empty = self.call(
+            methods::RESIZE_SESSION,
+            &rpc::ResizeSessionParams {
+                session_id,
+                rows,
+                cols,
+            },
+        )?;
+        Ok(())
+    }
+
+    pub fn send_input(&self, session_id: SessionId, data: &[u8]) -> Result<()> {
+        use base64::{Engine, engine::general_purpose::STANDARD};
+        let _: rpc::Empty = self.call(
+            methods::SEND_INPUT,
+            &rpc::SendInputParams {
+                session_id,
+                data_b64: STANDARD.encode(data),
+            },
+        )?;
+        Ok(())
+    }
 }
 
 impl Default for Client {

@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tokio::runtime::Builder;
 use tracing::info;
 
+mod events;
 mod manifest;
 mod rpc_server;
 mod session;

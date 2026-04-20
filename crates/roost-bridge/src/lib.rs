@@ -105,12 +105,20 @@ fn roost_prepare_session(agent: &str) -> ffi::SessionSpec {
 fn roost_prepare_session_in(agent: &str, working_directory: &str) -> ffi::SessionSpec {
     let agent_norm = agent.trim().to_lowercase();
 
-    // Always wrap through a login shell so the agent inherits the user's
+    // Always wrap through the user's login shell so the agent inherits their
     // PATH / rc exports (jj, node, etc.). GUI-launched apps only get launchd's
     // thin PATH, so a direct exec leaves agents unable to find their siblings.
+    //
+    // `$SHELL` is typically set for GUI apps too (launchd populates it from
+    // the user record); fall back to `/bin/zsh` which is the macOS default.
+    // Using "-l -c" as the universal login-invocation form — bash, zsh, and
+    // fish all accept it.
     let command = match agent_norm.as_str() {
-        "" | "shell" | "bash" | "zsh" => String::new(),
-        name => format!("/bin/zsh -lc {name}"),
+        "" | "shell" | "bash" | "zsh" | "fish" => String::new(),
+        name => {
+            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+            format!("{shell} -l -c {name}")
+        }
     };
 
     ffi::SessionSpec {

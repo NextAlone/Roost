@@ -170,20 +170,41 @@ final class TerminalNSView: NSView {
         // the NSEvent.keyCode value).
         let mods = modsFrom(event.modifierFlags)
 
+        // unshifted_codepoint = what character this key would produce with NO
+        // modifiers. ghostty's KeyEncoder uses this to pick the correct control
+        // byte for Ctrl+<letter> / Ctrl+<symbol>. Missing it → Ctrl+C leaks as
+        // a literal 'c' because ghostty has no notion of which letter was hit.
+        let unshifted: UInt32 = {
+            guard event.type == .keyDown || event.type == .keyUp,
+                  let chars = event.characters(byApplyingModifiers: []),
+                  let scalar = chars.unicodeScalars.first
+            else { return 0 }
+            return scalar.value
+        }()
+
+        // consumed_mods: heuristic copied from ghostty upstream — control and
+        // command never contribute to text translation.
+        let consumed = modsFrom(event.modifierFlags.subtracting([.control, .command]))
+
         let runKey: (UnsafePointer<CChar>?) -> Void = { textPtr in
             var k = ghostty_input_key_s(
                 action: action,
                 mods: mods,
-                consumed_mods: GHOSTTY_MODS_NONE,
+                consumed_mods: consumed,
                 keycode: UInt32(event.keyCode),
                 text: textPtr,
-                unshifted_codepoint: 0,
+                unshifted_codepoint: unshifted,
                 composing: false
             )
             _ = ghostty_surface_key(surface, k)
         }
 
-        if let text = ghosttyCharacters(from: event), !text.isEmpty {
+        // Mirror upstream's filter: only pass text when its first byte is a
+        // printable (>= 0x20). Control-char bodies let ghostty encode itself.
+        if let text = ghosttyCharacters(from: event),
+           !text.isEmpty,
+           let first = text.utf8.first,
+           first >= 0x20 {
             text.withCString { runKey($0) }
         } else {
             runKey(nil)

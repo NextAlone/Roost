@@ -148,11 +148,20 @@ final class TerminalNSView: NSView {
             _ = ghostty_surface_key(surface, k)
         }
 
-        if let chars = event.characters, !chars.isEmpty {
+        let chars = event.characters ?? ""
+        if !chars.isEmpty && !isFunctionKeyCharacters(chars) {
             chars.withCString { runKey($0) }
         } else {
             runKey(nil)
         }
+    }
+
+    /// AppKit puts arrow / function keys in `event.characters` as private-use
+    /// codepoints (U+F700..U+F8FF = "NSUpArrowFunctionKey" etc.). ghostty
+    /// treats a non-nil `text` as user-visible input and skips its own arrow
+    /// handling, so we must strip these.
+    private func isFunctionKeyCharacters(_ s: String) -> Bool {
+        s.unicodeScalars.allSatisfy { (0xF700...0xF8FF).contains($0.value) }
     }
 
     private func modsFrom(_ flags: NSEvent.ModifierFlags) -> ghostty_input_mods_e {

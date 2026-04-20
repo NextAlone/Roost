@@ -45,6 +45,7 @@ struct RootView: View {
             LauncherSheet(
                 form: $form,
                 errorMessage: $launchError,
+                projectSupportsWorkspaces: currentProject?.isJjRepo ?? false,
                 onLaunch: { launchFromSheet() },
                 onCancel: { isShowingLauncher = false }
             )
@@ -72,16 +73,34 @@ struct RootView: View {
     // MARK: - Derived state
 
     private var filteredSessions: [LaunchedSession] {
-        guard let projectID = selectedProjectID else { return sessions }
-        return sessions.filter { $0.projectID == projectID }
+        if let projectID = selectedProjectID {
+            return sessions.filter { $0.projectID == projectID }
+        }
+        // No project selected: show the freeform (projectID == nil) sessions
+        // so the terminals the user just opened don't disappear.
+        return sessions.filter { $0.projectID == nil }
+    }
+
+    private var currentProject: Project? {
+        guard let id = selectedProjectID else { return nil }
+        return projects.projects.first(where: { $0.id == id })
     }
 
     // MARK: - Detail pane
 
     @ViewBuilder
     private var detail: some View {
-        if filteredSessions.isEmpty {
-            LauncherView(form: $form, onLaunch: launchDirect)
+        if selectedProjectID == nil, filteredSessions.isEmpty {
+            QuickShellView(
+                onOpenTerminal: openPlainTerminal,
+                onAddProject: addProjectFlow
+            )
+        } else if filteredSessions.isEmpty {
+            LauncherView(
+                form: $form,
+                projectSupportsWorkspaces: currentProject?.isJjRepo ?? false,
+                onLaunch: launchDirect
+            )
         } else {
             VStack(spacing: 0) {
                 TabBar(
@@ -127,20 +146,31 @@ struct RootView: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Add"
-        panel.message = "Pick a jj repository"
+        panel.message = "Pick a project directory"
         panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory())
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let path = url.path
 
-        guard RoostBridge.isJjRepo(dir: path) else {
-            launchError = "\(path) is not inside a jj repository. Run `jj init` first."
-            return
-        }
-
-        let project = projects.add(path: path)
+        // Any directory is fair game; we just record whether it's a jj repo
+        // so the launcher knows whether to offer the workspace toggle.
+        let isJj = RoostBridge.isJjRepo(dir: path)
+        let project = projects.add(path: path, isJjRepo: isJj)
         selectedProjectID = project.id
         form.projectPath = path
+    }
+
+    // MARK: - Quick shell (no project)
+
+    /// Spawn a plain login shell in $HOME. Used when no project is selected.
+    private func openPlainTerminal() {
+        let spec = RoostBridge.prepareSession(agent: "shell")
+        sessions.append(LaunchedSession(
+            projectID: nil,
+            spec: spec,
+            label: "shell"
+        ))
+        selectedSessionID = sessions.last?.id
     }
 
     // MARK: - Launch

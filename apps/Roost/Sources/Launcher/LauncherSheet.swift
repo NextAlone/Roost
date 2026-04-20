@@ -5,6 +5,7 @@ import SwiftUI
 struct LauncherSheet: View {
     @Binding var form: LauncherForm
     @Binding var errorMessage: String?
+    let projectSupportsWorkspaces: Bool
     let onLaunch: () -> Void
     let onCancel: () -> Void
 
@@ -22,8 +23,12 @@ struct LauncherSheet: View {
 
             Divider()
 
-            LauncherView(form: $form, onLaunch: onLaunch)
-                .frame(maxHeight: .infinity)
+            LauncherView(
+                form: $form,
+                projectSupportsWorkspaces: projectSupportsWorkspaces,
+                onLaunch: onLaunch
+            )
+            .frame(maxHeight: .infinity)
         }
         .frame(width: 480, height: 420)
         .alert(

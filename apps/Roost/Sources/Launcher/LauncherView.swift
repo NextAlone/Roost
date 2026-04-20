@@ -2,6 +2,9 @@ import SwiftUI
 
 struct LauncherView: View {
     @Binding var form: LauncherForm
+    /// Whether the currently-selected project is a jj repo. Controls the
+    /// availability of the "new jj workspace" toggle.
+    let projectSupportsWorkspaces: Bool
     let onLaunch: () -> Void
 
     private static let presets = ["claude", "codex", "shell"]
@@ -23,6 +26,11 @@ struct LauncherView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onChange(of: projectSupportsWorkspaces) { supports in
+            if !supports {
+                form.useJjWorkspace = false
+            }
+        }
     }
 
     private var agentSection: some View {
@@ -50,8 +58,8 @@ struct LauncherView: View {
                 TextField("/path/to/repo", text: $form.projectPath)
                     .textFieldStyle(.roundedBorder)
                     .font(.body.monospaced())
-                Button("Choose…") { pickDirectory() }
-                    .buttonStyle(.bordered)
+                    .disabled(true)
+                    .help("Pick the project from the sidebar")
             }
         }
     }
@@ -59,10 +67,14 @@ struct LauncherView: View {
     private var jjSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Toggle("Run in new jj workspace", isOn: $form.useJjWorkspace)
-                .disabled(form.projectPath.isEmpty)
-                .help(form.projectPath.isEmpty ? "Pick a project directory first" : "")
+                .disabled(!projectSupportsWorkspaces)
+                .help(
+                    projectSupportsWorkspaces
+                        ? ""
+                        : "Only available for projects inside a jj repository."
+                )
 
-            if form.useJjWorkspace {
+            if form.useJjWorkspace && projectSupportsWorkspaces {
                 TextField(
                     "workspace name (blank = auto)",
                     text: $form.workspaceName
@@ -79,21 +91,7 @@ struct LauncherView: View {
         } else if !form.projectPath.isEmpty {
             return "Session cwd will be the project directory."
         } else {
-            return "Rust resolves the binary; falls back to 'zsh -il -c <agent>'."
-        }
-    }
-
-    private func pickDirectory() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.directoryURL = URL(fileURLWithPath: form.projectPath.isEmpty
-            ? NSHomeDirectory()
-            : form.projectPath
-        )
-        if panel.runModal() == .OK, let url = panel.url {
-            form.projectPath = url.path
+            return "Rust resolves the binary; falls back to '$SHELL -l -c <agent>'."
         }
     }
 }

@@ -7,11 +7,15 @@ struct Project: Identifiable, Codable, Equatable, Hashable {
     let id: UUID
     var name: String
     var path: String
+    /// True if `jj status` succeeded in this directory when it was added.
+    /// Controls whether the launcher offers the "new jj workspace" toggle.
+    var isJjRepo: Bool
 
-    init(id: UUID = UUID(), name: String, path: String) {
+    init(id: UUID = UUID(), name: String, path: String, isJjRepo: Bool = false) {
         self.id = id
         self.name = name
         self.path = path
+        self.isJjRepo = isJjRepo
     }
 
     /// Default display name: the last path component (`/a/b/foo` → `foo`).
@@ -33,8 +37,12 @@ final class ProjectStore: ObservableObject {
 
     // MARK: Mutations
 
-    func add(path: String) -> Project {
-        let project = Project(name: Project.suggestedName(for: path), path: path)
+    func add(path: String, isJjRepo: Bool) -> Project {
+        let project = Project(
+            name: Project.suggestedName(for: path),
+            path: path,
+            isJjRepo: isJjRepo
+        )
         projects.append(project)
         save()
         return project

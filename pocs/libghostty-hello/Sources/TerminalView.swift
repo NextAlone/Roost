@@ -54,15 +54,21 @@ final class GhosttyRuntime {
 // MARK: - NSView that hosts a ghostty surface
 
 final class TerminalNSView: NSView {
+    /// Shell command ghostty spawns. `nil` = user's login shell.
+    /// ghostty parses this as a shell-style string (supports args).
+    let command: String?
+    let workingDirectory: String?
+
     private var surface: ghostty_surface_t?
-    private var markedText = NSMutableAttributedString()
 
     override var acceptsFirstResponder: Bool { true }
     override var isFlipped: Bool { false }
     override var wantsUpdateLayer: Bool { true }
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
+    init(command: String?, workingDirectory: String? = nil, frame: NSRect = .zero) {
+        self.command = command
+        self.workingDirectory = workingDirectory
+        super.init(frame: frame)
         wantsLayer = true
     }
 
@@ -81,24 +87,38 @@ final class TerminalNSView: NSView {
         )
         cfg.userdata = nsviewPtr
         cfg.scale_factor = Double(window.backingScaleFactor)
-        cfg.font_size = 0     // use config default
-        cfg.working_directory = nil
-        cfg.command = nil     // let ghostty pick the user's login shell
+        cfg.font_size = 0
         cfg.env_vars = nil
         cfg.env_var_count = 0
         cfg.initial_input = nil
         cfg.wait_after_command = false
         cfg.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
 
-        surface = ghostty_surface_new(GhosttyRuntime.shared.app, &cfg)
+        // ghostty_surface_new copies these strings internally, so pointer
+        // lifetimes only need to outlive the call.
+        withOptionalCString(command) { cmdPtr in
+            withOptionalCString(workingDirectory) { wdPtr in
+                cfg.command = cmdPtr
+                cfg.working_directory = wdPtr
+                surface = ghostty_surface_new(GhosttyRuntime.shared.app, &cfg)
+            }
+        }
+
         if surface == nil {
-            NSLog("ghostty_surface_new returned nil")
+            NSLog("ghostty_surface_new returned nil (command=\(command ?? "nil"))")
             return
         }
 
-        // Push an initial size so ghostty knows our pixel dimensions.
         updateSurfaceSize()
         window.makeFirstResponder(self)
+    }
+
+    private func withOptionalCString<R>(
+        _ s: String?,
+        _ body: (UnsafePointer<CChar>?) -> R
+    ) -> R {
+        if let s { return s.withCString { body($0) } }
+        return body(nil)
     }
 
     override func layout() {
@@ -182,8 +202,16 @@ final class TerminalNSView: NSView {
 // MARK: - SwiftUI bridge
 
 struct TerminalView: NSViewRepresentable {
+    let command: String?
+    let workingDirectory: String?
+
+    init(command: String? = nil, workingDirectory: String? = nil) {
+        self.command = command
+        self.workingDirectory = workingDirectory
+    }
+
     func makeNSView(context: Context) -> TerminalNSView {
-        TerminalNSView(frame: .zero)
+        TerminalNSView(command: command, workingDirectory: workingDirectory)
     }
 
     func updateNSView(_ nsView: TerminalNSView, context: Context) {}

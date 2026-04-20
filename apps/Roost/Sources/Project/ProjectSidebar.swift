@@ -3,7 +3,10 @@ import SwiftUI
 struct ProjectSidebar: View {
     @ObservedObject var store: ProjectStore
     @Binding var selection: Project.ID?
+    let sessions: [LaunchedSession]
+    @Binding var selectedSessionID: LaunchedSession.ID?
     let unreadProjectIDs: Set<Project.ID>
+    let unreadSessions: Set<LaunchedSession.ID>
     let scratchHasUnread: Bool
     let scratchSessionCount: Int
     let sessionCountByProject: [Project.ID: Int]
@@ -11,16 +14,28 @@ struct ProjectSidebar: View {
     /// Shown as a ⚠ icon with a tooltip on the project row.
     let hookWarningsByProject: [Project.ID: String]
     let onAdd: () -> Void
+    let onSelectSession: (LaunchedSession.ID, Project.ID?) -> Void
+    let onCloseSession: (LaunchedSession.ID) -> Void
 
     @State private var renamingID: Project.ID?
     @State private var renameDraft: String = ""
+    /// Per-bucket expansion. Default unset → expanded (so new users see
+    /// tabs without having to flip chevrons).
+    @State private var collapsed: Set<Project.ID> = []
 
     var body: some View {
         VStack(spacing: 0) {
             List(selection: $selection) {
-                ScratchRow(
-                    isUnread: scratchHasUnread,
-                    sessionCount: scratchSessionCount
+                ScratchBucket(
+                    isExpanded: !collapsed.contains(Project.scratchID),
+                    hasUnread: scratchHasUnread,
+                    sessionCount: scratchSessionCount,
+                    sessions: sessions.filter { $0.projectID == nil },
+                    selectedSessionID: selectedSessionID,
+                    unreadSessions: unreadSessions,
+                    onToggle: { toggleCollapsed(Project.scratchID) },
+                    onSelectSession: { onSelectSession($0, nil) },
+                    onCloseSession: onCloseSession
                 )
                 .tag(Project.scratchID)
 
@@ -31,16 +46,21 @@ struct ProjectSidebar: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(store.projects) { project in
-                            ProjectRow(
+                            ProjectBucket(
                                 project: project,
+                                isExpanded: !collapsed.contains(project.id),
                                 isUnread: unreadProjectIDs.contains(project.id),
                                 sessionCount: sessionCountByProject[project.id] ?? 0,
                                 hookWarning: hookWarningsByProject[project.id],
                                 isRenaming: renamingID == project.id,
                                 renameDraft: $renameDraft,
-                                onRenameCommit: {
-                                    commitRename(project)
-                                }
+                                sessions: sessions.filter { $0.projectID == project.id },
+                                selectedSessionID: selectedSessionID,
+                                unreadSessions: unreadSessions,
+                                onToggle: { toggleCollapsed(project.id) },
+                                onRenameCommit: { commitRename(project) },
+                                onSelectSession: { onSelectSession($0, project.id) },
+                                onCloseSession: onCloseSession
                             )
                             .tag(project.id)
                             .contextMenu {
@@ -78,6 +98,14 @@ struct ProjectSidebar: View {
         .navigationTitle("Projects")
     }
 
+    private func toggleCollapsed(_ id: Project.ID) {
+        if collapsed.contains(id) {
+            collapsed.remove(id)
+        } else {
+            collapsed.insert(id)
+        }
+    }
+
     // MARK: Rename
 
     private func beginRename(_ project: Project) {
@@ -112,75 +140,209 @@ struct ProjectSidebar: View {
     }
 }
 
-private struct ScratchRow: View {
-    let isUnread: Bool
+// MARK: - Bucket rows (DisclosureGroup-style)
+
+private struct ScratchBucket: View {
+    let isExpanded: Bool
+    let hasUnread: Bool
     let sessionCount: Int
+    let sessions: [LaunchedSession]
+    let selectedSessionID: LaunchedSession.ID?
+    let unreadSessions: Set<LaunchedSession.ID>
+    let onToggle: () -> Void
+    let onSelectSession: (LaunchedSession.ID) -> Void
+    let onCloseSession: (LaunchedSession.ID) -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
-            if isUnread {
-                Circle().fill(Color.blue).frame(width: 6, height: 6)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Button(action: onToggle) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 12)
+                }
+                .buttonStyle(.plain)
+                if hasUnread {
+                    Circle().fill(Color.blue).frame(width: 6, height: 6)
+                }
+                Image(systemName: "tray").foregroundStyle(.secondary)
+                Text("Scratch").font(.body)
+                Spacer()
+                if sessionCount > 0 {
+                    CountBadge(count: sessionCount)
+                }
             }
-            Image(systemName: "tray").foregroundStyle(.secondary)
-            Text("Scratch").font(.body)
-            Spacer()
-            if sessionCount > 0 {
-                CountBadge(count: sessionCount)
+            .padding(.vertical, 2)
+
+            if isExpanded && !sessions.isEmpty {
+                SessionChildren(
+                    sessions: sessions,
+                    selectedSessionID: selectedSessionID,
+                    unreadSessions: unreadSessions,
+                    onSelectSession: onSelectSession,
+                    onCloseSession: onCloseSession
+                )
             }
         }
-        .padding(.vertical, 2)
     }
 }
 
-private struct ProjectRow: View {
+private struct ProjectBucket: View {
     let project: Project
+    let isExpanded: Bool
     let isUnread: Bool
     let sessionCount: Int
     let hookWarning: String?
     let isRenaming: Bool
     @Binding var renameDraft: String
+    let sessions: [LaunchedSession]
+    let selectedSessionID: LaunchedSession.ID?
+    let unreadSessions: Set<LaunchedSession.ID>
+    let onToggle: () -> Void
     let onRenameCommit: () -> Void
+    let onSelectSession: (LaunchedSession.ID) -> Void
+    let onCloseSession: (LaunchedSession.ID) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Button(action: onToggle) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 12)
+                }
+                .buttonStyle(.plain)
+                if isUnread {
+                    Circle().fill(Color.blue).frame(width: 6, height: 6)
+                }
+                VcsIcon(isJj: project.isJjRepo)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    if isRenaming {
+                        TextField("Name", text: $renameDraft, onCommit: onRenameCommit)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.body)
+                    } else {
+                        Text(project.name)
+                            .font(.body)
+                            .lineLimit(1)
+                    }
+                    Text(project.path)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Spacer()
+
+                if let warning = hookWarning {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.yellow)
+                        .font(.caption)
+                        .help(warning)
+                }
+
+                if sessionCount > 0 {
+                    CountBadge(count: sessionCount)
+                }
+            }
+            .padding(.vertical, 2)
+
+            if isExpanded && !sessions.isEmpty {
+                SessionChildren(
+                    sessions: sessions,
+                    selectedSessionID: selectedSessionID,
+                    unreadSessions: unreadSessions,
+                    onSelectSession: onSelectSession,
+                    onCloseSession: onCloseSession
+                )
+            }
+        }
+    }
+}
+
+private struct SessionChildren: View {
+    let sessions: [LaunchedSession]
+    let selectedSessionID: LaunchedSession.ID?
+    let unreadSessions: Set<LaunchedSession.ID>
+    let onSelectSession: (LaunchedSession.ID) -> Void
+    let onCloseSession: (LaunchedSession.ID) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(sessions) { s in
+                SessionRow(
+                    session: s,
+                    isSelected: s.id == selectedSessionID,
+                    isUnread: unreadSessions.contains(s.id),
+                    onSelect: { onSelectSession(s.id) },
+                    onClose: { onCloseSession(s.id) }
+                )
+            }
+        }
+        .padding(.leading, 20)
+    }
+}
+
+private struct SessionRow: View {
+    let session: LaunchedSession
+    let isSelected: Bool
+    let isUnread: Bool
+    let onSelect: () -> Void
+    let onClose: () -> Void
 
     var body: some View {
         HStack(spacing: 6) {
             if isUnread {
-                Circle().fill(Color.blue).frame(width: 6, height: 6)
+                Circle().fill(Color.blue).frame(width: 5, height: 5)
+            } else {
+                // Reserve space so text columns align whether unread or not.
+                Color.clear.frame(width: 5, height: 5)
             }
-            VcsIcon(isJj: project.isJjRepo)
-
-            VStack(alignment: .leading, spacing: 2) {
-                if isRenaming {
-                    TextField("Name", text: $renameDraft, onCommit: onRenameCommit)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.body)
-                } else {
-                    Text(project.name)
-                        .font(.body)
-                        .lineLimit(1)
-                }
-                Text(project.path)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
+            Image(systemName: agentIcon)
+                .font(.caption)
+                .foregroundStyle(isSelected ? .primary : .secondary)
+                .frame(width: 14)
+            Button(action: onSelect) {
+                Text(session.label)
+                    .font(.caption.monospaced())
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            Spacer()
-
-            if let warning = hookWarning {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.yellow)
-                    .font(.caption)
-                    .help(warning)
+            .buttonStyle(.plain)
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
-
-            if sessionCount > 0 {
-                CountBadge(count: sessionCount)
-            }
+            .buttonStyle(.plain)
+            .help("Close session")
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 1)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(isSelected ? Color.accentColor.opacity(0.18) : .clear)
+        )
+    }
+
+    private var agentIcon: String {
+        let lowered = session.spec.agentKind.lowercased()
+        switch lowered {
+        case "shell": return "terminal"
+        case "claude": return "sparkle"
+        case "codex": return "chevron.left.forwardslash.chevron.right"
+        case "gemini": return "diamond"
+        default: return "play.rectangle"
+        }
     }
 }
+
+// MARK: - Supporting views
 
 private struct VcsIcon: View {
     let isJj: Bool

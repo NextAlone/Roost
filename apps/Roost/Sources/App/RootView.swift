@@ -18,32 +18,31 @@ struct RootView: View {
     /// sidebar warning. Cleared when the user selects the project.
     @State private var projectHookWarnings: [Project.ID: String] = [:]
 
-    private let ghosttyInfo = GhosttyInfo.current
-    private let bridgeVersion = RoostBridge.version
-
     var body: some View {
         NavigationSplitView {
             ProjectSidebar(
                 store: projects,
                 selection: $selectedProjectID,
+                sessions: sessions,
+                selectedSessionID: $selectedSessionID,
                 unreadProjectIDs: projectsWithUnread,
+                unreadSessions: unreadSessions,
                 scratchHasUnread: scratchHasUnread,
                 scratchSessionCount: scratchSessionCount,
                 sessionCountByProject: sessionCountByProject,
                 hookWarningsByProject: projectHookWarnings,
-                onAdd: addProjectFlow
+                onAdd: addProjectFlow,
+                onSelectSession: { sid, pid in
+                    // Snap bucket before session so filteredSessions recomputes
+                    // and the terminal pane makes the session visible.
+                    selectedProjectID = pid ?? Project.scratchID
+                    selectedSessionID = sid
+                },
+                onCloseSession: closeSession
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
         } detail: {
-            VStack(spacing: 0) {
-                HeaderBar(
-                    ghosttyInfo: ghosttyInfo,
-                    bridgeVersion: bridgeVersion,
-                    sessionCount: filteredSessions.count
-                )
-                Divider()
-                detail
-            }
+            detail
         }
         .onChange(of: selectedProjectID) { newID in
             switch newID {
@@ -51,9 +50,11 @@ struct RootView: View {
                 // Scratch / nothing selected: sessions aren't bound to a
                 // directory, so reset the launcher form so ⌘-Launch runs
                 // in $HOME rather than the last project's path.
+                form.target = nil
                 form.projectPath = ""
                 form.useJjWorkspace = false
             case let realID?:
+                form.target = realID
                 if let proj = projects.projects.first(where: { $0.id == realID }) {
                     form.projectPath = proj.path
                 }
@@ -70,7 +71,7 @@ struct RootView: View {
             LauncherSheet(
                 form: $form,
                 errorMessage: $launchError,
-                projectSupportsWorkspaces: currentProject?.isJjRepo ?? false,
+                projects: projects.projects,
                 onLaunch: { launchFromSheet() },
                 onCancel: { isShowingLauncher = false }
             )
@@ -115,6 +116,11 @@ struct RootView: View {
             let currentIdx = list.firstIndex(where: { $0.id == selectedSessionID }) ?? 0
             let next = (currentIdx + delta + list.count) % list.count
             selectedSessionID = list[next].id
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .roostLaunchAgent)) { note in
+            guard let agent = note.userInfo?[RoostNotificationKey.agent] as? String
+            else { return }
+            openQuickSession(agent: agent)
         }
         .onReceive(NotificationCenter.default.publisher(for: .roostHookProgress)) { note in
             guard let pid = note.userInfo?[RoostNotificationKey.projectID] as? Project.ID,
@@ -171,11 +177,6 @@ struct RootView: View {
         }
     }
 
-    private var currentProject: Project? {
-        guard let id = selectedProjectID, id != Project.scratchID else { return nil }
-        return projects.projects.first(where: { $0.id == id })
-    }
-
     // MARK: - Detail pane
 
     /// The detail column. TabBar and overlay (launcher / QuickShell) are
@@ -192,7 +193,13 @@ struct RootView: View {
                     unreadIDs: unreadSessions,
                     onSelect: { selectedSessionID = $0 },
                     onClose: closeSession,
-                    onNew: { isShowingLauncher = true }
+                    onNew: { agent in
+                        if let agent = agent {
+                            openQuickSession(agent: agent)
+                        } else {
+                            isShowingLauncher = true
+                        }
+                    }
                 )
                 Divider()
             }
@@ -213,17 +220,18 @@ struct RootView: View {
 
     @ViewBuilder
     private var paneOverlay: some View {
-        if selectedProjectID == nil {
-            QuickShellView(
-                onOpenTerminal: openPlainTerminal,
-                onAddProject: addProjectFlow
-            )
-        } else {
-            LauncherView(
-                form: $form,
-                projectSupportsWorkspaces: currentProject?.isJjRepo ?? false,
-                onLaunch: launchDirect
-            )
+        EmptyStateView(
+            bucketLabel: emptyBucketLabel,
+            onNew: { agent in openQuickSession(agent: agent) }
+        )
+    }
+
+    private var emptyBucketLabel: String {
+        switch selectedProjectID {
+        case nil, Project.scratchID?:
+            return "Scratch"
+        case let id?:
+            return projects.projects.first(where: { $0.id == id })?.name ?? "this project"
         }
     }
 
@@ -276,40 +284,44 @@ struct RootView: View {
         form.projectPath = path
     }
 
-    // MARK: - Quick shell (no project)
+    // MARK: - Quick session (⌘T, TabBar one-click buttons)
 
-    /// Spawn a plain login shell in $HOME. Used when no project is selected.
-    private func openPlainTerminal() {
-        NSLog("[Roost] Open terminal pressed (QuickShell)")
-        let spec = RoostBridge.prepareSession(agent: "shell")
+    /// Spawn a session for `agent` in the current bucket, skipping the
+    /// launcher sheet. cwd = selected project's path (or `$HOME` for
+    /// Scratch). Used by both ⌘T (agent=shell) and the TabBar one-click
+    /// terminal/claude/codex buttons.
+    private func openQuickSession(agent: String) {
+        let effectiveProjectID: Project.ID? =
+            (selectedProjectID == Project.scratchID) ? nil : selectedProjectID
+        let cwd: String = effectiveProjectID
+            .flatMap { id in projects.projects.first(where: { $0.id == id })?.path }
+            ?? ""
+        let spec = cwd.isEmpty
+            ? RoostBridge.prepareSession(agent: agent)
+            : RoostBridge.prepareSession(agent: agent, workingDirectory: cwd)
         let session = LaunchedSession(
-            projectID: nil,
+            projectID: effectiveProjectID,
             spec: spec,
-            label: "shell"
+            label: agent
         )
         sessions.append(session)
         selectedSessionID = session.id
-        // Make Scratch the visible bucket so the user sees the new tab.
-        selectedProjectID = Project.scratchID
+        // Ensure the bucket containing the new session is the active one.
+        selectedProjectID = effectiveProjectID ?? Project.scratchID
     }
 
     // MARK: - Launch
 
-    private func launchDirect() {
-        NSLog("[Roost] Launch pressed (direct) agent=%@ path=%@ jj=%d",
-              form.agent, form.projectPath, form.useJjWorkspace ? 1 : 0)
-        if let s = makeSession() {
-            sessions.append(s)
-            selectedSessionID = s.id
-        }
-    }
-
     private func launchFromSheet() {
-        NSLog("[Roost] Launch pressed (sheet) agent=%@ path=%@ jj=%d",
-              form.agent, form.projectPath, form.useJjWorkspace ? 1 : 0)
+        NSLog("[Roost] Launch pressed (sheet) agent=%@ target=%@ jj=%d",
+              form.agent, form.target?.uuidString ?? "scratch",
+              form.useJjWorkspace ? 1 : 0)
         if let s = makeSession() {
             sessions.append(s)
             selectedSessionID = s.id
+            // Snap sidebar bucket to the new session's owner so the tab is
+            // actually visible.
+            selectedProjectID = s.projectID ?? Project.scratchID
             isShowingLauncher = false
         }
     }
@@ -321,13 +333,8 @@ struct RootView: View {
                 ? RoostBridge.prepareSession(agent: form.agent)
                 : RoostBridge.prepareSession(agent: form.agent, workingDirectory: cwd)
             NSLog("[Roost] launch: agent=%@ cwd=%@ cmd=%@", form.agent, cwd, spec.command)
-            // Scratch is a UI bucket, not a real project; store projectID=nil
-            // so filteredSessions and listings treat these sessions as
-            // free-floating. Real project IDs pass through unchanged.
-            let effectiveProjectID: Project.ID? =
-                (selectedProjectID == Project.scratchID) ? nil : selectedProjectID
             return LaunchedSession(
-                projectID: effectiveProjectID,
+                projectID: form.target,
                 spec: spec,
                 label: label
             )
@@ -381,12 +388,10 @@ struct RootView: View {
         return (wsPath, "\(form.agent)@\(wsName)")
     }
 
-    /// Map the *launcher-selected* project to a real Project.ID, filtering
-    /// out the Scratch sentinel (which has no project root to load
-    /// `.roost/config.json` from).
+    /// Launcher form's chosen target, filtered for hook purposes.
+    /// Scratch (`target == nil`) has no `.roost/config.json` root.
     private func realProjectID() -> Project.ID? {
-        guard let id = selectedProjectID, id != Project.scratchID else { return nil }
-        return id
+        form.target
     }
 
     /// Run setup/teardown hooks on a background queue and post a

@@ -40,6 +40,7 @@ targets:
       - path: Sources
       - path: Generated/RoostBridge.swift
       - path: Generated/SwiftBridgeCore.swift
+      - path: Assets.xcassets
       - path: Resources
         buildPhase: resources
         type: folder

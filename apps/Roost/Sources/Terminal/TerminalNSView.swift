@@ -248,6 +248,9 @@ final class TerminalNSView: NSView {
                 mods: mods,
                 consumed_mods: consumed,
                 keycode: UInt32(event.keyCode),
+                
+                /// Mirror of ghostty's upstream `NSEvent.ghosttyCharacters`: strip control
+                /// bytes (< 0x20) and function-key PUA codepoints (U+F700..U+F8FF) from
                 text: textPtr,
                 unshifted_codepoint: unshifted,
                 composing: false
@@ -264,9 +267,6 @@ final class TerminalNSView: NSView {
             runKey(nil)
         }
     }
-
-    /// Mirror of ghostty's upstream `NSEvent.ghosttyCharacters`: strip control
-    /// bytes (< 0x20) and function-key PUA codepoints (U+F700..U+F8FF) from
     /// `event.characters`. For Ctrl+<letter> we return the plain letter so
     /// ghostty's KeyEncoder can emit the correct control byte itself; passing
     /// \u{03} as `text` makes ghostty double-encode and breaks Ctrl+C.

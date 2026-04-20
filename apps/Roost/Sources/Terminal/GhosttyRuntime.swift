@@ -26,6 +26,12 @@ extension Notification.Name {
     /// `projectID`, `phase` (`"setup"|"teardown"`), `index`, `total`,
     /// `success` (Bool), `title`, `body`.
     static let roostHookProgress = Notification.Name("sh.roost.app.hookProgress")
+
+    /// Posted when the user invokes an app-level one-click launch command
+    /// (⌘T / ⌃1 / ⌃2 / ⌃3). `userInfo["agent"]` carries the agent name
+    /// (`"shell"`, `"claude"`, `"codex"`, or a preset). RootView spawns the
+    /// session in the current bucket without the launcher sheet round-trip.
+    static let roostLaunchAgent = Notification.Name("sh.roost.app.launchAgent")
 }
 
 /// Bundles the keys we use on `.roost*` `userInfo` dicts.
@@ -39,6 +45,7 @@ enum RoostNotificationKey {
     static let phase = "phase"
     static let total = "total"
     static let success = "success"
+    static let agent = "agent"
 }
 
 /// Singleton wrapper around `ghostty_app_t`. One per process; all surfaces

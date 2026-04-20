@@ -8,7 +8,10 @@ struct TabBar: View {
     let unreadIDs: Set<LaunchedSession.ID>
     let onSelect: (LaunchedSession.ID) -> Void
     let onClose: (LaunchedSession.ID) -> Void
-    let onNew: () -> Void
+    /// Fire with agent name (`"shell"`, `"claude"`, `"codex"`) for one-click
+    /// new-session buttons; fire with `nil` for the advanced "New session…"
+    /// entry (opens the launcher sheet).
+    let onNew: (String?) -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -23,18 +26,78 @@ struct TabBar: View {
                     )
                 }
 
-                Button(action: onNew) {
-                    Image(systemName: "plus")
-                        .frame(width: 28, height: 22)
-                }
-                .buttonStyle(.plain)
-                .help("New session")
-                .keyboardShortcut("t", modifiers: .command)
+                Divider().frame(height: 22).padding(.horizontal, 6)
+
+                NewTabButton(
+                    systemImage: "terminal",
+                    iconTint: .secondary,
+                    label: "Terminal",
+                    tooltip: "New terminal (⌘T)",
+                    action: { onNew("shell") }
+                )
+                NewTabButton(
+                    assetImage: "AgentIcons/Claude",
+                    iconTint: .orange,
+                    label: "Claude Code",
+                    tooltip: "New Claude Code (⌃1)",
+                    action: { onNew("claude") }
+                )
+                NewTabButton(
+                    assetImage: "AgentIcons/Codex",
+                    iconTint: .primary,
+                    label: "Codex",
+                    tooltip: "New Codex (⌃2)",
+                    action: { onNew("codex") }
+                )
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
         }
         .background(.bar)
+    }
+}
+
+private struct NewTabButton: View {
+    var systemImage: String? = nil
+    var assetImage: String? = nil
+    var iconTint: Color = .secondary
+    let label: String?
+    let tooltip: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if let systemImage = systemImage {
+                    Image(systemName: systemImage)
+                        .font(.callout)
+                        .foregroundStyle(iconTint)
+                } else if let assetImage = assetImage {
+                    Image(assetImage)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                        .foregroundStyle(iconTint)
+                }
+                if let label = label {
+                    Text(label)
+                        .font(.callout)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.secondary.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.gray.opacity(0.2), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(tooltip)
     }
 }
 
@@ -46,38 +109,38 @@ private struct TabChip: View {
     let onClose: () -> Void
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             if isUnread {
                 Circle()
                     .fill(Color.blue)
-                    .frame(width: 6, height: 6)
-                    .padding(.leading, 8)
+                    .frame(width: 7, height: 7)
+                    .padding(.leading, 10)
             }
             Button(action: onSelect) {
                 Text(label)
-                    .font(.caption.monospaced())
+                    .font(.callout.monospaced())
                     .lineLimit(1)
-                    .padding(.leading, isUnread ? 0 : 8)
-                    .padding(.trailing, 8)
-                    .padding(.vertical, 4)
+                    .padding(.leading, isUnread ? 0 : 10)
+                    .padding(.trailing, 10)
+                    .padding(.vertical, 6)
             }
             .buttonStyle(.plain)
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .padding(.trailing, 6)
+            .padding(.trailing, 8)
             .help("Close session")
         }
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 8)
                 .fill(backgroundFill)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(borderColor, lineWidth: borderWidth)
         )
     }

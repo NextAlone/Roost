@@ -2,11 +2,14 @@
 //! `HashMap<SessionId, _>`. Token generation is centralized here because the
 //! RPC server, manifest writer, and (future) reauth all need it.
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use rand::RngCore;
 use sqlx::SqlitePool;
+
+use crate::session::Registry;
 
 pub struct HostState {
     pub auth_token: String,
@@ -14,6 +17,8 @@ pub struct HostState {
     pub started_at_epoch_ms: u64,
     #[allow(dead_code)]
     pub db: SqlitePool,
+    #[allow(dead_code)]
+    pub sessions: Arc<Registry>,
 }
 
 impl HostState {
@@ -31,6 +36,7 @@ impl HostState {
             started_at: Instant::now(),
             started_at_epoch_ms: now,
             db,
+            sessions: Arc::new(Registry::new()),
         }
     }
 

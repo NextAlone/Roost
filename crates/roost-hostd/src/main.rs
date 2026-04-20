@@ -9,6 +9,7 @@ use tracing::info;
 
 mod manifest;
 mod rpc_server;
+mod session;
 mod state;
 mod store;
 

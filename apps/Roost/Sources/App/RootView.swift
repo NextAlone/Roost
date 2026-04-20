@@ -138,21 +138,14 @@ struct RootView: View {
 
     // MARK: - Detail pane
 
+    /// The detail column. TabBar and overlay (launcher / QuickShell) are
+    /// conditional, but `terminalPane` is always in the view tree so the
+    /// `TerminalNSView` instances (and their PTYs) survive navigation
+    /// between projects with different session sets.
     @ViewBuilder
     private var detail: some View {
-        if selectedProjectID == nil, filteredSessions.isEmpty {
-            QuickShellView(
-                onOpenTerminal: openPlainTerminal,
-                onAddProject: addProjectFlow
-            )
-        } else if filteredSessions.isEmpty {
-            LauncherView(
-                form: $form,
-                projectSupportsWorkspaces: currentProject?.isJjRepo ?? false,
-                onLaunch: launchDirect
-            )
-        } else {
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
+            if !filteredSessions.isEmpty {
                 TabBar(
                     sessions: filteredSessions,
                     selectedID: selectedSessionID,
@@ -162,16 +155,43 @@ struct RootView: View {
                     onNew: { isShowingLauncher = true }
                 )
                 Divider()
-                terminalPane
             }
+            paneArea
         }
     }
 
-    /// Keep every session's `TerminalNSView` alive for the lifetime of the
-    /// session; switching tabs only flips visibility. Using `.id(selectedID)`
-    /// here (single view) would rebuild the NSView and kill the child PTY.
-    /// We render *all* sessions (across projects) so switching projects
-    /// doesn't tear down the inactive project's terminals either.
+    @ViewBuilder
+    private var paneArea: some View {
+        ZStack {
+            terminalPane
+            if filteredSessions.isEmpty {
+                paneOverlay
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var paneOverlay: some View {
+        if selectedProjectID == nil {
+            QuickShellView(
+                onOpenTerminal: openPlainTerminal,
+                onAddProject: addProjectFlow
+            )
+        } else {
+            LauncherView(
+                form: $form,
+                projectSupportsWorkspaces: currentProject?.isJjRepo ?? false,
+                onLaunch: launchDirect
+            )
+        }
+    }
+
+    /// Renders every session across all projects, exposed via opacity. The
+    /// *visible* one is whichever session id equals `selectedSessionID` AND
+    /// belongs to the current sidebar bucket — otherwise the pane is blank
+    /// but the inactive project's NSViews still exist, preserving their
+    /// PTYs when the user navigates away and back.
     @ViewBuilder
     private var terminalPane: some View {
         ZStack {
@@ -181,13 +201,17 @@ struct RootView: View {
                     command: session.spec.command.isEmpty ? nil : session.spec.command,
                     workingDirectory: session.spec.workingDirectory.isEmpty
                         ? nil : session.spec.workingDirectory,
-                    isFocused: session.id == selectedSessionID
+                    isFocused: isSessionVisible(session)
                 )
-                .opacity(session.id == selectedSessionID ? 1 : 0)
-                .allowsHitTesting(session.id == selectedSessionID)
+                .opacity(isSessionVisible(session) ? 1 : 0)
+                .allowsHitTesting(isSessionVisible(session))
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func isSessionVisible(_ session: LaunchedSession) -> Bool {
+        guard session.id == selectedSessionID else { return false }
+        return filteredSessions.contains { $0.id == session.id }
     }
 
     // MARK: - Projects

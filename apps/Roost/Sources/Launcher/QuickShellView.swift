@@ -19,11 +19,22 @@ struct QuickShellView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            HStack {
-                Button("Add project", action: onAddProject)
-                    .buttonStyle(.borderedProminent)
-                Button("Open terminal", action: onOpenTerminal)
-                    .buttonStyle(.bordered)
+            HStack(spacing: 12) {
+                Button(action: onAddProject) {
+                    Label("Add project", systemImage: "folder.badge.plus")
+                        .labelStyle(.titleAndIcon)
+                        .frame(minWidth: 120)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+
+                Button(action: onOpenTerminal) {
+                    Label("Open terminal", systemImage: "terminal")
+                        .labelStyle(.titleAndIcon)
+                        .frame(minWidth: 120)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
             .padding(.top, 8)
         }

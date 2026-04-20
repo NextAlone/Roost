@@ -24,6 +24,8 @@ struct RootView: View {
                 store: projects,
                 selection: $selectedProjectID,
                 unreadProjectIDs: projectsWithUnread,
+                scratchHasUnread: scratchHasUnread,
+                scratchHasSessions: sessions.contains(where: { $0.projectID == nil }),
                 onAdd: addProjectFlow
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
@@ -113,6 +115,11 @@ struct RootView: View {
         return ids
     }
 
+    /// True if any projectID=nil (scratch) session is unread.
+    private var scratchHasUnread: Bool {
+        sessions.contains { $0.projectID == nil && unreadSessions.contains($0.id) }
+    }
+
     // MARK: - Derived state
 
     private var filteredSessions: [LaunchedSession] {
@@ -173,7 +180,8 @@ struct RootView: View {
                     sessionID: session.id,
                     command: session.spec.command.isEmpty ? nil : session.spec.command,
                     workingDirectory: session.spec.workingDirectory.isEmpty
-                        ? nil : session.spec.workingDirectory
+                        ? nil : session.spec.workingDirectory,
+                    isFocused: session.id == selectedSessionID
                 )
                 .opacity(session.id == selectedSessionID ? 1 : 0)
                 .allowsHitTesting(session.id == selectedSessionID)

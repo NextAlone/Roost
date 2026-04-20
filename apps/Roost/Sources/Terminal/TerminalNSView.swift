@@ -51,8 +51,6 @@ final class TerminalNSView: NSView {
         cfg.userdata = nsviewPtr
         cfg.scale_factor = Double(window.backingScaleFactor)
         cfg.font_size = 0
-        cfg.env_vars = nil
-        cfg.env_var_count = 0
         cfg.initial_input = nil
         // Running an explicit command (agent CLI) rather than a login shell:
         // keep the surface alive after exit so the user can read exit status
@@ -60,11 +58,33 @@ final class TerminalNSView: NSView {
         cfg.wait_after_command = (command != nil)
         cfg.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
 
-        withOptionalCString(command) { cmdPtr in
-            withOptionalCString(workingDirectory) { wdPtr in
-                cfg.command = cmdPtr
-                cfg.working_directory = wdPtr
-                surface = ghostty_surface_new(GhosttyRuntime.shared.app, &cfg)
+        // Build env_vars. ghostty copies these internally on
+        // ghostty_surface_new, so the strdup'd buffers can be freed after
+        // the call returns.
+        let envPairs = Self.defaultEnvPairs()
+        var cEnv: [ghostty_env_var_s] = envPairs.map { pair in
+            ghostty_env_var_s(
+                key: strdup(pair.0),
+                value: strdup(pair.1)
+            )
+        }
+        defer {
+            for var e in cEnv {
+                free(UnsafeMutableRawPointer(mutating: e.key))
+                free(UnsafeMutableRawPointer(mutating: e.value))
+                _ = e
+            }
+        }
+
+        cEnv.withUnsafeMutableBufferPointer { envBuf in
+            cfg.env_vars = envBuf.baseAddress
+            cfg.env_var_count = UInt(envBuf.count)
+            withOptionalCString(command) { cmdPtr in
+                withOptionalCString(workingDirectory) { wdPtr in
+                    cfg.command = cmdPtr
+                    cfg.working_directory = wdPtr
+                    surface = ghostty_surface_new(GhosttyRuntime.shared.app, &cfg)
+                }
             }
         }
 
@@ -281,5 +301,22 @@ final class TerminalNSView: NSView {
     ) -> R {
         if let s { return s.withCString { body($0) } }
         return body(nil)
+    }
+
+    /// Env vars injected into every session so agents inherit sensible
+    /// defaults. Currently ships the bundled xterm-ghostty terminfo so
+    /// less / nano / tmux stop complaining about "terminal is not fully
+    /// functional".
+    private static func defaultEnvPairs() -> [(String, String)] {
+        var out: [(String, String)] = []
+        if let resPath = Bundle.main.resourcePath {
+            let terminfo = (resPath as NSString).appendingPathComponent("terminfo")
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: terminfo, isDirectory: &isDir),
+               isDir.boolValue {
+                out.append(("TERMINFO", terminfo))
+            }
+        }
+        return out
     }
 }

@@ -1,45 +1,76 @@
 # M-1 POC: libghostty hello
 
-Goal: prove `GhosttyKit.xcframework` can be built from upstream `ghostty-org/ghostty`, imported into a SwiftUI app, and render an interactive `bash` pane.
+Goal: prove `GhosttyKit.xcframework` can be imported into a SwiftUI app, that
+`import GhosttyKit` resolves, and that libghostty symbols (starting with
+`ghostty_info()`) link and run. Then grow the same project into an interactive
+`bash` surface.
 
 No Rust in this POC. Pure Swift + C FFI.
 
 ## Prerequisites
 
 - macOS ≥ 13
-- Xcode 16+ (or a recent command-line Swift toolchain)
-- Zig ≥ 0.15.2 (install via nix, asdf, or official tarball)
-- `curl`, `tar`
+- Xcode 16+
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (e.g. `brew install xcodegen`
+  or `nix shell nixpkgs#xcodegen`)
+
+The zig toolchain is only required if you want to build the xcframework
+yourself via `scripts/build-xcframework.sh`. The default path uses a prebuilt.
 
 ## Build steps
 
+### Stage 1 — fetch the xcframework
+
 ```bash
-# 1. Fetch ghostty at a pinned commit (writes to ../../vendor/ghostty)
-./scripts/fetch-ghostty.sh
-
-# 2. Build GhosttyKit.xcframework
-./scripts/build-xcframework.sh
-# → ../../vendor/ghostty/zig-out/GhosttyKit.xcframework
-
-# 3. (later) Open the Xcode project and build the hello app
-#    open Hello.xcodeproj
+./scripts/fetch-prebuilt-xcframework.sh
+# → ../../vendor/GhosttyKit.xcframework
 ```
 
-## What this POC validates
+The script downloads a pinned `GhosttyKit.xcframework.tar.gz` from the
+`manaflow-ai/ghostty` fork releases (upstream `ghostty-org/ghostty` does not
+currently publish a rendering-capable xcframework). The archive already
+contains `ghostty.h` and a module map, so `import GhosttyKit` works.
 
-- `zig build -Demit-xcframework=true -Demit-macos-app=false` produces a usable `GhosttyKit.xcframework` against a specific ghostty SHA.
-- A minimal SwiftUI app can link that xcframework and render a surface.
-- PTY attached to `bash` is interactive (keyboard → shell, shell output → surface).
+Bump `GHOSTTYKIT_TAG` in the script to track a newer SHA.
 
-If any of the three fails, the Roost architecture changes (switch to SwiftTerm or build a custom renderer). See `design.md` §M-1 in the repo root.
+### Stage 2 — generate and open the Xcode project
+
+```bash
+xcodegen generate                # reads project.yml → LibghosttyHello.xcodeproj
+open LibghosttyHello.xcodeproj
+# Build and run in Xcode (⌘R)
+```
+
+Expected result: a window showing the libghostty version and build mode.
+
+## Alternative: build the xcframework from source
+
+```bash
+./scripts/fetch-ghostty.sh        # pulls ghostty source tarball into vendor/ghostty
+./scripts/build-xcframework.sh    # runs zig build; produces vendor/ghostty/zig-out/GhosttyKit.xcframework
+```
+
+Currently NOT the recommended path for this POC:
+- Zig 0.15.2 installed through Nix lacks darwin libc stubs; build fails with
+  `undefined symbol: _fork, _abort, …` even inside `env -i`.
+- Official Zig tarballs (https://ziglang.org/download/) work but require
+  manual install.
+
+## What this POC validates (in order)
+
+- [x] `GhosttyKit.xcframework` downloads and expands with module map present.
+- [x] `ghostty.h` (1208 lines, embedding API) parses with clang.
+- [ ] SwiftUI app links `GhosttyKit` and calls `ghostty_info()` at runtime.
+- [ ] `ghostty_app_new` / `ghostty_surface_new` succeed with a real `NSView`.
+- [ ] PTY attached to `bash` renders inside the surface, keyboard is
+      interactive.
+
+If step 3 fails (missing symbols, framework issues), Roost's architecture
+changes. Options at that point: switch to SwiftTerm, vendor a different
+ghostty build, or build a custom renderer.
 
 ## Pinning
 
-`scripts/fetch-ghostty.sh` pins a ghostty commit via `GHOSTTY_REV`. Bump by editing that variable. Keep it tracking `ghostty-org/ghostty` `main` for now; once M-1 passes, lock to a known-good SHA.
-
-## Status
-
-- [ ] `fetch-ghostty.sh` pulls source
-- [ ] `build-xcframework.sh` produces xcframework
-- [ ] Xcode project renders empty surface
-- [ ] Keyboard + PTY + bash integration works
+`scripts/fetch-prebuilt-xcframework.sh` pins via `GHOSTTYKIT_TAG`
+(default `xcframework-e36dd9d5…29516`). See
+https://github.com/manaflow-ai/ghostty/releases for other tags.

@@ -22,16 +22,36 @@ fi
 ZIG_VERSION="$(zig version)"
 echo "[build-xcframework] zig $ZIG_VERSION"
 
+# On darwin zig needs libSystem / Apple SDK. When running from a bare nix shell
+# the SDK path is not exported, which breaks linking (undefined _fork, _abort...).
+# Export SDKROOT from xcrun if xcode-select points at an SDK.
+if ! [[ "${SDKROOT:-}" ]] && command -v xcrun >/dev/null 2>&1; then
+    if SDK_PATH="$(xcrun --show-sdk-path 2>/dev/null)"; then
+        export SDKROOT="$SDK_PATH"
+        echo "[build-xcframework] SDKROOT=$SDKROOT"
+    fi
+fi
+export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
+
 OPTIMIZE="${OPTIMIZE:-ReleaseFast}"
 echo "[build-xcframework] Building (optimize=$OPTIMIZE) — first build may take several minutes."
 cd "$GHOSTTY_DIR"
 
-# -Demit-xcframework=true : produce GhosttyKit.xcframework under zig-out/
-# -Demit-macos-app=false  : skip the Swift/Xcode app build
-zig build \
-    -Doptimize="$OPTIMIZE" \
-    -Demit-xcframework=true \
-    -Demit-macos-app=false
+# Nix-shell injects NIX_LDFLAGS / NIX_CFLAGS_* which corrupt zig's linker
+# (ghostty's own build.nu uses `env -i` for the same reason before xcodebuild).
+# We relaunch zig with a sanitized environment: keep only PATH, HOME, SDKROOT,
+# MACOSX_DEPLOYMENT_TARGET, TERM and the zig cache override.
+ZIG_BIN="$(command -v zig)"
+env -i \
+    HOME="$HOME" \
+    PATH="$PATH" \
+    TERM="${TERM:-xterm}" \
+    SDKROOT="$SDKROOT" \
+    MACOSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
+    "$ZIG_BIN" build \
+        -Doptimize="$OPTIMIZE" \
+        -Demit-xcframework=true \
+        -Demit-macos-app=false
 
 if [ ! -d "$OUT_FRAMEWORK" ]; then
     echo "[build-xcframework] Build completed but $OUT_FRAMEWORK is missing." >&2

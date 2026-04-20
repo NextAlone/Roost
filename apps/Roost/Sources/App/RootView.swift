@@ -81,6 +81,23 @@ struct RootView: View {
             else { return }
             unreadSessions.insert(id)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .roostCloseActiveTab)) { _ in
+            if let id = selectedSessionID { closeSession(id: id) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .roostSelectTabByIndex)) { note in
+            guard let idx = note.userInfo?[RoostNotificationKey.index] as? Int else { return }
+            let list = filteredSessions
+            guard idx >= 0 && idx < list.count else { return }
+            selectedSessionID = list[idx].id
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .roostSelectRelativeTab)) { note in
+            guard let delta = note.userInfo?[RoostNotificationKey.delta] as? Int else { return }
+            let list = filteredSessions
+            guard !list.isEmpty else { return }
+            let currentIdx = list.firstIndex(where: { $0.id == selectedSessionID }) ?? 0
+            let next = (currentIdx + delta + list.count) % list.count
+            selectedSessionID = list[next].id
+        }
     }
 
     // MARK: - Derived state (notifications)

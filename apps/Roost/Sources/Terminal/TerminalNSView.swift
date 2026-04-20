@@ -96,22 +96,68 @@ final class TerminalNSView: NSView {
     // MARK: Keyboard
 
     override func keyDown(with event: NSEvent) {
-        // Intercept standard macOS clipboard shortcuts before they leak into
-        // the PTY. A plain ghostty binding layer would handle these via
-        // configured keybindings, but for now just wire the two most common
-        // explicitly.
+        // Intercept standard macOS shortcuts before they leak into the PTY.
+        // Ghostty has a configurable keybind system; for MVP we hardcode the
+        // common subset here so agents running in a surface don't swallow
+        // these host-level actions.
         if event.modifierFlags.contains(.command),
-           event.modifierFlags.intersection([.control, .option]).isEmpty {
-            switch event.charactersIgnoringModifiers {
-            case "v":
-                if pasteFromClipboard() { return }
-            case "c":
-                if copySelectionToClipboard() { return }
-            default:
-                break
-            }
+           event.modifierFlags.intersection([.control, .option]).isEmpty,
+           handleCommandShortcut(event) {
+            return
         }
         forward(event: event, action: GHOSTTY_ACTION_PRESS)
+    }
+
+    /// Returns true if the event was consumed (and so must not reach ghostty).
+    private func handleCommandShortcut(_ event: NSEvent) -> Bool {
+        let chars = event.charactersIgnoringModifiers ?? ""
+        switch chars {
+        case "v":
+            return pasteFromClipboard()
+        case "c":
+            return copySelectionToClipboard()
+        case "w":
+            postTabNotification(.roostCloseActiveTab)
+            return true
+        case "[":
+            postTabNotification(.roostSelectRelativeTab, userInfo: [RoostNotificationKey.delta: -1])
+            return true
+        case "]":
+            postTabNotification(.roostSelectRelativeTab, userInfo: [RoostNotificationKey.delta: 1])
+            return true
+        case "=", "+":
+            return triggerBindingAction("increase_font_size:1")
+        case "-":
+            return triggerBindingAction("decrease_font_size:1")
+        case "0":
+            return triggerBindingAction("reset_font_size")
+        default:
+            if chars.count == 1, let digit = chars.first, digit.isNumber {
+                if let idx = digit.hexDigitValue, idx >= 1, idx <= 9 {
+                    postTabNotification(
+                        .roostSelectTabByIndex,
+                        userInfo: [RoostNotificationKey.index: idx - 1]
+                    )
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
+    private func postTabNotification(
+        _ name: Notification.Name,
+        userInfo: [AnyHashable: Any] = [:]
+    ) {
+        NotificationCenter.default.post(name: name, object: sessionID, userInfo: userInfo)
+    }
+
+    @discardableResult
+    private func triggerBindingAction(_ name: String) -> Bool {
+        guard let surface else { return false }
+        return name.withCString { cstr in
+            ghostty_surface_binding_action(surface, cstr, UInt(strlen(cstr)))
+        }
     }
 
     @discardableResult

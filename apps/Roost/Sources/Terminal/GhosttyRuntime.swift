@@ -11,6 +11,16 @@ extension Notification.Name {
     /// 9 / 99 / 777). `userInfo["sessionID"]` identifies the session;
     /// `"title"` and `"body"` carry the payload.
     static let roostAgentNotification = Notification.Name("sh.roost.app.agentNotification")
+
+    /// Posted when the user hits ⌘W in a terminal; RootView closes the
+    /// active tab.
+    static let roostCloseActiveTab = Notification.Name("sh.roost.app.closeActiveTab")
+
+    /// Posted when the user hits ⌘1-9; `userInfo["index"]` is zero-based.
+    static let roostSelectTabByIndex = Notification.Name("sh.roost.app.selectTabByIndex")
+
+    /// Posted when the user hits ⌘[ / ⌘]; `userInfo["delta"]` is -1 / +1.
+    static let roostSelectRelativeTab = Notification.Name("sh.roost.app.selectRelativeTab")
 }
 
 /// Bundles the keys we use on `.roost*` `userInfo` dicts.
@@ -18,6 +28,8 @@ enum RoostNotificationKey {
     static let sessionID = "sessionID"
     static let title = "title"
     static let body = "body"
+    static let index = "index"
+    static let delta = "delta"
 }
 
 /// Singleton wrapper around `ghostty_app_t`. One per process; all surfaces

@@ -246,24 +246,33 @@ struct RootView: View {
     /// PTYs when the user navigates away and back.
     @ViewBuilder
     private var terminalPane: some View {
+        // Single pass: compute the visible session id once, not per-child
+        // (the old code was O(n²) on bucket switches because each child
+        //  re-walked `filteredSessions`).
+        let visibleID = visibleSessionID
         ZStack {
             ForEach(sessions) { session in
+                let visible = session.id == visibleID
                 TerminalView(
                     sessionID: session.id,
                     command: session.spec.command.isEmpty ? nil : session.spec.command,
                     workingDirectory: session.spec.workingDirectory.isEmpty
                         ? nil : session.spec.workingDirectory,
-                    isFocused: isSessionVisible(session)
+                    isFocused: visible
                 )
-                .opacity(isSessionVisible(session) ? 1 : 0)
-                .allowsHitTesting(isSessionVisible(session))
+                .opacity(visible ? 1 : 0)
+                .allowsHitTesting(visible)
             }
         }
     }
 
-    private func isSessionVisible(_ session: LaunchedSession) -> Bool {
-        guard session.id == selectedSessionID else { return false }
-        return filteredSessions.contains { $0.id == session.id }
+    /// Session id that should be shown right now. `nil` = empty bucket.
+    /// O(n) — one pass over `sessions`.
+    private var visibleSessionID: UUID? {
+        guard let sid = selectedSessionID else { return nil }
+        let bucket: Project.ID? =
+            (selectedProjectID == Project.scratchID) ? nil : selectedProjectID
+        return sessions.first(where: { $0.id == sid && $0.projectID == bucket })?.id
     }
 
     // MARK: - Projects

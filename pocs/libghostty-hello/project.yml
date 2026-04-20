@@ -19,6 +19,13 @@ targets:
     dependencies:
       - framework: ../../vendor/GhosttyKit.xcframework
         embed: true
+      # Transitive dependencies of libghostty.a (matches manaflow-ai/cmux):
+      - sdk: Metal.framework
+      - sdk: QuartzCore.framework
+      - sdk: IOSurface.framework
+      - sdk: UniformTypeIdentifiers.framework
+      - sdk: Carbon.framework    # TISCopyCurrentKeyboardLayoutInputSource etc.
+      - sdk: libc++.tbd          # std::* (libghostty embeds C++ harfbuzz/oniguruma)
     info:
       path: Info.plist
       properties:

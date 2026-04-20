@@ -104,11 +104,14 @@ final class ProjectStore: ObservableObject {
 
     private func save() {
         guard let data = try? JSONEncoder().encode(projects) else { return }
+        // Capture the key on-main before hopping off — MainActor-isolated
+        // statics can't be read from a Sendable closure.
+        let key = Self.defaultsKey
         // Hop off-main: UserDefaults.set can block under disk pressure and
         // we call this on every rename / reorder / VCS refresh, which used
         // to stall the sidebar during rapid interaction.
         DispatchQueue.global(qos: .utility).async {
-            UserDefaults.standard.set(data, forKey: Self.defaultsKey)
+            UserDefaults.standard.set(data, forKey: key)
         }
     }
 

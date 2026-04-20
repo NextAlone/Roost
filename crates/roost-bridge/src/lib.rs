@@ -56,7 +56,12 @@ mod ffi {
         // jj wrappers (M2)
         fn roost_is_jj_repo(dir: &str) -> bool;
         fn roost_jj_version() -> Result<String, String>;
-        fn roost_list_workspaces(repo_dir: &str) -> Result<Vec<WorkspaceEntry>, String>;
+        // `\n`-delimited records, `\u{1f}`-delimited fields:
+        // name␟path␟change_id␟description␟is_current(0|1).
+        // swift-bridge's codegen doesn't handle Vec<SharedStruct> cleanly yet
+        // (WorkspaceEntry isn't Vectorizable), so we marshal to a string and
+        // split on the Swift side.
+        fn roost_list_workspaces_serialized(repo_dir: &str) -> Result<String, String>;
         fn roost_add_workspace(
             repo_dir: &str,
             workspace_path: &str,
@@ -147,11 +152,23 @@ fn roost_jj_version() -> Result<String, String> {
     jj::version()
 }
 
-fn roost_list_workspaces(repo_dir: &str) -> Result<Vec<ffi::WorkspaceEntry>, String> {
-    Ok(jj::list_workspaces(repo_dir)?
-        .into_iter()
-        .map(Into::into)
-        .collect())
+fn roost_list_workspaces_serialized(repo_dir: &str) -> Result<String, String> {
+    let entries = jj::list_workspaces(repo_dir)?;
+    let mut out = String::new();
+    for e in entries {
+        // Record: name␟path␟change_id␟description␟is_current
+        out.push_str(&e.name);
+        out.push('\u{1f}');
+        out.push_str(&e.path);
+        out.push('\u{1f}');
+        out.push_str(&e.change_id);
+        out.push('\u{1f}');
+        out.push_str(&e.description);
+        out.push('\u{1f}');
+        out.push_str(if e.is_current { "1" } else { "0" });
+        out.push('\n');
+    }
+    Ok(out)
 }
 
 fn roost_add_workspace(

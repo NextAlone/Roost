@@ -34,15 +34,10 @@ enum RoostBridge {
     }
 
     static func listWorkspaces(repoDir: String) throws -> [WorkspaceEntrySwift] {
-        let vec = try roost_list_workspaces(repoDir)
-        var out: [WorkspaceEntrySwift] = []
-        out.reserveCapacity(Int(vec.len()))
-        for i in 0..<vec.len() {
-            if let item = vec.get(index: i) {
-                out.append(WorkspaceEntrySwift(raw: item))
-            }
-        }
-        return out
+        let serialized = try roost_list_workspaces_serialized(repoDir).toString()
+        return serialized
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .compactMap(WorkspaceEntrySwift.init(serializedRow:))
     }
 
     static func addWorkspace(
@@ -117,12 +112,35 @@ struct WorkspaceEntrySwift: Equatable, Identifiable, Hashable {
 
     var id: String { name }
 
+    init(name: String, path: String, changeId: String, description: String, isCurrent: Bool) {
+        self.name = name
+        self.path = path
+        self.changeId = changeId
+        self.description = description
+        self.isCurrent = isCurrent
+    }
+
     init(raw: WorkspaceEntry) {
-        self.name = raw.name.toString()
-        self.path = raw.path.toString()
-        self.changeId = raw.change_id.toString()
-        self.description = raw.description.toString()
-        self.isCurrent = raw.is_current
+        self.init(
+            name: raw.name.toString(),
+            path: raw.path.toString(),
+            changeId: raw.change_id.toString(),
+            description: raw.description.toString(),
+            isCurrent: raw.is_current
+        )
+    }
+
+    /// Parse a `\u{1f}`-delimited row from `roost_list_workspaces_serialized`.
+    init?<S: StringProtocol>(serializedRow row: S) {
+        let fields = row.split(separator: "\u{1f}", omittingEmptySubsequences: false)
+        guard fields.count >= 5 else { return nil }
+        self.init(
+            name: String(fields[0]),
+            path: String(fields[1]),
+            changeId: String(fields[2]),
+            description: String(fields[3]),
+            isCurrent: fields[4] == "1"
+        )
     }
 }
 

@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import GhosttyKit
 
 /// `NSView` that owns a single `ghostty_surface_t` and forwards keyboard /
@@ -185,6 +186,7 @@ final class TerminalNSView: NSView {
         // `setMarkedText` callbacks below. On pass-through the IME calls
         // `doCommand(by:)`, which forwards the raw event to ghostty.
         let hadMarkedText = hasMarkedText()
+        let keyboardIdBefore = Self.currentInputSourceID()
         keyTextAccumulator = []
         consumedViaDoCommand = false
         defer {
@@ -193,6 +195,20 @@ final class TerminalNSView: NSView {
         }
 
         _ = inputContext?.handleEvent(event)
+
+        // If the active input source changed during `handleEvent` (user hit
+        // ⌃Space / input-method menu shortcut), discard whatever the old IME
+        // wanted to commit and drop ghostty's preedit. macOS's default is to
+        // commit the preedit on switch; we'd rather cancel so stray Pinyin
+        // letters don't leak into the terminal.
+        if Self.currentInputSourceID() != keyboardIdBefore {
+            if markedText.length > 0 {
+                markedText.mutableString.setString("")
+            }
+            inputContext?.discardMarkedText()
+            syncPreedit(clearIfNeeded: hadMarkedText || markedText.length == 0)
+            return
+        }
 
         // Sync preedit state: if IME set marked text, push to ghostty as
         // preedit; if it cleared, clear ghostty's preedit too.
@@ -392,6 +408,17 @@ final class TerminalNSView: NSView {
     }
 
     // MARK: IME bridge
+
+    /// Current Carbon TIS input-source identifier (e.g.
+    /// "com.apple.keylayout.US" / "com.apple.inputmethod.SCIM.ITABC").
+    /// Used to detect IME switches that happen inside `keyDown`.
+    static func currentInputSourceID() -> String? {
+        guard
+            let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+            let ptr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
+        else { return nil }
+        return Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String
+    }
 
     private func syncPreedit(clearIfNeeded: Bool) {
         guard let surface else { return }

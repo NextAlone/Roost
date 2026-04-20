@@ -119,18 +119,8 @@ final class TerminalNSView: NSView {
         }
     }
 
-    override func insertText(_ string: Any, replacementRange: NSRange) {
-        guard let surface, let text = string as? String else { return }
-        text.withCString { cstr in
-            ghostty_surface_text(surface, cstr, UInt(strlen(cstr)))
-        }
-    }
-
-    // Stubs so AppKit doesn't beep on modifier-only presses and dead keys.
+    // Stub so AppKit doesn't beep on modifier-only presses.
     override func flagsChanged(with event: NSEvent) {}
-    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {}
-    override func unmarkText() {}
-    override func hasMarkedText() -> Bool { false }
 
     deinit {
         if let surface { ghostty_surface_free(surface) }

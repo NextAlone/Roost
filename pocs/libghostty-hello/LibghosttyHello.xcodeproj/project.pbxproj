@@ -10,6 +10,7 @@
 		BAE0B59BDE4052C8471AFE2D /* GhosttyKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B3CD832481033BDA5A6BEF8 /* GhosttyKit.xcframework */; };
 		C61C8163D94D3C5407CD79F3 /* LibghosttyHelloApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70F50169CC7FA890E5BB0A10 /* LibghosttyHelloApp.swift */; };
 		D0EC2E78DF43C36E9887DFF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29101DE6207FE564715E939D /* ContentView.swift */; };
+		EF15E976D35DF66985EF1026 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9DF83B5400B840129C54B5 /* TerminalView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -17,6 +18,7 @@
 		3B3CD832481033BDA5A6BEF8 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyKit.xcframework; path = ../../vendor/GhosttyKit.xcframework; sourceTree = "<group>"; };
 		70F50169CC7FA890E5BB0A10 /* LibghosttyHelloApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibghosttyHelloApp.swift; sourceTree = "<group>"; };
 		75DC06FE4A0152E9A5707BE4 /* LibghosttyHello.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LibghosttyHello.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB9DF83B5400B840129C54B5 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +63,7 @@
 			children = (
 				29101DE6207FE564715E939D /* ContentView.swift */,
 				70F50169CC7FA890E5BB0A10 /* LibghosttyHelloApp.swift */,
+				BB9DF83B5400B840129C54B5 /* TerminalView.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -126,6 +129,7 @@
 			files = (
 				D0EC2E78DF43C36E9887DFF2 /* ContentView.swift in Sources */,
 				C61C8163D94D3C5407CD79F3 /* LibghosttyHelloApp.swift in Sources */,
+				EF15E976D35DF66985EF1026 /* TerminalView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

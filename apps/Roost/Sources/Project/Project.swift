@@ -85,6 +85,21 @@ final class ProjectStore: ObservableObject {
         save()
     }
 
+    /// Move `srcID` to directly before `targetID` in the sidebar order.
+    /// No-op if either ID is missing or they refer to the same row.
+    func move(_ srcID: Project.ID, before targetID: Project.ID) {
+        guard srcID != targetID,
+              let src = projects.firstIndex(where: { $0.id == srcID }),
+              let dst = projects.firstIndex(where: { $0.id == targetID })
+        else { return }
+        let p = projects.remove(at: src)
+        // After removal, if we pulled from above the destination, `dst` slid
+        // up by one — insert at dst-1 to preserve the "before target" intent.
+        let adjusted = src < dst ? dst - 1 : dst
+        projects.insert(p, at: adjusted)
+        save()
+    }
+
     // MARK: Persistence
 
     private func save() {

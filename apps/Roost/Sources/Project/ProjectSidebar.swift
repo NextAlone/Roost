@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ProjectSidebar: View {
     @ObservedObject var store: ProjectStore
@@ -63,6 +64,18 @@ struct ProjectSidebar: View {
                                 onCloseSession: onCloseSession
                             )
                             .tag(project.id)
+                            .onDrag {
+                                NSItemProvider(
+                                    object: project.id.uuidString as NSString
+                                )
+                            }
+                            .onDrop(
+                                of: [.plainText],
+                                delegate: ProjectDropDelegate(
+                                    store: store,
+                                    target: project.id
+                                )
+                            )
                             .contextMenu {
                                 Button("Rename") { beginRename(project) }
                                 Divider()
@@ -435,6 +448,35 @@ private struct VcsIcon: View {
         }
         .font(.caption)
         .frame(width: 16)
+    }
+}
+
+// MARK: - Drag & drop
+
+/// Reorders projects by drag-drop. The dragged row carries its UUID as
+/// plain text; on drop we move it to directly before the target row.
+/// Scratch is not draggable (no `.onDrag` on its row) and is not a valid
+/// drop target (no `.onDrop` either).
+private struct ProjectDropDelegate: DropDelegate {
+    let store: ProjectStore
+    let target: Project.ID
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [.plainText]).first
+        else { return false }
+        provider.loadObject(ofClass: NSString.self) { obj, _ in
+            guard let s = obj as? String,
+                  let srcID = UUID(uuidString: s)
+            else { return }
+            DispatchQueue.main.async {
+                store.move(srcID, before: target)
+            }
+        }
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
     }
 }
 

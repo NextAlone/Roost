@@ -7,15 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		248E00B66EFF719474C61A0B /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AD61540C64F56FC1CEC138 /* SwiftBridgeCore.swift */; };
 		BAE0B59BDE4052C8471AFE2D /* GhosttyKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B3CD832481033BDA5A6BEF8 /* GhosttyKit.xcframework */; };
 		C61C8163D94D3C5407CD79F3 /* LibghosttyHelloApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70F50169CC7FA890E5BB0A10 /* LibghosttyHelloApp.swift */; };
 		D0EC2E78DF43C36E9887DFF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29101DE6207FE564715E939D /* ContentView.swift */; };
+		D4451FD28F5984C3EEB31569 /* RoostBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 448332AD6C3762F9709A2DF5 /* RoostBridge.swift */; };
 		EF15E976D35DF66985EF1026 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9DF83B5400B840129C54B5 /* TerminalView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		29101DE6207FE564715E939D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		29AD61540C64F56FC1CEC138 /* SwiftBridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftBridgeCore.swift; sourceTree = "<group>"; };
 		3B3CD832481033BDA5A6BEF8 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyKit.xcframework; path = ../../vendor/GhosttyKit.xcframework; sourceTree = "<group>"; };
+		448332AD6C3762F9709A2DF5 /* RoostBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoostBridge.swift; sourceTree = "<group>"; };
 		70F50169CC7FA890E5BB0A10 /* LibghosttyHelloApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibghosttyHelloApp.swift; sourceTree = "<group>"; };
 		75DC06FE4A0152E9A5707BE4 /* LibghosttyHello.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LibghosttyHello.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB9DF83B5400B840129C54B5 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
@@ -49,9 +53,19 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		D05018BF2A27767BA830500C /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				448332AD6C3762F9709A2DF5 /* RoostBridge.swift */,
+				29AD61540C64F56FC1CEC138 /* SwiftBridgeCore.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
 		DA7C1722CC54935BE7EF39A9 = {
 			isa = PBXGroup;
 			children = (
+				D05018BF2A27767BA830500C /* Generated */,
 				ED46BA1C296755B20C7B32D8 /* Sources */,
 				C9F7B8AD44A55A7BCDFB9FED /* Frameworks */,
 				0EEC1E0BFA0007E12061F15D /* Products */,
@@ -75,6 +89,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = B1010FEB3BA5B5551AFD25BE /* Build configuration list for PBXNativeTarget "LibghosttyHello" */;
 			buildPhases = (
+				0417E046A53FD72F726C91A1 /* Build roost-bridge (Rust) */,
 				06012E336C98A3DF3D046312 /* Sources */,
 				63674598F38E98A6A4810DAB /* Frameworks */,
 			);
@@ -122,6 +137,30 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		0417E046A53FD72F726C91A1 /* Build roost-bridge (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../crates/roost-bridge/src/lib.rs",
+				"$(SRCROOT)/../../crates/roost-bridge/Cargo.toml",
+			);
+			name = "Build roost-bridge (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Generated/libroost_bridge.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\"$SRCROOT/scripts/build-rust.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		06012E336C98A3DF3D046312 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -129,6 +168,8 @@
 			files = (
 				D0EC2E78DF43C36E9887DFF2 /* ContentView.swift in Sources */,
 				C61C8163D94D3C5407CD79F3 /* LibghosttyHelloApp.swift in Sources */,
+				D4451FD28F5984C3EEB31569 /* RoostBridge.swift in Sources */,
+				248E00B66EFF719474C61A0B /* SwiftBridgeCore.swift in Sources */,
 				EF15E976D35DF66985EF1026 /* TerminalView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -202,11 +243,18 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				OTHER_LDFLAGS = (
 					"-lc++",
+					"-lroost_bridge",
 					"-framework",
 					Metal,
 					"-framework",
@@ -222,6 +270,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OBJC_BRIDGING_HEADER = "Generated/RoostBridge-Bridging.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
 			};
@@ -278,12 +327,19 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"-lc++",
+					"-lroost_bridge",
 					"-framework",
 					Metal,
 					"-framework",
@@ -299,6 +355,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OBJC_BRIDGING_HEADER = "Generated/RoostBridge-Bridging.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
 			};

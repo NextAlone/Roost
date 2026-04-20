@@ -49,12 +49,18 @@ final class TerminalNSView: NSView {
 
         // When the user switches IME while a preedit is active (⌃Space,
         // etc.), AppKit doesn't always notify the old IME to discard its
-        // marked text, leaving stale glyphs on ghostty's cursor. Hook the
-        // system notification and flush.
+        // marked text, leaving stale glyphs on ghostty's cursor. Listen on
+        // both layers (AppKit + Carbon TIS) so at least one fires.
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(inputSourceDidChange(_:)),
             name: NSTextInputContext.keyboardSelectionDidChangeNotification,
+            object: nil
+        )
+        DistributedNotificationCenter.default.addObserver(
+            self,
+            selector: #selector(inputSourceDidChange(_:)),
+            name: NSNotification.Name("AppleSelectedInputSourcesChangedNotification"),
             object: nil
         )
     }
@@ -132,14 +138,21 @@ final class TerminalNSView: NSView {
               sessionID.uuidString,
               surface == nil ? "nil" : "set")
         NotificationCenter.default.removeObserver(self)
+        DistributedNotificationCenter.default.removeObserver(self)
         if let surface { ghostty_surface_free(surface) }
     }
 
-    /// Called when the active macOS input source changes. If we had a
-    /// live preedit under the *old* IME, flush it: tell the old IME to
-    /// discard its marked text, clear our mirror, and clear ghostty's
-    /// preedit so no glyphs linger in the cursor cell.
+    /// Called when the active macOS input source changes (⌃Space, IME
+    /// menu, etc.). If we had a live preedit under the *old* IME, flush
+    /// it: tell the old IME to discard its marked text, clear our mirror,
+    /// and clear ghostty's preedit so no glyphs linger in the cursor cell.
+    ///
+    /// Subscribed twice (AppKit + Carbon TIS) because either may arrive
+    /// asynchronously on main queue; the second one becomes a no-op once
+    /// markedText is already empty.
     @objc private func inputSourceDidChange(_ note: Notification) {
+        NSLog("[Roost] IME source changed notification=%@ markedLen=%d",
+              note.name.rawValue, markedText.length)
         guard markedText.length > 0 else { return }
         markedText.mutableString.setString("")
         inputContext?.discardMarkedText()

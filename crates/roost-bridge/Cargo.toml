@@ -1,0 +1,18 @@
+[package]
+name = "roost-bridge"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Swift bindings for Roost's Rust core"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+swift-bridge.workspace = true
+
+[build-dependencies]
+swift-bridge-build.workspace = true

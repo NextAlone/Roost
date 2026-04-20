@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/roost-bridge",
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+repository = "https://github.com/NextAlone/Roost"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+swift-bridge = "0.1.59"
+swift-bridge-build = "0.1.59"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"

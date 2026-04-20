@@ -1,0 +1,49 @@
+name: SwiftBridgeHello
+options:
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    PRODUCT_BUNDLE_IDENTIFIER: sh.roost.swift-bridge-hello
+    SWIFT_OBJC_BRIDGING_HEADER: Generated/RoostBridge-Bridging.h
+    HEADER_SEARCH_PATHS:
+      - "$(SRCROOT)/Generated"
+    LIBRARY_SEARCH_PATHS:
+      - "$(SRCROOT)/Generated"
+    OTHER_LDFLAGS:
+      - "-lroost_bridge"
+
+targets:
+  SwiftBridgeHello:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      - path: Generated/RoostBridge.swift
+      - path: Generated/SwiftBridgeCore.swift
+    info:
+      path: Info.plist
+      properties:
+        CFBundleName: SwiftBridgeHello
+        LSMinimumSystemVersion: "13.0"
+        NSPrincipalClass: NSApplication
+        NSHighResolutionCapable: true
+    preBuildScripts:
+      - script: |
+          set -e
+          "$SRCROOT/scripts/build-rust.sh"
+        name: Build roost-bridge (Rust)
+        inputFiles:
+          - $(SRCROOT)/../../crates/roost-bridge/src/lib.rs
+          - $(SRCROOT)/../../crates/roost-bridge/Cargo.toml
+        outputFiles:
+          - $(SRCROOT)/Generated/libroost_bridge.a
+    settings:
+      base:
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "-"
+        PRODUCT_BUNDLE_IDENTIFIER: sh.roost.swift-bridge-hello

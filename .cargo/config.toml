@@ -1,0 +1,15 @@
+# Force use of Xcode's clang/ld for aarch64-apple-darwin targets.
+# On a nix-shell-polluted system, `cc` resolves to a clang wrapper that does
+# not advertise /usr/lib in its library search path, so crates that link
+# against system libs (iconv, System) fail with "ld: library not found".
+#
+# xcrun-resolved clang inherits the Xcode SDK and knows where to find them.
+[target.aarch64-apple-darwin]
+linker = "/usr/bin/clang"
+
+[target.x86_64-apple-darwin]
+linker = "/usr/bin/clang"
+
+[env]
+CC_aarch64-apple-darwin = "/usr/bin/clang"
+CXX_aarch64-apple-darwin = "/usr/bin/clang++"

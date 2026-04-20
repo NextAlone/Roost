@@ -40,10 +40,19 @@ struct RootView: View {
             }
         }
         .onChange(of: selectedProjectID) { newID in
-            if let newID, let proj = projects.projects.first(where: { $0.id == newID }) {
-                form.projectPath = proj.path
+            switch newID {
+            case nil, Project.scratchID?:
+                // Scratch / nothing selected: sessions aren't bound to a
+                // directory, so reset the launcher form so ⌘-Launch runs
+                // in $HOME rather than the last project's path.
+                form.projectPath = ""
+                form.useJjWorkspace = false
+            case let realID?:
+                if let proj = projects.projects.first(where: { $0.id == realID }) {
+                    form.projectPath = proj.path
+                }
             }
-            // When switching project, fall back to the first matching session.
+            // When switching bucket, fall back to the first matching session.
             selectedSessionID = filteredSessions.first?.id
         }
         .onChange(of: selectedSessionID) { newID in
@@ -254,6 +263,8 @@ struct RootView: View {
     // MARK: - Launch
 
     private func launchDirect() {
+        NSLog("[Roost] Launch pressed (direct) agent=%@ path=%@ jj=%d",
+              form.agent, form.projectPath, form.useJjWorkspace ? 1 : 0)
         if let s = makeSession() {
             sessions.append(s)
             selectedSessionID = s.id
@@ -261,6 +272,8 @@ struct RootView: View {
     }
 
     private func launchFromSheet() {
+        NSLog("[Roost] Launch pressed (sheet) agent=%@ path=%@ jj=%d",
+              form.agent, form.projectPath, form.useJjWorkspace ? 1 : 0)
         if let s = makeSession() {
             sessions.append(s)
             selectedSessionID = s.id

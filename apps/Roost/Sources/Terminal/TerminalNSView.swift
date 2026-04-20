@@ -78,7 +78,7 @@ final class TerminalNSView: NSView {
 
         cEnv.withUnsafeMutableBufferPointer { envBuf in
             cfg.env_vars = envBuf.baseAddress
-            cfg.env_var_count = UInt(envBuf.count)
+            cfg.env_var_count = envBuf.count
             withOptionalCString(command) { cmdPtr in
                 withOptionalCString(workingDirectory) { wdPtr in
                     cfg.command = cmdPtr
@@ -243,7 +243,7 @@ final class TerminalNSView: NSView {
         let consumed = modsFrom(event.modifierFlags.subtracting([.control, .command]))
 
         let runKey: (UnsafePointer<CChar>?) -> Void = { textPtr in
-            var k = ghostty_input_key_s(
+            let k = ghostty_input_key_s(
                 action: action,
                 mods: mods,
                 consumed_mods: consumed,

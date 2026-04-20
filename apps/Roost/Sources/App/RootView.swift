@@ -1,11 +1,14 @@
 import SwiftUI
 
-/// Top-level view. Owns the session list, which tab is active, and the
-/// launcher form state.
+/// Top-level view. Owns the project store, session list, which tab is
+/// active, and the launcher form state. Rendered as a `NavigationSplitView`:
+/// projects on the left, active project's terminal pane on the right.
 struct RootView: View {
+    @StateObject private var projects = ProjectStore()
+    @State private var selectedProjectID: Project.ID?
     @State private var form = LauncherForm()
     @State private var sessions: [LaunchedSession] = []
-    @State private var selectedID: LaunchedSession.ID?
+    @State private var selectedSessionID: LaunchedSession.ID?
     @State private var isShowingLauncher: Bool = false
     @State private var launchError: String?
 
@@ -13,14 +16,30 @@ struct RootView: View {
     private let bridgeVersion = RoostBridge.version
 
     var body: some View {
-        VStack(spacing: 0) {
-            HeaderBar(
-                ghosttyInfo: ghosttyInfo,
-                bridgeVersion: bridgeVersion,
-                sessionCount: sessions.count
+        NavigationSplitView {
+            ProjectSidebar(
+                store: projects,
+                selection: $selectedProjectID,
+                onAdd: addProjectFlow
             )
-            Divider()
-            content
+            .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
+        } detail: {
+            VStack(spacing: 0) {
+                HeaderBar(
+                    ghosttyInfo: ghosttyInfo,
+                    bridgeVersion: bridgeVersion,
+                    sessionCount: filteredSessions.count
+                )
+                Divider()
+                detail
+            }
+        }
+        .onChange(of: selectedProjectID) { newID in
+            if let newID, let proj = projects.projects.first(where: { $0.id == newID }) {
+                form.projectPath = proj.path
+            }
+            // When switching project, fall back to the first matching session.
+            selectedSessionID = filteredSessions.first?.id
         }
         .sheet(isPresented: $isShowingLauncher) {
             LauncherSheet(
@@ -50,18 +69,25 @@ struct RootView: View {
         }
     }
 
-    // MARK: Content switch
+    // MARK: - Derived state
+
+    private var filteredSessions: [LaunchedSession] {
+        guard let projectID = selectedProjectID else { return sessions }
+        return sessions.filter { $0.projectID == projectID }
+    }
+
+    // MARK: - Detail pane
 
     @ViewBuilder
-    private var content: some View {
-        if sessions.isEmpty {
+    private var detail: some View {
+        if filteredSessions.isEmpty {
             LauncherView(form: $form, onLaunch: launchDirect)
         } else {
             VStack(spacing: 0) {
                 TabBar(
-                    sessions: sessions,
-                    selectedID: selectedID,
-                    onSelect: { selectedID = $0 },
+                    sessions: filteredSessions,
+                    selectedID: selectedSessionID,
+                    onSelect: { selectedSessionID = $0 },
                     onClose: closeSession,
                     onNew: { isShowingLauncher = true }
                 )
@@ -74,6 +100,8 @@ struct RootView: View {
     /// Keep every session's `TerminalNSView` alive for the lifetime of the
     /// session; switching tabs only flips visibility. Using `.id(selectedID)`
     /// here (single view) would rebuild the NSView and kill the child PTY.
+    /// We render *all* sessions (across projects) so switching projects
+    /// doesn't tear down the inactive project's terminals either.
     @ViewBuilder
     private var terminalPane: some View {
         ZStack {
@@ -84,26 +112,50 @@ struct RootView: View {
                     workingDirectory: session.spec.workingDirectory.isEmpty
                         ? nil : session.spec.workingDirectory
                 )
-                .opacity(session.id == selectedID ? 1 : 0)
-                .allowsHitTesting(session.id == selectedID)
+                .opacity(session.id == selectedSessionID ? 1 : 0)
+                .allowsHitTesting(session.id == selectedSessionID)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: Launch
+    // MARK: - Projects
+
+    private func addProjectFlow() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Add"
+        panel.message = "Pick a jj repository"
+        panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory())
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let path = url.path
+
+        guard RoostBridge.isJjRepo(dir: path) else {
+            launchError = "\(path) is not inside a jj repository. Run `jj init` first."
+            return
+        }
+
+        let project = projects.add(path: path)
+        selectedProjectID = project.id
+        form.projectPath = path
+    }
+
+    // MARK: - Launch
 
     private func launchDirect() {
         if let s = makeSession() {
             sessions.append(s)
-            selectedID = s.id
+            selectedSessionID = s.id
         }
     }
 
     private func launchFromSheet() {
         if let s = makeSession() {
             sessions.append(s)
-            selectedID = s.id
+            selectedSessionID = s.id
             isShowingLauncher = false
         }
     }
@@ -115,7 +167,11 @@ struct RootView: View {
                 ? RoostBridge.prepareSession(agent: form.agent)
                 : RoostBridge.prepareSession(agent: form.agent, workingDirectory: cwd)
             NSLog("[Roost] launch: agent=%@ cwd=%@ cmd=%@", form.agent, cwd, spec.command)
-            return LaunchedSession(spec: spec, label: label)
+            return LaunchedSession(
+                projectID: selectedProjectID,
+                spec: spec,
+                label: label
+            )
         } catch let err as RustString {
             let msg = err.toString()
             NSLog("[Roost] launch failed (rust): %@", msg)
@@ -129,8 +185,8 @@ struct RootView: View {
         }
     }
 
-    /// Returns (working directory, tab label). Creates the jj workspace if the
-    /// form requests it.
+    /// Returns (working directory, tab label). Creates the jj workspace if
+    /// the form requests it.
     private func resolveCwd() throws -> (String, String) {
         let project = form.projectPath.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -159,14 +215,14 @@ struct RootView: View {
         return "\(form.agent)-\(formatter.string(from: Date()))"
     }
 
-    // MARK: Close
+    // MARK: - Close
 
     private func closeSession(id: LaunchedSession.ID) {
         guard let idx = sessions.firstIndex(where: { $0.id == id }) else { return }
         sessions.remove(at: idx)
-        guard !sessions.isEmpty else { selectedID = nil; return }
-        if selectedID == id {
-            selectedID = sessions[min(idx, sessions.count - 1)].id
+
+        if selectedSessionID == id {
+            selectedSessionID = filteredSessions.first?.id
         }
     }
 }
@@ -175,7 +231,8 @@ private enum LaunchError: LocalizedError {
     case missingProject
     var errorDescription: String? {
         switch self {
-        case .missingProject: "Pick a project directory before creating a jj workspace."
+        case .missingProject:
+            "Pick a project directory before creating a jj workspace."
         }
     }
 }
@@ -183,13 +240,22 @@ private enum LaunchError: LocalizedError {
 /// One active session in the UI.
 struct LaunchedSession: Identifiable, Equatable {
     let id: UUID
+    /// Project the session belongs to. `nil` = freeform session outside of
+    /// any registered project.
+    let projectID: Project.ID?
     let spec: SessionSpecSwift
     /// Short label shown in the tab (e.g. `claude@ws-foo`). Falls back to
     /// `spec.agentKind` for non-workspace sessions.
     let label: String
 
-    init(id: UUID = UUID(), spec: SessionSpecSwift, label: String? = nil) {
+    init(
+        id: UUID = UUID(),
+        projectID: Project.ID? = nil,
+        spec: SessionSpecSwift,
+        label: String? = nil
+    ) {
         self.id = id
+        self.projectID = projectID
         self.spec = spec
         self.label = label ?? spec.agentKind
     }

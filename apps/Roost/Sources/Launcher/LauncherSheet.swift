@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Sheet variant used when a session already exists. Wraps `LauncherView` with
-/// a title bar + Cancel button.
+/// Sheet variant used when a session already exists. Wraps `LauncherView`
+/// with a title bar + Cancel button.
 struct LauncherSheet: View {
-    @Binding var agentDraft: String
+    @Binding var form: LauncherForm
     let onLaunch: () -> Void
     let onCancel: () -> Void
 
@@ -21,9 +21,9 @@ struct LauncherSheet: View {
 
             Divider()
 
-            LauncherView(agentDraft: $agentDraft, onLaunch: onLaunch)
+            LauncherView(form: $form, onLaunch: onLaunch)
                 .frame(maxHeight: .infinity)
         }
-        .frame(width: 440, height: 320)
+        .frame(width: 480, height: 420)
     }
 }

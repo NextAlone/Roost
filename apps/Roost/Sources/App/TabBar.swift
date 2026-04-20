@@ -14,7 +14,7 @@ struct TabBar: View {
             HStack(spacing: 2) {
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                     TabChip(
-                        label: "\(index + 1). \(session.spec.agentKind)",
+                        label: "\(index + 1). \(session.label)",
                         isSelected: session.id == selectedID,
                         onSelect: { onSelect(session.id) },
                         onClose: { onClose(session.id) }

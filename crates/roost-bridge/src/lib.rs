@@ -3,6 +3,7 @@
 //! M0.x: `roost_greet` / `roost_bridge_version` / `roost_prepare_session`.
 //! M2:   jj workspace / bookmark / status helpers via `jj` CLI.
 
+mod hooks;
 mod jj;
 
 #[swift_bridge::bridge]
@@ -77,6 +78,19 @@ mod ffi {
         fn roost_workspace_status(workspace_dir: String) -> Result<StatusEntry, String>;
         fn roost_bookmark_create(workspace_dir: String, name: String) -> Result<(), String>;
         fn roost_bookmark_forget(workspace_dir: String, name: String) -> Result<(), String>;
+
+        // .roost/config.json hooks (M5). Returns serialized step results; see
+        // `hooks::serialize` for the row format. `Err` only for malformed
+        // config JSON / IO problems; per-step command failures show up as a
+        // nonzero `exit_code` inside the serialized rows.
+        fn roost_run_setup_hooks(
+            project_root: String,
+            workspace_dir: String,
+        ) -> Result<String, String>;
+        fn roost_run_teardown_hooks(
+            project_root: String,
+            workspace_dir: String,
+        ) -> Result<String, String>;
     }
 }
 
@@ -195,6 +209,24 @@ fn roost_bookmark_create(workspace_dir: String, name: String) -> Result<(), Stri
 
 fn roost_bookmark_forget(workspace_dir: String, name: String) -> Result<(), String> {
     jj::bookmark_forget(&workspace_dir, &name)
+}
+
+// MARK: - hooks
+
+fn roost_run_setup_hooks(project_root: String, workspace_dir: String) -> Result<String, String> {
+    let results = hooks::run_setup(
+        std::path::Path::new(&project_root),
+        std::path::Path::new(&workspace_dir),
+    )?;
+    Ok(hooks::serialize(&results))
+}
+
+fn roost_run_teardown_hooks(project_root: String, workspace_dir: String) -> Result<String, String> {
+    let results = hooks::run_teardown(
+        std::path::Path::new(&project_root),
+        std::path::Path::new(&workspace_dir),
+    )?;
+    Ok(hooks::serialize(&results))
 }
 
 // MARK: - domain → FFI conversions

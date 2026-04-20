@@ -81,6 +81,24 @@ enum RoostBridge {
     static func bookmarkForget(workspaceDir: String, name: String) throws {
         try roost_bookmark_forget(workspaceDir, name)
     }
+
+    // MARK: hooks (M5)
+
+    static func runSetupHooks(
+        projectRoot: String,
+        workspaceDir: String
+    ) throws -> [HookStepResult] {
+        let serialized = try roost_run_setup_hooks(projectRoot, workspaceDir).toString()
+        return HookStepResult.parseAll(serialized)
+    }
+
+    static func runTeardownHooks(
+        projectRoot: String,
+        workspaceDir: String
+    ) throws -> [HookStepResult] {
+        let serialized = try roost_run_teardown_hooks(projectRoot, workspaceDir).toString()
+        return HookStepResult.parseAll(serialized)
+    }
 }
 
 // MARK: - Swift-native mirrors of shared structs
@@ -168,5 +186,41 @@ struct StatusEntrySwift: Equatable {
     init(raw: StatusEntry) {
         self.clean = raw.clean
         self.text = raw.text.toString()
+    }
+}
+
+/// One `.roost/config.json` hook step reported by Rust.
+/// See `roost-bridge::hooks::serialize` for the wire format.
+struct HookStepResult: Equatable {
+    enum Phase: String { case setup, teardown, unknown }
+
+    let phase: Phase
+    let index: Int
+    let total: Int
+    let exitCode: Int32
+    let command: String
+    let stderrTail: String
+
+    var succeeded: Bool { exitCode == 0 }
+
+    static func parseAll<S: StringProtocol>(_ serialized: S) -> [HookStepResult] {
+        serialized
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .compactMap(HookStepResult.init(row:))
+    }
+
+    init?<S: StringProtocol>(row: S) {
+        let fields = row.split(separator: "\u{1f}", omittingEmptySubsequences: false)
+        guard fields.count >= 6,
+              let idx = Int(fields[1]),
+              let total = Int(fields[2]),
+              let code = Int32(fields[3])
+        else { return nil }
+        self.phase = Phase(rawValue: String(fields[0])) ?? .unknown
+        self.index = idx
+        self.total = total
+        self.exitCode = code
+        self.command = String(fields[4])
+        self.stderrTail = String(fields[5])
     }
 }

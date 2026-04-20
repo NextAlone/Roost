@@ -14,6 +14,9 @@ struct RootView: View {
     /// Session IDs that have seen an OSC 9/99/777 notification since they
     /// were last focused. Cleared when the user selects the session.
     @State private var unreadSessions: Set<UUID> = []
+    /// Latest setup/teardown hook failure summary per project, shown as a
+    /// sidebar warning. Cleared when the user selects the project.
+    @State private var projectHookWarnings: [Project.ID: String] = [:]
 
     private let ghosttyInfo = GhosttyInfo.current
     private let bridgeVersion = RoostBridge.version
@@ -27,6 +30,7 @@ struct RootView: View {
                 scratchHasUnread: scratchHasUnread,
                 scratchSessionCount: scratchSessionCount,
                 sessionCountByProject: sessionCountByProject,
+                hookWarningsByProject: projectHookWarnings,
                 onAdd: addProjectFlow
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
@@ -53,6 +57,7 @@ struct RootView: View {
                 if let proj = projects.projects.first(where: { $0.id == realID }) {
                     form.projectPath = proj.path
                 }
+                projectHookWarnings.removeValue(forKey: realID)
             }
             // When switching bucket, fall back to the first matching session.
             selectedSessionID = filteredSessions.first?.id
@@ -110,6 +115,17 @@ struct RootView: View {
             let currentIdx = list.firstIndex(where: { $0.id == selectedSessionID }) ?? 0
             let next = (currentIdx + delta + list.count) % list.count
             selectedSessionID = list[next].id
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .roostHookProgress)) { note in
+            guard let pid = note.userInfo?[RoostNotificationKey.projectID] as? Project.ID,
+                  let success = note.userInfo?[RoostNotificationKey.success] as? Bool
+            else { return }
+            if success {
+                return
+            }
+            let title = note.userInfo?[RoostNotificationKey.title] as? String ?? "hook failed"
+            let body = note.userInfo?[RoostNotificationKey.body] as? String ?? ""
+            projectHookWarnings[pid] = body.isEmpty ? title : "\(title): \(body)"
         }
     }
 
@@ -349,13 +365,149 @@ struct RootView: View {
             workspacePath: wsPath,
             name: wsName
         )
+
+        // M5: run .roost/config.json setup hooks inside the fresh workspace.
+        // Non-blocking: hook failures surface as a sidebar warning only, so
+        // the caller still gets the session launched.
+        if let pid = realProjectID() {
+            runHooksAsync(
+                phase: "setup",
+                projectID: pid,
+                projectRoot: project,
+                workspaceDir: wsPath
+            )
+        }
+
         return (wsPath, "\(form.agent)@\(wsName)")
+    }
+
+    /// Map the *launcher-selected* project to a real Project.ID, filtering
+    /// out the Scratch sentinel (which has no project root to load
+    /// `.roost/config.json` from).
+    private func realProjectID() -> Project.ID? {
+        guard let id = selectedProjectID, id != Project.scratchID else { return nil }
+        return id
+    }
+
+    /// Run setup/teardown hooks on a background queue and post a
+    /// `.roostHookProgress` notification per step back on the main queue.
+    /// Hook failures do NOT raise alerts or block the workspace operation;
+    /// they show up as sidebar warnings.
+    private func runHooksAsync(
+        phase: String,
+        projectID: Project.ID,
+        projectRoot: String,
+        workspaceDir: String
+    ) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let results: [HookStepResult]
+            do {
+                switch phase {
+                case "teardown":
+                    results = try RoostBridge.runTeardownHooks(
+                        projectRoot: projectRoot,
+                        workspaceDir: workspaceDir
+                    )
+                default:
+                    results = try RoostBridge.runSetupHooks(
+                        projectRoot: projectRoot,
+                        workspaceDir: workspaceDir
+                    )
+                }
+            } catch let err as RustString {
+                let msg = err.toString()
+                NSLog("[Roost] %@ hook config error: %@", phase, msg)
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(
+                        name: .roostHookProgress,
+                        object: nil,
+                        userInfo: [
+                            RoostNotificationKey.projectID: projectID,
+                            RoostNotificationKey.phase: phase,
+                            RoostNotificationKey.index: 0,
+                            RoostNotificationKey.total: 0,
+                            RoostNotificationKey.success: false,
+                            RoostNotificationKey.title: "\(phase) config",
+                            RoostNotificationKey.body: msg,
+                        ]
+                    )
+                }
+                return
+            } catch {
+                NSLog("[Roost] %@ hook failed: %@", phase, String(describing: error))
+                return
+            }
+
+            for r in results {
+                let step = "\(r.index)/\(r.total)"
+                let title = r.succeeded
+                    ? "\(phase) \(step): \(r.command)"
+                    : "\(phase) \(step) failed (exit=\(r.exitCode)): \(r.command)"
+                let body = r.stderrTail
+                NSLog("[Roost] hook %@ step %@ cmd=%@ exit=%d",
+                      phase, step, r.command, r.exitCode)
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(
+                        name: .roostHookProgress,
+                        object: nil,
+                        userInfo: [
+                            RoostNotificationKey.projectID: projectID,
+                            RoostNotificationKey.phase: phase,
+                            RoostNotificationKey.index: r.index,
+                            RoostNotificationKey.total: r.total,
+                            RoostNotificationKey.success: r.succeeded,
+                            RoostNotificationKey.title: title,
+                            RoostNotificationKey.body: body,
+                        ]
+                    )
+                }
+            }
+        }
     }
 
     private func defaultWorkspaceName() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMdd-HHmm"
         return "\(form.agent)-\(formatter.string(from: Date()))"
+    }
+
+    // MARK: - Workspace delete (teardown + forget)
+
+    /// Run `.roost/config.json` teardown hooks, then `jj workspace forget`.
+    /// Teardown is best-effort: its failures are surfaced as sidebar
+    /// warnings and never block the forget. Exposed for future delete-
+    /// workspace UI (context menu / sidebar action). Safe to call with
+    /// `projectID == nil` (scratch); hooks are skipped in that case.
+    func deleteWorkspaceFlow(
+        projectID: Project.ID?,
+        projectRoot: String,
+        workspaceDir: String,
+        workspaceName: String
+    ) {
+        if let pid = projectID {
+            // Teardown runs synchronously here (on the main queue) so its
+            // post-step notifications land before forget is reported. The
+            // whole chain should be dispatched off-main by the caller if
+            // it wants no UI hitch.
+            runHooksAsync(
+                phase: "teardown",
+                projectID: pid,
+                projectRoot: projectRoot,
+                workspaceDir: workspaceDir
+            )
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try RoostBridge.forgetWorkspace(
+                    repoDir: projectRoot,
+                    name: workspaceName
+                )
+            } catch let err as RustString {
+                NSLog("[Roost] forgetWorkspace failed: %@", err.toString())
+            } catch {
+                NSLog("[Roost] forgetWorkspace failed: %@", String(describing: error))
+            }
+        }
     }
 
     // MARK: - Close

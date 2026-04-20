@@ -180,6 +180,8 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 name = "roost-bridge"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "swift-bridge",
  "swift-bridge-build",
 ]
@@ -210,6 +212,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
+ "serde_derive",
 ]
 
 [[package]]

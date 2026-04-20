@@ -7,6 +7,9 @@ struct ProjectSidebar: View {
     let scratchHasUnread: Bool
     let scratchSessionCount: Int
     let sessionCountByProject: [Project.ID: Int]
+    /// M5: latest setup/teardown hook failure per project, keyed by ID.
+    /// Shown as a ⚠ icon with a tooltip on the project row.
+    let hookWarningsByProject: [Project.ID: String]
     let onAdd: () -> Void
 
     @State private var renamingID: Project.ID?
@@ -32,6 +35,7 @@ struct ProjectSidebar: View {
                                 project: project,
                                 isUnread: unreadProjectIDs.contains(project.id),
                                 sessionCount: sessionCountByProject[project.id] ?? 0,
+                                hookWarning: hookWarningsByProject[project.id],
                                 isRenaming: renamingID == project.id,
                                 renameDraft: $renameDraft,
                                 onRenameCommit: {
@@ -132,6 +136,7 @@ private struct ProjectRow: View {
     let project: Project
     let isUnread: Bool
     let sessionCount: Int
+    let hookWarning: String?
     let isRenaming: Bool
     @Binding var renameDraft: String
     let onRenameCommit: () -> Void
@@ -161,6 +166,13 @@ private struct ProjectRow: View {
             }
 
             Spacer()
+
+            if let warning = hookWarning {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.yellow)
+                    .font(.caption)
+                    .help(warning)
+            }
 
             if sessionCount > 0 {
                 CountBadge(count: sessionCount)

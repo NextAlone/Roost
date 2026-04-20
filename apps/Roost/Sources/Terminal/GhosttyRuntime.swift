@@ -21,6 +21,11 @@ extension Notification.Name {
 
     /// Posted when the user hits ⌘[ / ⌘]; `userInfo["delta"]` is -1 / +1.
     static let roostSelectRelativeTab = Notification.Name("sh.roost.app.selectRelativeTab")
+
+    /// Posted once per `.roost/config.json` hook step. Carries
+    /// `projectID`, `phase` (`"setup"|"teardown"`), `index`, `total`,
+    /// `success` (Bool), `title`, `body`.
+    static let roostHookProgress = Notification.Name("sh.roost.app.hookProgress")
 }
 
 /// Bundles the keys we use on `.roost*` `userInfo` dicts.
@@ -30,6 +35,10 @@ enum RoostNotificationKey {
     static let body = "body"
     static let index = "index"
     static let delta = "delta"
+    static let projectID = "projectID"
+    static let phase = "phase"
+    static let total = "total"
+    static let success = "success"
 }
 
 /// Singleton wrapper around `ghostty_app_t`. One per process; all surfaces

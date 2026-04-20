@@ -121,21 +121,38 @@ struct RootView: View {
             let next = (currentIdx + delta + list.count) % list.count
             selectedSessionID = list[next].id
         }
-        .onReceive(NotificationCenter.default.publisher(for: .roostLaunchAgent)) { note in
-            guard let agent = note.userInfo?[RoostNotificationKey.agent] as? String
-            else { return }
-            openQuickSession(agent: agent)
+        .onReceive(NotificationCenter.default.publisher(for: .roostRestoredSessionsReady)) { _ in
+            importRestoredSessions()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .roostHookProgress)) { note in
-            guard let pid = note.userInfo?[RoostNotificationKey.projectID] as? Project.ID,
-                  let success = note.userInfo?[RoostNotificationKey.success] as? Bool
-            else { return }
-            if success {
-                return
+        .task {
+            // Cover the case where AppDelegate's adopt finishes before
+            // RootView subscribes to the notification.
+            importRestoredSessions()
+        }
+    }
+
+    private func importRestoredSessions() {
+        guard let delegate = NSApp.delegate as? RoostAppDelegate else { return }
+        let restored = delegate.consumeRestoredSessions()
+        for row in restored {
+            if sessions.contains(where: { $0.attach?.sessionID == row.handle.sessionID }) {
+                continue
             }
-            let title = note.userInfo?[RoostNotificationKey.title] as? String ?? "hook failed"
-            let body = note.userInfo?[RoostNotificationKey.body] as? String ?? ""
-            projectHookWarnings[pid] = body.isEmpty ? title : "\(title): \(body)"
+            let spec = SessionSpecSwift(
+                command: "",
+                workingDirectory: row.workingDirectory,
+                agentKind: row.agentKind
+            )
+            let session = LaunchedSession(
+                projectID: nil,
+                spec: spec,
+                attach: row.handle,
+                label: row.agentKind.isEmpty ? "restored" : row.agentKind
+            )
+            sessions.append(session)
+        }
+        if selectedSessionID == nil, let first = sessions.first {
+            selectedSessionID = first.id
         }
     }
 

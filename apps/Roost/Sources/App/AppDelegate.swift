@@ -1,6 +1,14 @@
 import AppKit
 import SwiftUI
 
+extension Notification.Name {
+    /// Posted by `RoostAppDelegate` once after launch when hostd reports
+    /// non-zero live sessions to restore. RootView listens to import them
+    /// as tabs.
+    static let roostRestoredSessionsReady =
+        Notification.Name("sh.roost.app.restoredSessionsReady")
+}
+
 /// Adopt the running hostd (or spawn one) at launch, and route ⌘Q through a
 /// notification-style shutdown so AppKit doesn't SIGKILL the process before
 /// hostd's grace period finishes.
@@ -9,6 +17,12 @@ final class RoostAppDelegate: NSObject, NSApplicationDelegate, ObservableObject 
     /// menu badge). Refreshed on-demand from `refreshHostdStatus()`.
     @Published private(set) var hostdStatus: HostdStatusSwift?
     @Published private(set) var hostdError: String?
+
+    /// Live sessions discovered on the running hostd at app launch. Empty
+    /// when the daemon was just spawned. RootView consumes this once via
+    /// `consumeRestoredSessions()` and turns each into a `LaunchedSession`
+    /// tab.
+    private(set) var pendingRestoredSessions: [LiveSessionRowSwift] = []
 
     /// True when the user picked "Quit & stop all agents". Determines which
     /// shutdown mode `applicationShouldTerminate` uses.
@@ -31,6 +45,25 @@ final class RoostAppDelegate: NSObject, NSApplicationDelegate, ObservableObject 
             hostdError = nil
             NSLog("[Roost] hostd adopted: pid=%u version=%@ sessions=%u",
                   status.pid, status.version, status.sessionCount)
+
+            // Populate the restore queue if the adopted daemon has live
+            // sessions. RootView calls consumeRestoredSessions() once on
+            // appear to pick these up.
+            if status.sessionCount > 0 {
+                do {
+                    let live = try RoostBridge.listLiveSessions()
+                    pendingRestoredSessions = live
+                    NSLog("[Roost] %d live session(s) queued for restore",
+                          live.count)
+                    NotificationCenter.default.post(
+                        name: .roostRestoredSessionsReady,
+                        object: nil
+                    )
+                } catch {
+                    NSLog("[Roost] listLiveSessions failed: %@",
+                          String(describing: error))
+                }
+            }
         } catch let err as RustString {
             let msg = err.toString()
             hostdError = msg
@@ -40,6 +73,13 @@ final class RoostAppDelegate: NSObject, NSApplicationDelegate, ObservableObject 
             hostdError = msg
             NSLog("[Roost] hostd adopt failed: %@", msg)
         }
+    }
+
+    /// Take the restore queue once. Subsequent calls return an empty array.
+    func consumeRestoredSessions() -> [LiveSessionRowSwift] {
+        let snapshot = pendingRestoredSessions
+        pendingRestoredSessions = []
+        return snapshot
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

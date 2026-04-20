@@ -100,6 +100,13 @@ mod ffi {
         fn roost_hostd_status() -> Result<HostdStatus, String>;
         fn roost_hostd_shutdown(mode: String) -> Result<u32, String>;
         fn roost_hostd_wait_dead(timeout_ms: u64) -> bool;
+        // Restore-on-launch surfaces. Live sessions = hostd's in-memory
+        // registry (ready to attach). History = SQLite, includes
+        // ExitedLost rows from prior crashes. Both go via the same
+        // \n + \u{1f} flat encoding the workspace list uses, because
+        // swift-bridge 0.1.59 doesn't ship Vec<SharedStruct>.
+        fn roost_list_live_sessions_serialized() -> Result<String, String>;
+        fn roost_list_session_history_serialized() -> Result<String, String>;
 
         fn roost_is_jj_repo(dir: &str) -> bool;
         fn roost_jj_version() -> Result<String, String>;
@@ -338,6 +345,60 @@ fn roost_hostd_shutdown(mode: String) -> Result<u32, String> {
     };
     let ack = client().shutdown(mode).map_err(stringify)?;
     Ok(ack.live_sessions)
+}
+
+fn roost_list_live_sessions_serialized() -> Result<String, String> {
+    use roost_client::roost_core::dto::SessionState;
+    let sessions = client().list_sessions().map_err(stringify)?;
+    let manifest = roost_client::ensure_hostd().map_err(stringify)?;
+    let attach = locate_attach_binary().ok_or_else(|| {
+        "roost-attach binary not found (set ROOST_ATTACH_PATH or bundle into Resources)"
+            .to_string()
+    })?;
+    let mut out = String::new();
+    for info in sessions {
+        if info.state != SessionState::Running {
+            continue;
+        }
+        // Record: session_id␟attach_binary_path␟socket␟auth_token␟agent_kind␟working_directory.
+        out.push_str(&info.id.to_string());
+        out.push('\u{1f}');
+        out.push_str(&attach);
+        out.push('\u{1f}');
+        out.push_str(&manifest.socket);
+        out.push('\u{1f}');
+        out.push_str(&manifest.auth_token);
+        out.push('\u{1f}');
+        out.push_str(&info.agent_kind);
+        out.push('\u{1f}');
+        out.push_str(&info.working_directory);
+        out.push('\n');
+    }
+    Ok(out)
+}
+
+fn roost_list_session_history_serialized() -> Result<String, String> {
+    let history = client().list_session_history().map_err(stringify)?;
+    let mut out = String::new();
+    for h in history {
+        // Record: id␟agent_kind␟working_directory␟state␟exit_code␟created_at_epoch_ms.
+        // Mirrors the row format roost_list_workspaces_serialized uses.
+        out.push_str(&h.id.to_string());
+        out.push('\u{1f}');
+        out.push_str(&h.agent_kind);
+        out.push('\u{1f}');
+        out.push_str(&h.working_directory);
+        out.push('\u{1f}');
+        out.push_str(h.state.as_str());
+        out.push('\u{1f}');
+        if let Some(c) = h.exit_code {
+            out.push_str(&c.to_string());
+        }
+        out.push('\u{1f}');
+        out.push_str(&h.created_at_epoch_ms.to_string());
+        out.push('\n');
+    }
+    Ok(out)
 }
 
 fn roost_hostd_wait_dead(timeout_ms: u64) -> bool {

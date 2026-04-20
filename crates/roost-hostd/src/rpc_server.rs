@@ -491,6 +491,7 @@ fn is_async_method(method: &str) -> bool {
             | RESIZE_SESSION
             | SEND_INPUT
             | SHUTDOWN
+            | LIST_SESSION_HISTORY
     )
 }
 
@@ -504,11 +505,24 @@ async fn handle_async_method(
     match method {
         CREATE_SESSION => {
             let p: CreateSessionParams = decode(params)?;
+            let spec = p.spec.clone();
             let spawned = spawn_session(p.spec, Some(state.events.clone()))
                 .map_err(|e| RpcError::domain(e.to_string()))?;
             let id = spawned.id;
             let info = spawned.entry.info.clone();
             state.sessions.insert(spawned.entry);
+
+            // Persist (fire-and-forget). An orphaned 'running' row on
+            // hostd crash is exactly what reconcile_orphans turns into
+            // 'exited_lost' on next start, so we don't await this.
+            {
+                let pool = state.db.clone();
+                let info = info.clone();
+                let spec = spec.clone();
+                tokio::spawn(async move {
+                    crate::store::insert_session(&pool, &info, &spec).await;
+                });
+            }
 
             // Emit Running state on insert + arm exit watcher.
             state.events.emit_session_state(rpc::SessionStateEvent {
@@ -519,6 +533,7 @@ async fn handle_async_method(
             let exited_rx = spawned.exited_rx;
             let registry = state.sessions.clone();
             let events = state.events.clone();
+            let pool = state.db.clone();
             tokio::spawn(async move {
                 let code = exited_rx.await.ok().flatten();
                 // set_exit drops stdin_tx + resize_tx, which closes the
@@ -527,6 +542,7 @@ async fn handle_async_method(
                 // release. The SessionInfo row stays in the registry so
                 // list_sessions can still surface Exited + scrollback.
                 registry.set_exit(id, code);
+                crate::store::update_session_exit(&pool, id, code).await;
                 events.emit_session_state(rpc::SessionStateEvent {
                     session_id: id,
                     state: SessionState::Exited,
@@ -538,6 +554,12 @@ async fn handle_async_method(
             });
 
             ok(CreateSessionResult { info })
+        }
+        LIST_SESSION_HISTORY => {
+            let history = crate::store::list_session_history(&state.db)
+                .await
+                .map_err(|e| RpcError::internal(e.to_string()))?;
+            ok(SessionListResult { sessions: history })
         }
         LIST_SESSIONS => {
             let sessions = state.sessions.list();

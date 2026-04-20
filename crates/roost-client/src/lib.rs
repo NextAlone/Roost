@@ -304,6 +304,14 @@ impl Client {
             self.call(methods::SHUTDOWN, &rpc::ShutdownParams { mode })?;
         Ok(r)
     }
+
+    /// Persisted history (live + exited + exited_lost), most-recent first.
+    /// Sourced from the SQLite store, so survives hostd restarts.
+    pub fn list_session_history(&self) -> Result<Vec<SessionInfo>> {
+        let r: rpc::SessionListResult =
+            self.call(methods::LIST_SESSION_HISTORY, &rpc::Empty::default())?;
+        Ok(r.sessions)
+    }
 }
 
 impl Default for Client {

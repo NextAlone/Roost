@@ -165,6 +165,7 @@ pub mod methods {
 
     // Daemon lifecycle (M8).
     pub const SHUTDOWN: &str = "shutdown";
+    pub const LIST_SESSION_HISTORY: &str = "list_session_history";
 }
 
 /// Server→client notification method names (sent as JSON-RPC frames with

@@ -142,6 +142,25 @@ enum RoostBridge {
     static func waitHostdDead(timeoutMs: UInt64) -> Bool {
         roost_hostd_wait_dead(timeoutMs)
     }
+
+    /// Snapshot of currently-running hostd sessions, packaged so each one
+    /// can be turned straight into a TerminalAttach without further bridge
+    /// calls. Empty list when there's nothing to restore.
+    static func listLiveSessions() throws -> [LiveSessionRowSwift] {
+        let serialized = try roost_list_live_sessions_serialized().toString()
+        return serialized
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .compactMap(LiveSessionRowSwift.init(serializedRow:))
+    }
+
+    /// Persisted history rows, most-recent first. Includes Exited and
+    /// ExitedLost entries (the latter = hostd crashed while it was alive).
+    static func listSessionHistory() throws -> [SessionHistoryRowSwift] {
+        let serialized = try roost_list_session_history_serialized().toString()
+        return serialized
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .compactMap(SessionHistoryRowSwift.init(serializedRow:))
+    }
 }
 
 enum HostdShutdownMode: String {
@@ -292,18 +311,80 @@ struct HostdStatusSwift: Equatable {
     }
 }
 
+/// One row of `RoostBridge.listLiveSessions`. Carries the same shape as
+/// `SessionHandleSwift` plus enough metadata to label the restored tab.
+struct LiveSessionRowSwift: Equatable, Identifiable, Hashable {
+    let id: String
+    let handle: SessionHandleSwift
+    let agentKind: String
+    let workingDirectory: String
+
+    init?<S: StringProtocol>(serializedRow row: S) {
+        let fields = row.split(separator: "\u{1f}", omittingEmptySubsequences: false)
+        guard fields.count >= 6 else { return nil }
+        let id = String(fields[0])
+        self.id = id
+        self.handle = SessionHandleSwift(
+            sessionID: id,
+            attachBinaryPath: String(fields[1]),
+            socket: String(fields[2]),
+            authToken: String(fields[3])
+        )
+        self.agentKind = String(fields[4])
+        self.workingDirectory = String(fields[5])
+    }
+}
+
+/// One row of `RoostBridge.listSessionHistory`. Mirrors `SessionInfo` from
+/// the Rust DTOs minus the live-only `pid` field.
+struct SessionHistoryRowSwift: Equatable, Identifiable, Hashable {
+    let id: String
+    let agentKind: String
+    let workingDirectory: String
+    /// Raw state string: "running", "detached", "exited", "exited_lost".
+    let state: String
+    let exitCode: Int32?
+    let createdAtEpochMs: UInt64
+
+    init?<S: StringProtocol>(serializedRow row: S) {
+        let fields = row.split(separator: "\u{1f}", omittingEmptySubsequences: false)
+        guard fields.count >= 6 else { return nil }
+        self.id = String(fields[0])
+        self.agentKind = String(fields[1])
+        self.workingDirectory = String(fields[2])
+        self.state = String(fields[3])
+        let codeStr = String(fields[4])
+        self.exitCode = codeStr.isEmpty ? nil : Int32(codeStr)
+        self.createdAtEpochMs = UInt64(String(fields[5])) ?? 0
+    }
+}
+
 /// Output of `RoostBridge.createSession`: everything the surface child needs
 /// to attach to the live PTY in hostd.
-struct SessionHandleSwift: Equatable {
+struct SessionHandleSwift: Equatable, Hashable {
     let sessionID: String
     let attachBinaryPath: String
     let socket: String
     let authToken: String
 
+    init(
+        sessionID: String,
+        attachBinaryPath: String,
+        socket: String,
+        authToken: String
+    ) {
+        self.sessionID = sessionID
+        self.attachBinaryPath = attachBinaryPath
+        self.socket = socket
+        self.authToken = authToken
+    }
+
     init(raw: SessionHandle) {
-        self.sessionID = raw.session_id.toString()
-        self.attachBinaryPath = raw.attach_binary_path.toString()
-        self.socket = raw.socket.toString()
-        self.authToken = raw.auth_token.toString()
+        self.init(
+            sessionID: raw.session_id.toString(),
+            attachBinaryPath: raw.attach_binary_path.toString(),
+            socket: raw.socket.toString(),
+            authToken: raw.auth_token.toString()
+        )
     }
 }

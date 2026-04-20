@@ -45,7 +45,40 @@ pub enum SessionState {
     Starting,
     Running,
     Detached,
+    /// Child exited cleanly (or with a known signal). `exit_code` may still
+    /// be `Some(-1)` if `Child::wait()` itself errored — that's a wait
+    /// failure, not a hostd crash.
     Exited,
+    /// Reconciled on hostd startup: SQLite said Running but the in-memory
+    /// registry doesn't have it. Hostd crashed (or kill -9'd) since the
+    /// session was created — the agent is gone, exit code unknown.
+    ExitedLost,
+}
+
+impl SessionState {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SessionState::Starting => "starting",
+            SessionState::Running => "running",
+            SessionState::Detached => "detached",
+            SessionState::Exited => "exited",
+            SessionState::ExitedLost => "exited_lost",
+        }
+    }
+}
+
+impl std::str::FromStr for SessionState {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "starting" => Ok(SessionState::Starting),
+            "running" => Ok(SessionState::Running),
+            "detached" => Ok(SessionState::Detached),
+            "exited" => Ok(SessionState::Exited),
+            "exited_lost" => Ok(SessionState::ExitedLost),
+            other => Err(format!("unknown session state {other:?}")),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

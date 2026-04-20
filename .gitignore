@@ -1,0 +1,25 @@
+# Third-party sources (fetched by scripts/fetch-ghostty.sh etc.)
+/vendor/
+
+# Zig build outputs
+zig-out/
+zig-cache/
+.zig-cache/
+
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Rust / Cargo
+/target/
+Cargo.lock.user
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+*.swp

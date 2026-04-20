@@ -248,6 +248,7 @@ struct RootView: View {
 
     /// Spawn a plain login shell in $HOME. Used when no project is selected.
     private func openPlainTerminal() {
+        NSLog("[Roost] Open terminal pressed (QuickShell)")
         let spec = RoostBridge.prepareSession(agent: "shell")
         let session = LaunchedSession(
             projectID: nil,

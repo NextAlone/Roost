@@ -478,12 +478,23 @@ extension TerminalNSView: NSTextInputClient {
         forCharacterRange range: NSRange,
         actualRange: NSRangePointer?
     ) -> NSRect {
-        // Anchor the IME candidate window to the bottom-left of our view in
-        // screen space. Glyph-cell precision requires querying ghostty for
-        // cursor position, which we skip for MVP.
-        guard let window else { return .zero }
-        let viewRect = convert(bounds, to: nil)
-        return window.convertToScreen(viewRect)
+        // Ask ghostty where the cursor cell is. It answers in top-left view
+        // pixels; AppKit wants bottom-left, so we flip on the view's height.
+        guard let surface, let window else { return .zero }
+        var x: Double = 0
+        var y: Double = 0
+        var width: Double = 0
+        var height: Double = 0
+        ghostty_surface_ime_point(surface, &x, &y, &width, &height)
+
+        let viewRect = NSRect(
+            x: x,
+            y: Double(frame.size.height) - y,
+            width: width,
+            height: height
+        )
+        let winRect = convert(viewRect, to: nil)
+        return window.convertToScreen(winRect)
     }
 
     // `doCommand(by:)` is declared on NSResponder too, so this must be an

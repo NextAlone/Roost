@@ -67,7 +67,9 @@ final class TerminalNSView: NSView {
 
     init(command: String?, workingDirectory: String? = nil, frame: NSRect = .zero) {
         self.command = command
-        self.workingDirectory = workingDirectory
+        // GUI-launched apps inherit launchd's cwd ('/'), which makes ghostty
+        // spawn shells in '/'. Default to $HOME when the caller doesn't care.
+        self.workingDirectory = workingDirectory ?? NSHomeDirectory()
         super.init(frame: frame)
         wantsLayer = true
     }

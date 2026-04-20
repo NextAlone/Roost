@@ -6,12 +6,11 @@ zig-out/
 zig-cache/
 .zig-cache/
 
-# Xcode
+# Xcode (project files are regenerated via xcodegen)
 build/
 DerivedData/
-*.xcodeproj/project.xcworkspace/xcuserdata/
-*.xcodeproj/xcuserdata/
-*.xcworkspace/xcuserdata/
+*.xcodeproj/
+*.xcworkspace/
 
 # Rust / Cargo
 /target/

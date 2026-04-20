@@ -1,10 +1,13 @@
 import SwiftUI
 
-/// Top-level view: header + (launcher xor terminal). Owns the active
-/// `LaunchedSession` state.
+/// Top-level view. Owns the session list and which tab is active. When no
+/// sessions are open, the entire window shows the launcher; otherwise the
+/// window is tab row + active terminal, and the launcher opens as a sheet.
 struct RootView: View {
     @State private var agentDraft: String = "claude"
-    @State private var launched: LaunchedSession?
+    @State private var sessions: [LaunchedSession] = []
+    @State private var selectedID: LaunchedSession.ID?
+    @State private var isShowingLauncher: Bool = false
 
     private let ghosttyInfo = GhosttyInfo.current
     private let bridgeVersion = RoostBridge.version
@@ -14,44 +17,103 @@ struct RootView: View {
             HeaderBar(
                 ghosttyInfo: ghosttyInfo,
                 bridgeVersion: bridgeVersion,
-                launchedKind: launched?.spec.agentKind,
-                onStop: { launched = nil }
+                sessionCount: sessions.count
             )
             Divider()
             content
         }
-        .onReceive(NotificationCenter.default.publisher(for: .roostSurfaceClosed)) { _ in
-            launched = nil
+        .sheet(isPresented: $isShowingLauncher) {
+            LauncherSheet(
+                agentDraft: $agentDraft,
+                onLaunch: { launchFromSheet() },
+                onCancel: { isShowingLauncher = false }
+            )
+        }
+    }
+
+    // MARK: Content switch
+
+    @ViewBuilder
+    private var content: some View {
+        if sessions.isEmpty {
+            LauncherView(
+                agentDraft: $agentDraft,
+                onLaunch: { launchDirect() }
+            )
+        } else {
+            VStack(spacing: 0) {
+                TabBar(
+                    sessions: sessions,
+                    selectedID: selectedID,
+                    onSelect: { selectedID = $0 },
+                    onClose: closeSession,
+                    onNew: { isShowingLauncher = true }
+                )
+                Divider()
+                terminalPane
+            }
         }
     }
 
     @ViewBuilder
-    private var content: some View {
-        if let launched {
+    private var terminalPane: some View {
+        if let active = sessions.first(where: { $0.id == selectedID }) {
             TerminalView(
-                command: launched.spec.command.isEmpty ? nil : launched.spec.command,
-                workingDirectory: launched.spec.workingDirectory.isEmpty
-                    ? nil : launched.spec.workingDirectory
+                command: active.spec.command.isEmpty ? nil : active.spec.command,
+                workingDirectory: active.spec.workingDirectory.isEmpty
+                    ? nil : active.spec.workingDirectory
             )
-            .id(launched.id)
+            .id(active.id)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            LauncherView(
-                agentDraft: $agentDraft,
-                onLaunch: launch
-            )
+            Color.clear
         }
     }
 
-    private func launch() {
+    // MARK: Actions
+
+    private func launchDirect() {
+        let session = makeSession()
+        sessions.append(session)
+        selectedID = session.id
+    }
+
+    private func launchFromSheet() {
+        let session = makeSession()
+        sessions.append(session)
+        selectedID = session.id
+        isShowingLauncher = false
+    }
+
+    private func makeSession() -> LaunchedSession {
         let spec = RoostBridge.prepareSession(agent: agentDraft)
-        launched = LaunchedSession(spec: spec)
+        return LaunchedSession(spec: spec)
+    }
+
+    private func closeSession(id: LaunchedSession.ID) {
+        guard let idx = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions.remove(at: idx)
+
+        guard !sessions.isEmpty else {
+            selectedID = nil
+            return
+        }
+
+        if selectedID == id {
+            // Keep selection near the removed tab.
+            selectedID = sessions[min(idx, sessions.count - 1)].id
+        }
     }
 }
 
-/// One active session in the UI. Identifiable so the `.id(...)` modifier can
-/// force-recreate the NSViewRepresentable on relaunch (fresh ghostty surface).
-struct LaunchedSession: Identifiable {
-    let id = UUID()
+/// One active session in the UI. `Identifiable` so the `.id(...)` modifier on
+/// `TerminalView` force-recreates the NSViewRepresentable on relaunch.
+struct LaunchedSession: Identifiable, Equatable {
+    let id: UUID
     let spec: SessionSpecSwift
+
+    init(id: UUID = UUID(), spec: SessionSpecSwift) {
+        self.id = id
+        self.spec = spec
+    }
 }

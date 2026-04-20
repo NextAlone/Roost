@@ -3,8 +3,7 @@ import SwiftUI
 struct HeaderBar: View {
     let ghosttyInfo: (version: String, buildMode: String)
     let bridgeVersion: String
-    let launchedKind: String?
-    let onStop: () -> Void
+    let sessionCount: Int
 
     var body: some View {
         HStack(spacing: 8) {
@@ -18,13 +17,10 @@ struct HeaderBar: View {
             Text("bridge \(bridgeVersion)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            if let kind = launchedKind {
-                Text("· \(kind)")
-                    .font(.caption.monospaced())
+            if sessionCount > 0 {
+                Text("· \(sessionCount) session\(sessionCount == 1 ? "" : "s")")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                Button("Stop", action: onStop)
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
             }
         }
         .padding(.horizontal, 12)

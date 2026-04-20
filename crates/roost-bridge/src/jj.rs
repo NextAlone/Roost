@@ -53,34 +53,48 @@ pub fn version() -> Result<String, String> {
 }
 
 pub fn list_workspaces(repo_dir: &str) -> Result<Vec<WorkspaceEntry>, String> {
-    // jj template output: <name>\0<path>\0<change>\0<desc>\n
-    // Use NUL between fields so any non-NUL text is safe; jj templates only
-    // recognize \n \t \r \\ \" \0 as escapes, so `\u{1f}` doesn't parse.
+    // Template context is `WorkspaceRef` whose only methods are .name() and
+    // .target() (a Commit). Path isn't exposed, so we derive it from the
+    // `<repo>/.worktrees/<name>` convention (matches addWorkspace); default
+    // workspace maps to the repo dir itself.
+    // Fields are NUL-separated; jj only recognizes \n \t \r \\ \" \0 escapes.
     let tmpl = concat!(
         r#"name ++ "\0" ++ "#,
-        r#"self.working_copy().path().display() ++ "\0" ++ "#,
-        r#"change_id.short() ++ "\0" ++ "#,
-        r#"self.working_copy().description().first_line() ++ "\n""#,
+        r#"target.change_id().short() ++ "\0" ++ "#,
+        r#"target.description().first_line() ++ "\n""#,
     );
 
     let out = run(&["workspace", "list", "-T", tmpl], Some(repo_dir))?;
-    let current = current_workspace_name(repo_dir).unwrap_or_default();
 
     let mut entries = Vec::new();
     for line in out.stdout.lines() {
         let fields: Vec<&str> = line.split('\0').collect();
-        if fields.len() < 4 {
+        if fields.len() < 3 {
             continue;
         }
+        let name = fields[0].to_string();
+        let path = derive_workspace_path(repo_dir, &name);
         entries.push(WorkspaceEntry {
-            name: fields[0].to_string(),
-            path: fields[1].to_string(),
-            change_id: fields[2].to_string(),
-            description: fields[3].to_string(),
-            is_current: fields[0] == current,
+            name,
+            path,
+            change_id: fields[1].to_string(),
+            description: fields[2].to_string(),
+            is_current: false,
         });
     }
     Ok(entries)
+}
+
+fn derive_workspace_path(repo_dir: &str, name: &str) -> String {
+    if name == "default" {
+        return repo_dir.to_string();
+    }
+    let candidate = format!("{repo_dir}/.worktrees/{name}");
+    if Path::new(&candidate).is_dir() {
+        candidate
+    } else {
+        String::new()
+    }
 }
 
 /// `jj workspace add <path> --name <name>`; returns the new workspace entry.
@@ -210,27 +224,6 @@ fn run(args: &[&str], dir: Option<&str>) -> Result<JjOutput, String> {
         ));
     }
     Ok(JjOutput { stdout, stderr })
-}
-
-fn current_workspace_name(dir: &str) -> Option<String> {
-    // `jj workspace root` succeeds inside a workspace; from there,
-    // `.jj/working_copy/type` or similar isn't exposed — easier to peek at
-    // `jj workspace list -T 'if(current, name, "")'` and take the non-empty.
-    let out = run(
-        &[
-            "workspace",
-            "list",
-            "-T",
-            r#"if(current, name, "") ++ "\n""#,
-        ],
-        Some(dir),
-    )
-    .ok()?;
-    out.stdout
-        .lines()
-        .map(str::trim)
-        .find(|s| !s.is_empty())
-        .map(str::to_string)
 }
 
 // Only used for disambiguating touched paths in tests/doc examples.

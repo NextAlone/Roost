@@ -1,0 +1,465 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		056A2828846C58A539930709 /* HeaderBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6666D6D6751543E081671BB /* HeaderBar.swift */; };
+		35CD21F6591DCE2345D4AE9C /* TerminalNSView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 216EB11D72860CCDB8461BBD /* TerminalNSView.swift */; };
+		63C4A6CDC8E3CB7C04C9F00E /* GhosttyInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B457C8DDE158FE65ACE4FDA /* GhosttyInfo.swift */; };
+		701754460DAD4B65A4D457ED /* RoostBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F23CDE5E425A6F06E0309B /* RoostBridge.swift */; };
+		7FE27F0B23D5C4B62522C103 /* GhosttyKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 820BE17A9AAF1960A6CAD1B7 /* GhosttyKit.xcframework */; };
+		8F0CC4077EA8F24745499DF5 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B17B7B0961CE9D4279F4D8 /* TerminalView.swift */; };
+		9F244901691A8FCD51656037 /* LauncherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21F64C15854D7310E36D2242 /* LauncherView.swift */; };
+		A36BF53388CA613B350D4E38 /* RoostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1436C5E41B79A616ED241F43 /* RoostApp.swift */; };
+		B7F5870D395091559C8F1B9D /* RoostBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 469AB4F720DBF4F73175158F /* RoostBridge.swift */; };
+		D4AAF9E45A1CCDCE236DCBA0 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF87FECD2E5B9B370E54516B /* RootView.swift */; };
+		DA8AECA2B21CC01030F12F62 /* GhosttyRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81312C20946294CCCE5869BA /* GhosttyRuntime.swift */; };
+		F1A66EEDDB1F62F89CF35B5C /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C78E7DC2961FCDC999B72D84 /* SwiftBridgeCore.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1436C5E41B79A616ED241F43 /* RoostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoostApp.swift; sourceTree = "<group>"; };
+		216EB11D72860CCDB8461BBD /* TerminalNSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalNSView.swift; sourceTree = "<group>"; };
+		21F64C15854D7310E36D2242 /* LauncherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherView.swift; sourceTree = "<group>"; };
+		469AB4F720DBF4F73175158F /* RoostBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoostBridge.swift; sourceTree = "<group>"; };
+		76764903F0C41339B67FE451 /* Roost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Roost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		81312C20946294CCCE5869BA /* GhosttyRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyRuntime.swift; sourceTree = "<group>"; };
+		820BE17A9AAF1960A6CAD1B7 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = GhosttyKit.xcframework; path = ../../vendor/GhosttyKit.xcframework; sourceTree = "<group>"; };
+		83B17B7B0961CE9D4279F4D8 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
+		9B457C8DDE158FE65ACE4FDA /* GhosttyInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyInfo.swift; sourceTree = "<group>"; };
+		C2F23CDE5E425A6F06E0309B /* RoostBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoostBridge.swift; sourceTree = "<group>"; };
+		C78E7DC2961FCDC999B72D84 /* SwiftBridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftBridgeCore.swift; sourceTree = "<group>"; };
+		DF87FECD2E5B9B370E54516B /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		E6666D6D6751543E081671BB /* HeaderBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderBar.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		3EC59935D62826DF7C960E1F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7FE27F0B23D5C4B62522C103 /* GhosttyKit.xcframework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3D8301237CD261C84483E298 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				76764903F0C41339B67FE451 /* Roost.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6241ECDA17F81DF137471249 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				BE2EF693FEDBE3BCFCD4C944 /* App */,
+				DA102D314A0B4ADCD636AFDF /* Bridge */,
+				90443AAE0B7E9C92C91A2B41 /* Launcher */,
+				699FF097B271651EE87CDE34 /* Terminal */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		699FF097B271651EE87CDE34 /* Terminal */ = {
+			isa = PBXGroup;
+			children = (
+				81312C20946294CCCE5869BA /* GhosttyRuntime.swift */,
+				216EB11D72860CCDB8461BBD /* TerminalNSView.swift */,
+				83B17B7B0961CE9D4279F4D8 /* TerminalView.swift */,
+			);
+			path = Terminal;
+			sourceTree = "<group>";
+		};
+		79EDDC42C02814046DF8FA9D = {
+			isa = PBXGroup;
+			children = (
+				B73F7A8D257443C4B7B2F38F /* Generated */,
+				6241ECDA17F81DF137471249 /* Sources */,
+				895543B9F13432208F3C8660 /* Frameworks */,
+				3D8301237CD261C84483E298 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		895543B9F13432208F3C8660 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				820BE17A9AAF1960A6CAD1B7 /* GhosttyKit.xcframework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		90443AAE0B7E9C92C91A2B41 /* Launcher */ = {
+			isa = PBXGroup;
+			children = (
+				21F64C15854D7310E36D2242 /* LauncherView.swift */,
+			);
+			path = Launcher;
+			sourceTree = "<group>";
+		};
+		B73F7A8D257443C4B7B2F38F /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				469AB4F720DBF4F73175158F /* RoostBridge.swift */,
+				C78E7DC2961FCDC999B72D84 /* SwiftBridgeCore.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		BE2EF693FEDBE3BCFCD4C944 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				E6666D6D6751543E081671BB /* HeaderBar.swift */,
+				1436C5E41B79A616ED241F43 /* RoostApp.swift */,
+				DF87FECD2E5B9B370E54516B /* RootView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		DA102D314A0B4ADCD636AFDF /* Bridge */ = {
+			isa = PBXGroup;
+			children = (
+				9B457C8DDE158FE65ACE4FDA /* GhosttyInfo.swift */,
+				C2F23CDE5E425A6F06E0309B /* RoostBridge.swift */,
+			);
+			path = Bridge;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7F5ADA688353B94FA4937F08 /* Roost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 593F2FC41D799686362FE161 /* Build configuration list for PBXNativeTarget "Roost" */;
+			buildPhases = (
+				94DA85491A80B5E5E893CBD1 /* Build roost-bridge (Rust) */,
+				7126D3B01D445DED1D731163 /* Sources */,
+				3EC59935D62826DF7C960E1F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Roost;
+			packageProductDependencies = (
+			);
+			productName = Roost;
+			productReference = 76764903F0C41339B67FE451 /* Roost.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		13589255EB34057BBBF23F9E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					7F5ADA688353B94FA4937F08 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 6A8B80DBB31D72CCC6F56AD8 /* Build configuration list for PBXProject "Roost" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 79EDDC42C02814046DF8FA9D;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7F5ADA688353B94FA4937F08 /* Roost */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		94DA85491A80B5E5E893CBD1 /* Build roost-bridge (Rust) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../crates/roost-bridge/src/lib.rs",
+				"$(SRCROOT)/../../crates/roost-bridge/Cargo.toml",
+			);
+			name = "Build roost-bridge (Rust)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Generated/libroost_bridge.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\"$SRCROOT/scripts/build-rust.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7126D3B01D445DED1D731163 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63C4A6CDC8E3CB7C04C9F00E /* GhosttyInfo.swift in Sources */,
+				DA8AECA2B21CC01030F12F62 /* GhosttyRuntime.swift in Sources */,
+				056A2828846C58A539930709 /* HeaderBar.swift in Sources */,
+				9F244901691A8FCD51656037 /* LauncherView.swift in Sources */,
+				A36BF53388CA613B350D4E38 /* RoostApp.swift in Sources */,
+				701754460DAD4B65A4D457ED /* RoostBridge.swift in Sources */,
+				B7F5870D395091559C8F1B9D /* RoostBridge.swift in Sources */,
+				D4AAF9E45A1CCDCE236DCBA0 /* RootView.swift in Sources */,
+				F1A66EEDDB1F62F89CF35B5C /* SwiftBridgeCore.swift in Sources */,
+				35CD21F6591DCE2345D4AE9C /* TerminalNSView.swift in Sources */,
+				8F0CC4077EA8F24745499DF5 /* TerminalView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		032BB7497332F8EDBB7587BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-lc++",
+					"-lroost_bridge",
+					"-framework",
+					Metal,
+					"-framework",
+					QuartzCore,
+					"-framework",
+					IOSurface,
+					"-framework",
+					UniformTypeIdentifiers,
+					"-framework",
+					Carbon,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.roost.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OBJC_BRIDGING_HEADER = "Generated/RoostBridge-Bridging.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		4D7C7E4376A98CA1C47FCADF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"../../vendor\"",
+				);
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.roost.app;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		9D94EA17B4A8A5426105B40C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(SRCROOT)/Generated",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = (
+					"-lc++",
+					"-lroost_bridge",
+					"-framework",
+					Metal,
+					"-framework",
+					QuartzCore,
+					"-framework",
+					IOSurface,
+					"-framework",
+					UniformTypeIdentifiers,
+					"-framework",
+					Carbon,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.roost.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OBJC_BRIDGING_HEADER = "Generated/RoostBridge-Bridging.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		D6D804210941AC585D9F04F7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"../../vendor\"",
+				);
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.roost.app;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		593F2FC41D799686362FE161 /* Build configuration list for PBXNativeTarget "Roost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6D804210941AC585D9F04F7 /* Debug */,
+				4D7C7E4376A98CA1C47FCADF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6A8B80DBB31D72CCC6F56AD8 /* Build configuration list for PBXProject "Roost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				032BB7497332F8EDBB7587BB /* Debug */,
+				9D94EA17B4A8A5426105B40C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 13589255EB34057BBBF23F9E /* Project object */;
+}

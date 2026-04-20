@@ -1,4 +1,6 @@
 # Third-party sources (fetched by scripts/fetch-ghostty.sh etc.)
+# Match both dir and symlink-to-dir.
+/vendor
 /vendor/
 
 # Zig build outputs

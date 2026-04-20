@@ -22,8 +22,8 @@ export PATH
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 POC_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$POC_DIR/../.." && pwd)"
-CRATE_DIR="$REPO_ROOT/crates/roost-bridge"
 CRATE_NAME="roost-bridge"
+HOSTD_NAME="roost-hostd"
 
 PROFILE="${CARGO_PROFILE:-release}"
 TARGET_DIR="$REPO_ROOT/target/$PROFILE"
@@ -31,19 +31,25 @@ OUT_GLOB="$REPO_ROOT/target/$PROFILE/build/${CRATE_NAME}-*/out/$CRATE_NAME/$CRAT
 
 GEN_DIR="$POC_DIR/Generated"
 
-echo "[build-rust] cargo build (profile=$PROFILE)"
+echo "[build-rust] cargo build (profile=$PROFILE) -p $CRATE_NAME -p $HOSTD_NAME"
 (
     cd "$REPO_ROOT"
     if [ "$PROFILE" = "release" ]; then
-        cargo build --release -p "$CRATE_NAME"
+        cargo build --release -p "$CRATE_NAME" -p "$HOSTD_NAME"
     else
-        cargo build -p "$CRATE_NAME"
+        cargo build -p "$CRATE_NAME" -p "$HOSTD_NAME"
     fi
 )
 
 STATIC_LIB="$TARGET_DIR/libroost_bridge.a"
 if [ ! -f "$STATIC_LIB" ]; then
     echo "[build-rust] missing $STATIC_LIB" >&2
+    exit 1
+fi
+
+HOSTD_BIN="$TARGET_DIR/$HOSTD_NAME"
+if [ ! -f "$HOSTD_BIN" ]; then
+    echo "[build-rust] missing $HOSTD_BIN" >&2
     exit 1
 fi
 
@@ -62,6 +68,8 @@ rm -rf "$GEN_DIR"
 mkdir -p "$GEN_DIR"
 
 cp "$STATIC_LIB" "$GEN_DIR/libroost_bridge.a"
+cp "$HOSTD_BIN" "$GEN_DIR/$HOSTD_NAME"
+chmod +x "$GEN_DIR/$HOSTD_NAME"
 
 # swift-bridge lays out:
 #   $OUT_DIR/SwiftBridgeCore.{swift,h}
@@ -85,5 +93,6 @@ EOF
 
 echo "[build-rust] done."
 echo "  Static lib:  $GEN_DIR/libroost_bridge.a"
+echo "  Hostd bin:   $GEN_DIR/$HOSTD_NAME"
 echo "  Bindings:    $GEN_DIR/RoostBridge.swift (+ SwiftBridgeCore.swift)"
 echo "  Bridging H:  $GEN_DIR/RoostBridge-Bridging.h"

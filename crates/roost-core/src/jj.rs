@@ -1,42 +1,14 @@
 //! Thin wrapper around the `jj` CLI (>= 0.20).
 //!
-//! We deliberately avoid `jj-lib`: it's flagged unstable upstream and drifts
-//! every few releases. The CLI interface is the stable public contract.
-//!
-//! All functions spawn `jj` with `tokio::process::Command::new("jj")`… no, we
-//! use plain `std::process::Command` — the swift-bridge FFI is synchronous and
-//! these calls are already measured in tens of milliseconds; a real async
-//! runtime comes in §4a of design.md. Errors propagate `stderr` verbatim so
-//! the Swift UI can surface them.
+//! Synchronous `std::process::Command`; calls measured in tens of ms each.
+//! Async runtime is owned by the daemon, not by this module.
 
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-#[derive(Debug)]
-pub struct WorkspaceEntry {
-    pub name: String,
-    pub path: String,
-    pub change_id: String,
-    pub description: String,
-    pub is_current: bool,
-}
+use crate::dto::{RevisionEntry, StatusEntry, WorkspaceEntry};
 
-#[derive(Debug)]
-pub struct RevisionEntry {
-    pub change_id: String,
-    pub description: String,
-    pub bookmarks: Vec<String>,
-}
-
-#[derive(Debug)]
-pub struct StatusEntry {
-    pub clean: bool,
-    pub lines: Vec<String>,
-}
-
-/// True if the given path (or an ancestor) is a jj repo. We just invoke
-/// `jj status` and trust its exit code. Route through `jj_binary()` so
-/// GUI-launched apps still find the binary under a non-login PATH.
+/// True if the given path (or an ancestor) is a jj repo.
 ///
 /// We stdio-null + `--no-pager` to defend against jj's pager launching
 /// against an inherited tty (which would hang the app with `less` waiting
@@ -56,18 +28,14 @@ pub fn is_jj_repo(dir: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Report the installed jj version string (the first line of `jj --version`).
 pub fn version() -> Result<String, String> {
     let out = run(&["--version"], None)?;
     Ok(out.stdout.lines().next().unwrap_or("").trim().to_string())
 }
 
 pub fn list_workspaces(repo_dir: &str) -> Result<Vec<WorkspaceEntry>, String> {
-    // Template context is `WorkspaceRef` whose only methods are .name() and
-    // .target() (a Commit). Path isn't exposed, so we derive it from the
-    // `<repo>/.worktrees/<name>` convention (matches addWorkspace); default
-    // workspace maps to the repo dir itself.
-    // Fields are NUL-separated; jj only recognizes \n \t \r \\ \" \0 escapes.
+    // Template fields NUL-separated; jj only recognizes \n \t \r \\ \" \0 escapes.
+    // `WorkspaceRef` lacks `.path()`; derive from `<repo>/.worktrees/<name>`.
     let tmpl = concat!(
         r#"name ++ "\0" ++ "#,
         r#"target.change_id().short() ++ "\0" ++ "#,
@@ -79,8 +47,6 @@ pub fn list_workspaces(repo_dir: &str) -> Result<Vec<WorkspaceEntry>, String> {
 }
 
 /// Parse the NUL-separated template output of `jj workspace list`.
-/// Exposed for unit tests so we don't need a jj binary to cover format
-/// drift.
 pub(crate) fn parse_workspace_lines(stdout: &str, repo_dir: &str) -> Vec<WorkspaceEntry> {
     let mut entries = Vec::new();
     for line in stdout.lines() {
@@ -113,9 +79,6 @@ pub(crate) fn derive_workspace_path(repo_dir: &str, name: &str) -> String {
     }
 }
 
-/// `jj workspace add <path> --name <name>`; returns the new workspace entry.
-/// Parent directory is created on demand (jj itself errors if it doesn't
-/// exist).
 pub fn add_workspace(
     repo_dir: &str,
     workspace_path: &str,
@@ -127,17 +90,10 @@ pub fn add_workspace(
     }
 
     run(
-        &[
-            "workspace",
-            "add",
-            "--name",
-            name,
-            workspace_path,
-        ],
+        &["workspace", "add", "--name", name, workspace_path],
         Some(repo_dir),
     )?;
 
-    // Locate the fresh entry to return canonical state.
     list_workspaces(repo_dir)?
         .into_iter()
         .find(|w| w.name == name)
@@ -150,8 +106,7 @@ pub fn forget_workspace(repo_dir: &str, name: &str) -> Result<(), String> {
 }
 
 pub fn rename_workspace(workspace_dir: &str, new_name: &str) -> Result<(), String> {
-    // `jj workspace rename` renames the CURRENT workspace, so we run it from
-    // inside the target workspace dir.
+    // Renames the CURRENT workspace, so cwd matters.
     run(&["workspace", "rename", new_name], Some(workspace_dir))?;
     Ok(())
 }
@@ -205,12 +160,9 @@ pub fn status(workspace_dir: &str) -> Result<StatusEntry, String> {
 /// Build `StatusEntry` from a raw `jj status --color=never` stdout.
 pub(crate) fn parse_status(stdout: &str) -> StatusEntry {
     let lines: Vec<String> = stdout.lines().map(|s| s.to_string()).collect();
-    // `jj status` prints "The working copy has no changes." when clean.
     let clean = stdout.contains("no changes");
     StatusEntry { clean, lines }
 }
-
-// MARK: - bookmarks
 
 pub fn bookmark_create(workspace_dir: &str, name: &str) -> Result<(), String> {
     run(&["bookmark", "create", "-r", "@", name], Some(workspace_dir))?;
@@ -222,10 +174,9 @@ pub fn bookmark_forget(workspace_dir: &str, name: &str) -> Result<(), String> {
     Ok(())
 }
 
-// MARK: - internals
-
 struct JjOutput {
     stdout: String,
+    #[allow(dead_code)]
     stderr: String,
 }
 
@@ -249,7 +200,11 @@ fn run(args: &[&str], dir: Option<&str>) -> Result<JjOutput, String> {
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
 
     if !output.status.success() {
-        let code = output.status.code().map(|c| c.to_string()).unwrap_or_else(|| "signal".into());
+        let code = output
+            .status
+            .code()
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "signal".into());
         return Err(format!(
             "jj {args:?} exited {code}\nstdout: {stdout}\nstderr: {stderr}"
         ));
@@ -257,19 +212,9 @@ fn run(args: &[&str], dir: Option<&str>) -> Result<JjOutput, String> {
     Ok(JjOutput { stdout, stderr })
 }
 
-// Only used for disambiguating touched paths in tests/doc examples.
-#[allow(dead_code)]
-fn path_component_last(p: &Path) -> String {
-    p.file_name()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_default()
-}
-
 /// Resolve `jj` absolute path. GUI-launched processes inherit launchd's thin
-/// PATH, which usually doesn't contain `~/.local/bin` or `/opt/homebrew/bin`;
-/// a bare `Command::new("jj")` spawn then fails with ENOENT. Walk the common
-/// locations explicitly, with `ROOST_JJ_PATH` as an override.
-fn jj_binary() -> Result<String, String> {
+/// PATH; walk common install locations explicitly with `ROOST_JJ_PATH` override.
+pub fn jj_binary() -> Result<String, String> {
     if let Ok(p) = std::env::var("ROOST_JJ_PATH") {
         return Ok(p);
     }
@@ -293,16 +238,8 @@ fn jj_binary() -> Result<String, String> {
         }
     }
 
-    // Last-ditch: rely on whatever PATH the process actually has.
     Ok("jj".to_string())
 }
-
-// MARK: - tests
-//
-// The pure parse helpers above (`parse_workspace_lines`, `parse_revision`,
-// `parse_status`, `derive_workspace_path`) intentionally don't spawn jj so
-// we can cover format-drift regressions cheaply. Integration tests that
-// actually invoke a jj binary live in `tests/` (M6+).
 
 #[cfg(test)]
 mod tests {
@@ -317,8 +254,6 @@ mod tests {
         fs::create_dir_all(&p).unwrap();
         p
     }
-
-    // --- derive_workspace_path -------------------------------------------
 
     #[test]
     fn default_workspace_maps_to_repo_root() {
@@ -342,11 +277,7 @@ mod tests {
     #[test]
     fn named_workspace_returns_empty_when_missing() {
         let repo = tempdir("derive-missing");
-        // No .worktrees/foo created.
-        assert_eq!(
-            derive_workspace_path(repo.to_str().unwrap(), "foo"),
-            ""
-        );
+        assert_eq!(derive_workspace_path(repo.to_str().unwrap(), "foo"), "");
     }
 
     #[test]
@@ -354,14 +285,9 @@ mod tests {
         let repo = tempdir("derive-file");
         let fake = repo.join(".worktrees").join("bar");
         fs::create_dir_all(fake.parent().unwrap()).unwrap();
-        fs::write(&fake, "").unwrap(); // regular file, not a dir
-        assert_eq!(
-            derive_workspace_path(repo.to_str().unwrap(), "bar"),
-            ""
-        );
+        fs::write(&fake, "").unwrap();
+        assert_eq!(derive_workspace_path(repo.to_str().unwrap(), "bar"), "");
     }
-
-    // --- parse_workspace_lines -------------------------------------------
 
     #[test]
     fn parse_workspace_lines_basic() {
@@ -373,7 +299,6 @@ mod tests {
         assert_eq!(entries[0].change_id, "abc1234");
         assert_eq!(entries[0].description, "initial commit");
         assert_eq!(entries[1].name, "ws-a");
-        // ws-a has no directory on disk → path empty (caller can still display).
         assert_eq!(entries[1].path, "");
     }
 
@@ -381,11 +306,9 @@ mod tests {
     fn parse_workspace_lines_skips_malformed() {
         let stdout = "good\0id\0desc\njust-a-name\n\0\0\n";
         let entries = parse_workspace_lines(stdout, "/repo");
-        // Only the first and third (empty-empty-empty) lines have >=3 fields.
-        // The second ("just-a-name") is a single field → skipped.
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "good");
-        assert_eq!(entries[1].name, ""); // all-empty row still parseable
+        assert_eq!(entries[1].name, "");
     }
 
     #[test]
@@ -396,16 +319,12 @@ mod tests {
 
     #[test]
     fn parse_workspace_lines_extra_fields_are_ignored() {
-        // Future-proofing: if the template gains a 4th field we shouldn't
-        // reject the row, just drop the tail.
         let stdout = "default\0abc\0desc\0extra\0stuff\n";
         let entries = parse_workspace_lines(stdout, "/repo");
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].change_id, "abc");
         assert_eq!(entries[0].description, "desc");
     }
-
-    // --- parse_revision --------------------------------------------------
 
     #[test]
     fn parse_revision_with_bookmarks() {
@@ -429,12 +348,9 @@ mod tests {
 
     #[test]
     fn parse_revision_trims_trailing_newline() {
-        // jj tends to append a newline after the template output.
         let rev = parse_revision("abc\0desc\0\n").unwrap();
         assert_eq!(rev.change_id, "abc");
     }
-
-    // --- parse_status ----------------------------------------------------
 
     #[test]
     fn parse_status_clean() {
@@ -454,21 +370,15 @@ mod tests {
     #[test]
     fn parse_status_empty() {
         let s = parse_status("");
-        // Empty stdout isn't "clean" by our heuristic (no "no changes" marker).
         assert!(!s.clean);
         assert!(s.lines.is_empty());
     }
 
-    // --- jj_binary env override -----------------------------------------
-
     #[test]
     fn jj_binary_honors_env_override() {
-        // Use a process-unique sentinel path so the test is independent of
-        // whatever the dev machine has at the candidate locations.
         let sentinel = "/tmp/roost-fake-jj-override-only-for-test";
-        // SAFETY: tests in the same crate run on separate threads by default;
-        // set_var is unsafe since Rust 1.79. We accept the risk because no
-        // other test reads $ROOST_JJ_PATH.
+        // SAFETY: tests run on separate threads by default; no other test
+        // reads $ROOST_JJ_PATH in this crate.
         unsafe { std::env::set_var("ROOST_JJ_PATH", sentinel) };
         let resolved = jj_binary().unwrap();
         unsafe { std::env::remove_var("ROOST_JJ_PATH") };

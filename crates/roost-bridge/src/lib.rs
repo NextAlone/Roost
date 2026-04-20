@@ -1,10 +1,13 @@
-//! Swift-facing bridge for Roost's Rust core.
+//! swift-bridge facade. NO domain logic — every call is one of:
+//!   - direct delegation to `roost_core::session::*` (PTY-local, no daemon hop)
+//!   - delegation to `roost_client::Client::*` over UDS to roost-hostd
 //!
-//! M0.x: `roost_greet` / `roost_bridge_version` / `roost_prepare_session`.
-//! M2:   jj workspace / bookmark / status helpers via `jj` CLI.
+//! The exported FFI surface is unchanged from M5; the Swift app keeps calling
+//! `RoostBridge.*` exactly as before.
 
 mod hooks;
-mod jj;
+
+use roost_client::{Client, ClientError};
 
 #[swift_bridge::bridge]
 mod ffi {
@@ -12,8 +15,6 @@ mod ffi {
 
     #[swift_bridge(swift_repr = "struct")]
     struct SessionSpec {
-        /// Shell-style command string (ghostty parses this itself).
-        /// Empty => ghostty starts the user's login shell.
         command: String,
         working_directory: String,
         agent_kind: String,
@@ -34,9 +35,6 @@ mod ffi {
     struct RevisionEntry {
         change_id: String,
         description: String,
-        /// Comma-separated bookmark names (empty string = none). Avoids the
-        /// `Vec<String>` inside a shared struct which swift-bridge's codegen
-        /// handles unevenly across versions.
         bookmarks_csv: String,
     }
 
@@ -52,15 +50,8 @@ mod ffi {
         fn roost_prepare_session(agent: &str) -> SessionSpec;
         fn roost_prepare_session_in(agent: &str, working_directory: &str) -> SessionSpec;
 
-        // jj wrappers (M2). Note: using owned `String` args instead of `&str`
-        // on Result-returning fns, because swift-bridge 0.1.59 emits broken
-        // Swift around `toRustStr` when the inner closure throws.
         fn roost_is_jj_repo(dir: &str) -> bool;
         fn roost_jj_version() -> Result<String, String>;
-        // `\n`-delimited records, `\u{1f}`-delimited fields:
-        // name␟path␟change_id␟description␟is_current(0|1).
-        // swift-bridge can't yet ship Vec<SharedStruct> across FFI, so we
-        // marshal to a string and split on the Swift side.
         fn roost_list_workspaces_serialized(repo_dir: String) -> Result<String, String>;
         fn roost_add_workspace(
             repo_dir: String,
@@ -68,10 +59,7 @@ mod ffi {
             name: String,
         ) -> Result<WorkspaceEntry, String>;
         fn roost_forget_workspace(repo_dir: String, name: String) -> Result<(), String>;
-        fn roost_rename_workspace(
-            workspace_dir: String,
-            new_name: String,
-        ) -> Result<(), String>;
+        fn roost_rename_workspace(workspace_dir: String, new_name: String) -> Result<(), String>;
         fn roost_update_stale(workspace_dir: String) -> Result<(), String>;
         fn roost_workspace_root(workspace_dir: String) -> Result<String, String>;
         fn roost_current_revision(workspace_dir: String) -> Result<RevisionEntry, String>;
@@ -94,7 +82,7 @@ mod ffi {
     }
 }
 
-// MARK: - Smoke tests
+// MARK: - Smoke
 
 fn roost_greet(name: &str) -> String {
     let trimmed = name.trim();
@@ -109,54 +97,49 @@ fn roost_bridge_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-// MARK: - Sessions
+// MARK: - Sessions (local; no daemon hop in M6 — PTY moves in M7)
 
 fn roost_prepare_session(agent: &str) -> ffi::SessionSpec {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    roost_prepare_session_in(agent, &home)
+    spec_to_ffi(roost_core::session::prepare_default(agent))
 }
 
 fn roost_prepare_session_in(agent: &str, working_directory: &str) -> ffi::SessionSpec {
-    let agent_norm = agent.trim().to_lowercase();
+    spec_to_ffi(roost_core::session::prepare(agent, working_directory))
+}
 
-    // Always wrap through the user's login shell so the agent inherits their
-    // PATH / rc exports (jj, node, etc.). GUI-launched apps only get launchd's
-    // thin PATH, so a direct exec leaves agents unable to find their siblings.
-    //
-    // `$SHELL` is typically set for GUI apps too (launchd populates it from
-    // the user record); fall back to `/bin/zsh` which is the macOS default.
-    // Using "-l -c" as the universal login-invocation form — bash, zsh, and
-    // fish all accept it.
-    let command = match agent_norm.as_str() {
-        "" | "shell" | "bash" | "zsh" | "fish" => String::new(),
-        name => {
-            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-            format!("{shell} -l -c {name}")
-        }
-    };
-
+fn spec_to_ffi(s: roost_core::dto::SessionSpec) -> ffi::SessionSpec {
     ffi::SessionSpec {
-        command,
-        working_directory: working_directory.to_string(),
-        agent_kind: agent_norm,
+        command: s.command,
+        working_directory: s.working_directory,
+        agent_kind: s.agent_kind,
     }
 }
 
-// MARK: - jj bindings (thin delegate to jj::* with FFI struct conversion)
+// MARK: - jj wrappers (delegate to roost-hostd over UDS)
+//
+// Per-call connect: each FFI invocation opens a fresh UnixStream, does the
+// hello handshake, makes one request, and drops. Avoids tokio inside FFI and
+// removes any global Client state — Swift can call from any thread without
+// us caring.
+
+fn client() -> Client {
+    Client::new()
+}
 
 fn roost_is_jj_repo(dir: &str) -> bool {
-    jj::is_jj_repo(dir)
+    client().is_jj_repo(dir).unwrap_or(false)
 }
 
 fn roost_jj_version() -> Result<String, String> {
-    jj::version()
+    client().jj_version().map_err(stringify)
 }
 
 fn roost_list_workspaces_serialized(repo_dir: String) -> Result<String, String> {
-    let entries = jj::list_workspaces(&repo_dir)?;
+    let entries = client().list_workspaces(&repo_dir).map_err(stringify)?;
     let mut out = String::new();
     for e in entries {
-        // Record: name␟path␟change_id␟description␟is_current
+        // Record: name␟path␟change_id␟description␟is_current — same wire
+        // format the Swift side already parses.
         out.push_str(&e.name);
         out.push('\u{1f}');
         out.push_str(&e.path);
@@ -176,39 +159,58 @@ fn roost_add_workspace(
     workspace_path: String,
     name: String,
 ) -> Result<ffi::WorkspaceEntry, String> {
-    jj::add_workspace(&repo_dir, &workspace_path, &name).map(Into::into)
+    client()
+        .add_workspace(&repo_dir, &workspace_path, &name)
+        .map(workspace_to_ffi)
+        .map_err(stringify)
 }
 
 fn roost_forget_workspace(repo_dir: String, name: String) -> Result<(), String> {
-    jj::forget_workspace(&repo_dir, &name)
+    client()
+        .forget_workspace(&repo_dir, &name)
+        .map_err(stringify)
 }
 
 fn roost_rename_workspace(workspace_dir: String, new_name: String) -> Result<(), String> {
-    jj::rename_workspace(&workspace_dir, &new_name)
+    client()
+        .rename_workspace(&workspace_dir, &new_name)
+        .map_err(stringify)
 }
 
 fn roost_update_stale(workspace_dir: String) -> Result<(), String> {
-    jj::update_stale(&workspace_dir)
+    client().update_stale(&workspace_dir).map_err(stringify)
 }
 
 fn roost_workspace_root(workspace_dir: String) -> Result<String, String> {
-    jj::workspace_root(&workspace_dir)
+    client()
+        .workspace_root(&workspace_dir)
+        .map_err(stringify)
 }
 
 fn roost_current_revision(workspace_dir: String) -> Result<ffi::RevisionEntry, String> {
-    jj::current_revision(&workspace_dir).map(Into::into)
+    client()
+        .current_revision(&workspace_dir)
+        .map(revision_to_ffi)
+        .map_err(stringify)
 }
 
 fn roost_workspace_status(workspace_dir: String) -> Result<ffi::StatusEntry, String> {
-    jj::status(&workspace_dir).map(Into::into)
+    client()
+        .workspace_status(&workspace_dir)
+        .map(status_to_ffi)
+        .map_err(stringify)
 }
 
 fn roost_bookmark_create(workspace_dir: String, name: String) -> Result<(), String> {
-    jj::bookmark_create(&workspace_dir, &name)
+    client()
+        .bookmark_create(&workspace_dir, &name)
+        .map_err(stringify)
 }
 
 fn roost_bookmark_forget(workspace_dir: String, name: String) -> Result<(), String> {
-    jj::bookmark_forget(&workspace_dir, &name)
+    client()
+        .bookmark_forget(&workspace_dir, &name)
+        .map_err(stringify)
 }
 
 // MARK: - hooks
@@ -229,35 +231,33 @@ fn roost_run_teardown_hooks(project_root: String, workspace_dir: String) -> Resu
     Ok(hooks::serialize(&results))
 }
 
-// MARK: - domain → FFI conversions
+// MARK: - conversions
 
-impl From<jj::WorkspaceEntry> for ffi::WorkspaceEntry {
-    fn from(e: jj::WorkspaceEntry) -> Self {
-        ffi::WorkspaceEntry {
-            name: e.name,
-            path: e.path,
-            change_id: e.change_id,
-            description: e.description,
-            is_current: e.is_current,
-        }
+fn workspace_to_ffi(e: roost_core::dto::WorkspaceEntry) -> ffi::WorkspaceEntry {
+    ffi::WorkspaceEntry {
+        name: e.name,
+        path: e.path,
+        change_id: e.change_id,
+        description: e.description,
+        is_current: e.is_current,
     }
 }
 
-impl From<jj::RevisionEntry> for ffi::RevisionEntry {
-    fn from(e: jj::RevisionEntry) -> Self {
-        ffi::RevisionEntry {
-            change_id: e.change_id,
-            description: e.description,
-            bookmarks_csv: e.bookmarks.join(","),
-        }
+fn revision_to_ffi(e: roost_core::dto::RevisionEntry) -> ffi::RevisionEntry {
+    ffi::RevisionEntry {
+        change_id: e.change_id,
+        description: e.description,
+        bookmarks_csv: e.bookmarks.join(","),
     }
 }
 
-impl From<jj::StatusEntry> for ffi::StatusEntry {
-    fn from(e: jj::StatusEntry) -> Self {
-        ffi::StatusEntry {
-            clean: e.clean,
-            text: e.lines.join("\n"),
-        }
+fn status_to_ffi(e: roost_core::dto::StatusEntry) -> ffi::StatusEntry {
+    ffi::StatusEntry {
+        clean: e.clean,
+        text: e.lines.join("\n"),
     }
+}
+
+fn stringify(err: ClientError) -> String {
+    err.to_string()
 }

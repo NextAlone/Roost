@@ -1,0 +1,29 @@
+[package]
+name = "roost-hostd"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Roost host daemon: long-running process owning RPC, jj, SQLite (PTY in M7)"
+publish = false
+
+[[bin]]
+name = "roost-hostd"
+path = "src/main.rs"
+
+[dependencies]
+roost-core = { path = "../roost-core" }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+rand.workspace = true
+base64.workspace = true
+libc.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+futures-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+sqlx.workspace = true

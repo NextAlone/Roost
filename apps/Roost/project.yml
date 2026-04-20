@@ -41,6 +41,8 @@ targets:
       - path: Generated/RoostBridge.swift
       - path: Generated/SwiftBridgeCore.swift
       - path: Assets.xcassets
+      - path: Generated/roost-hostd
+        buildPhase: resources
       - path: Resources
         buildPhase: resources
         type: folder
@@ -63,8 +65,23 @@ targets:
         inputFiles:
           - $(SRCROOT)/../../crates/roost-bridge/src/lib.rs
           - $(SRCROOT)/../../crates/roost-bridge/Cargo.toml
+          - $(SRCROOT)/../../crates/roost-core/src/lib.rs
+          - $(SRCROOT)/../../crates/roost-core/src/jj.rs
+          - $(SRCROOT)/../../crates/roost-core/src/dto.rs
+          - $(SRCROOT)/../../crates/roost-core/src/rpc.rs
+          - $(SRCROOT)/../../crates/roost-core/src/paths.rs
+          - $(SRCROOT)/../../crates/roost-core/src/session.rs
+          - $(SRCROOT)/../../crates/roost-client/src/lib.rs
+          - $(SRCROOT)/../../crates/roost-client/src/transport.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/main.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/rpc_server.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/manifest.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/state.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/store.rs
+          - $(SRCROOT)/../../Cargo.toml
         outputFiles:
           - $(SRCROOT)/Generated/libroost_bridge.a
+          - $(SRCROOT)/Generated/roost-hostd
     settings:
       base:
         CODE_SIGN_STYLE: Automatic

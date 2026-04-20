@@ -25,7 +25,6 @@ struct RootView: View {
                 selection: $selectedProjectID,
                 unreadProjectIDs: projectsWithUnread,
                 scratchHasUnread: scratchHasUnread,
-                scratchHasSessions: sessions.contains(where: { $0.projectID == nil }),
                 onAdd: addProjectFlow
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)

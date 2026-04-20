@@ -5,36 +5,37 @@ struct ProjectSidebar: View {
     @Binding var selection: Project.ID?
     let unreadProjectIDs: Set<Project.ID>
     let scratchHasUnread: Bool
-    let scratchHasSessions: Bool
     let onAdd: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            if store.projects.isEmpty && !scratchHasSessions {
-                emptyState
-            } else {
-                List(selection: $selection) {
-                    if scratchHasSessions {
-                        ScratchRow(isUnread: scratchHasUnread)
-                            .tag(Project.scratchID)
-                    }
-                    ForEach(store.projects) { project in
-                        ProjectRow(
-                            project: project,
-                            isUnread: unreadProjectIDs.contains(project.id)
-                        )
-                        .tag(project.id)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                store.remove(project.id)
-                            } label: {
-                                Label("Remove", systemImage: "trash")
+            List(selection: $selection) {
+                ScratchRow(isUnread: scratchHasUnread)
+                    .tag(Project.scratchID)
+                Section("Projects") {
+                    if store.projects.isEmpty {
+                        Text("No projects yet")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(store.projects) { project in
+                            ProjectRow(
+                                project: project,
+                                isUnread: unreadProjectIDs.contains(project.id)
+                            )
+                            .tag(project.id)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    store.remove(project.id)
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
                             }
                         }
                     }
                 }
-                .listStyle(.sidebar)
             }
+            .listStyle(.sidebar)
 
             Divider()
 
@@ -51,18 +52,6 @@ struct ProjectSidebar: View {
             .background(.bar)
         }
         .navigationTitle("Projects")
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "tray")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("No projects yet")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

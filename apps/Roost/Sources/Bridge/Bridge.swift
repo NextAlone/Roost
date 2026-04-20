@@ -124,6 +124,29 @@ enum RoostBridge {
     static func resizeSession(sessionID: String, rows: UInt16, cols: UInt16) throws {
         try roost_session_resize(sessionID, rows, cols)
     }
+
+    // MARK: M8 hostd lifecycle
+
+    static func hostdStatus() throws -> HostdStatusSwift {
+        HostdStatusSwift(raw: try roost_hostd_status())
+    }
+
+    /// `mode` is "release" or "stop". Returns live_sessions count from ack.
+    @discardableResult
+    static func shutdownHostd(mode: HostdShutdownMode) throws -> UInt32 {
+        try roost_hostd_shutdown(mode.rawValue)
+    }
+
+    /// Synchronous poll. Run from a background thread — blocks for up to
+    /// `timeoutMs`.
+    static func waitHostdDead(timeoutMs: UInt64) -> Bool {
+        roost_hostd_wait_dead(timeoutMs)
+    }
+}
+
+enum HostdShutdownMode: String {
+    case release
+    case stop
 }
 
 // MARK: - Swift-native mirrors of shared structs
@@ -247,6 +270,25 @@ struct HookStepResult: Equatable {
         self.exitCode = code
         self.command = String(fields[4])
         self.stderrTail = String(fields[5])
+    }
+}
+
+/// Mirror of the bridge's `HostdStatus`.
+struct HostdStatusSwift: Equatable {
+    let pid: UInt32
+    let version: String
+    let uptimeSecs: UInt64
+    let sessionCount: UInt32
+    let manifestPath: String
+    let socketPath: String
+
+    init(raw: HostdStatus) {
+        self.pid = raw.pid
+        self.version = raw.version.toString()
+        self.uptimeSecs = raw.uptime_secs
+        self.sessionCount = raw.session_count
+        self.manifestPath = raw.manifest_path.toString()
+        self.socketPath = raw.socket_path.toString()
     }
 }
 

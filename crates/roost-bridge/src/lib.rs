@@ -46,6 +46,18 @@ mod ffi {
         text: String,
     }
 
+    // MARK: - Hostd status (M8)
+
+    #[swift_bridge(swift_repr = "struct")]
+    struct HostdStatus {
+        pid: u32,
+        version: String,
+        uptime_secs: u64,
+        session_count: u32,
+        manifest_path: String,
+        socket_path: String,
+    }
+
     // MARK: - Session handle (M7)
 
     #[swift_bridge(swift_repr = "struct")]
@@ -82,6 +94,12 @@ mod ffi {
             cols: u16,
         ) -> Result<(), String>;
         fn roost_attach_binary_path() -> Result<String, String>;
+
+        // M8 lifecycle. mode = "release" | "stop"; wait_dead polls the
+        // manifest + socket and returns true if hostd is gone in time.
+        fn roost_hostd_status() -> Result<HostdStatus, String>;
+        fn roost_hostd_shutdown(mode: String) -> Result<u32, String>;
+        fn roost_hostd_wait_dead(timeout_ms: u64) -> bool;
 
         fn roost_is_jj_repo(dir: &str) -> bool;
         fn roost_jj_version() -> Result<String, String>;
@@ -293,6 +311,48 @@ fn roost_session_resize(session_id: String, rows: u16, cols: u16) -> Result<(), 
 
 fn roost_attach_binary_path() -> Result<String, String> {
     locate_attach_binary().ok_or_else(|| "roost-attach binary not found".to_string())
+}
+
+// MARK: - Hostd lifecycle (M8)
+
+fn roost_hostd_status() -> Result<ffi::HostdStatus, String> {
+    let info = client().host_info().map_err(stringify)?;
+    let manifest = roost_client::roost_core::paths::manifest_path();
+    let socket = roost_client::roost_core::paths::socket_path();
+    Ok(ffi::HostdStatus {
+        pid: info.pid,
+        version: info.version,
+        uptime_secs: info.uptime_secs,
+        session_count: info.session_count,
+        manifest_path: manifest.to_string_lossy().into_owned(),
+        socket_path: socket.to_string_lossy().into_owned(),
+    })
+}
+
+fn roost_hostd_shutdown(mode: String) -> Result<u32, String> {
+    use roost_client::roost_core::rpc::ShutdownMode;
+    let mode = match mode.as_str() {
+        "release" => ShutdownMode::Release,
+        "stop" => ShutdownMode::Stop,
+        other => return Err(format!("unknown shutdown mode {other:?}")),
+    };
+    let ack = client().shutdown(mode).map_err(stringify)?;
+    Ok(ack.live_sessions)
+}
+
+fn roost_hostd_wait_dead(timeout_ms: u64) -> bool {
+    use std::os::unix::net::UnixStream;
+    use std::time::{Duration, Instant};
+    let socket = roost_client::roost_core::paths::socket_path();
+    let manifest = roost_client::roost_core::paths::manifest_path();
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    while Instant::now() < deadline {
+        if !manifest.exists() && UnixStream::connect(&socket).is_err() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    false
 }
 
 fn parse_sid(s: &str) -> Result<roost_client::SessionId, String> {

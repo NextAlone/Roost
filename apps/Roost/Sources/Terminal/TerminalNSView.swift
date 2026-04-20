@@ -96,7 +96,51 @@ final class TerminalNSView: NSView {
     // MARK: Keyboard
 
     override func keyDown(with event: NSEvent) {
+        // Intercept standard macOS clipboard shortcuts before they leak into
+        // the PTY. A plain ghostty binding layer would handle these via
+        // configured keybindings, but for now just wire the two most common
+        // explicitly.
+        if event.modifierFlags.contains(.command),
+           event.modifierFlags.intersection([.control, .option]).isEmpty {
+            switch event.charactersIgnoringModifiers {
+            case "v":
+                if pasteFromClipboard() { return }
+            case "c":
+                if copySelectionToClipboard() { return }
+            default:
+                break
+            }
+        }
         forward(event: event, action: GHOSTTY_ACTION_PRESS)
+    }
+
+    @discardableResult
+    private func pasteFromClipboard() -> Bool {
+        guard let surface,
+              let text = NSPasteboard.general.string(forType: .string),
+              !text.isEmpty
+        else { return false }
+        text.withCString { cstr in
+            ghostty_surface_text(surface, cstr, UInt(strlen(cstr)))
+        }
+        return true
+    }
+
+    @discardableResult
+    private func copySelectionToClipboard() -> Bool {
+        guard let surface, ghostty_surface_has_selection(surface) else {
+            return false
+        }
+        var text = ghostty_text_s()
+        guard ghostty_surface_read_selection(surface, &text) else { return false }
+        defer { ghostty_surface_free_text(surface, &text) }
+        guard let ptr = text.text, text.text_len > 0 else { return false }
+        let data = Data(bytes: ptr, count: Int(text.text_len))
+        guard let str = String(data: data, encoding: .utf8) else { return false }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(str, forType: .string)
+        return true
     }
 
     override func keyUp(with event: NSEvent) {

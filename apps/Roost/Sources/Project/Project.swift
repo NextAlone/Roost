@@ -100,6 +100,16 @@ final class ProjectStore: ObservableObject {
         save()
     }
 
+    /// Move `srcID` to the very end of the sidebar.
+    func moveToEnd(_ srcID: Project.ID) {
+        guard let src = projects.firstIndex(where: { $0.id == srcID })
+        else { return }
+        if src == projects.count - 1 { return }
+        let p = projects.remove(at: src)
+        projects.append(p)
+        save()
+    }
+
     // MARK: Persistence
 
     private func save() {

@@ -31,44 +31,44 @@ struct ProjectSidebar: View {
         VStack(spacing: 0) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 1) {
-                    ForEach(buckets) { bucket in
-                        BucketRow(
-                            bucket: bucket,
-                            isCollapsed: collapsed.contains(bucket.id),
-                            isSelected: selection == bucket.id,
-                            selectedSessionID: selectedSessionID,
-                            unreadSessions: unreadSessions,
-                            isRenaming: renamingID == bucket.id,
-                            renameDraft: $renameDraft,
-                            onToggle: { toggleCollapsed(bucket.id) },
-                            onSelectBucket: { selection = bucket.id },
-                            onSelectSession: { sid in
-                                onSelectSession(sid, bucket.isScratch ? nil : bucket.id)
-                            },
-                            onCloseSession: onCloseSession,
-                            onRenameBegin: { beginRename(bucket.id) },
-                            onRenameCommit: { commitRename(bucket.id) },
-                            onRevealProject: { revealInFinder(bucket.path) },
-                            onRemoveProject: { store.remove(bucket.id) }
-                        )
-                        .if(!bucket.isScratch) { row in
-                            row
-                                .onDrag({
-                                    NSItemProvider(
-                                        object: bucket.id.uuidString as NSString
-                                    )
-                                }, preview: {
-                                    DragPreview(label: bucket.name)
-                                })
-                                .onDrop(
-                                    of: [.plainText],
-                                    delegate: ProjectDropDelegate(
-                                        store: store,
-                                        target: bucket.id
-                                    )
+                    // Scratch area
+                    bucketRow(for: scratchBucket)
+                        .padding(.bottom, 4)
+
+                    SectionHeader(title: "Projects")
+
+                    ForEach(projectBuckets) { bucket in
+                        bucketRow(for: bucket)
+                            .onDrag({
+                                NSItemProvider(
+                                    object: bucket.id.uuidString as NSString
                                 )
-                        }
+                            }, preview: {
+                                DragPreview(label: bucket.name)
+                            })
+                            .onDrop(
+                                of: [.plainText],
+                                delegate: ProjectDropDelegate(
+                                    store: store,
+                                    target: .before(bucket.id)
+                                )
+                            )
                     }
+
+                    // Tail drop zone: lets the user drop a project at the
+                    // very bottom of the list (targets don't exist below
+                    // the last row). Invisible; grows enough to catch a
+                    // reasonable drop.
+                    Color.clear
+                        .frame(height: 40)
+                        .contentShape(Rectangle())
+                        .onDrop(
+                            of: [.plainText],
+                            delegate: ProjectDropDelegate(
+                                store: store,
+                                target: .end
+                            )
+                        )
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 6)
@@ -81,12 +81,37 @@ struct ProjectSidebar: View {
         .navigationTitle("Projects")
     }
 
+    @ViewBuilder
+    private func bucketRow(for bucket: SidebarBucket) -> some View {
+        BucketRow(
+            bucket: bucket,
+            isCollapsed: collapsed.contains(bucket.id),
+            isSelected: selection == bucket.id,
+            selectedSessionID: selectedSessionID,
+            unreadSessions: unreadSessions,
+            isRenaming: renamingID == bucket.id,
+            renameDraft: $renameDraft,
+            onToggle: { toggleCollapsed(bucket.id) },
+            onSelectBucket: { selection = bucket.id },
+            onSelectSession: { sid in
+                onSelectSession(sid, bucket.isScratch ? nil : bucket.id)
+            },
+            onCloseSession: onCloseSession,
+            onRenameBegin: { beginRename(bucket.id) },
+            onRenameCommit: { commitRename(bucket.id) },
+            onRevealProject: { revealInFinder(bucket.path) },
+            onRemoveProject: { store.remove(bucket.id) }
+        )
+    }
+
     // MARK: One-shot bucket grouping
 
-    private var buckets: [SidebarBucket] {
-        let grouped = Dictionary(grouping: sessions) { $0.projectID }
-        var out: [SidebarBucket] = []
-        out.append(SidebarBucket(
+    private var grouped: [Project.ID?: [LaunchedSession]] {
+        Dictionary(grouping: sessions) { $0.projectID }
+    }
+
+    private var scratchBucket: SidebarBucket {
+        SidebarBucket(
             id: Project.scratchID,
             name: "Scratch",
             path: nil,
@@ -96,21 +121,24 @@ struct ProjectSidebar: View {
             hookWarning: nil,
             hasUnread: scratchHasUnread,
             sessionCount: scratchSessionCount
-        ))
-        for p in store.projects {
-            out.append(SidebarBucket(
+        )
+    }
+
+    private var projectBuckets: [SidebarBucket] {
+        let g = grouped
+        return store.projects.map { p in
+            SidebarBucket(
                 id: p.id,
                 name: p.name,
                 path: p.path,
                 isJj: p.isJjRepo,
                 isScratch: false,
-                sessions: grouped[p.id] ?? [],
+                sessions: g[p.id] ?? [],
                 hookWarning: hookWarningsByProject[p.id],
                 hasUnread: unreadProjectIDs.contains(p.id),
                 sessionCount: sessionCountByProject[p.id] ?? 0
-            ))
+            )
         }
-        return out
     }
 
     // MARK: Helpers
@@ -200,11 +228,14 @@ private struct BucketRow: View, Equatable {
 
     private var header: some View {
         HStack(spacing: 6) {
+            // Larger tap surface — the raw chevron glyph at 12pt was hard
+            // to hit precisely.
             Button(action: onToggle) {
                 Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .frame(width: 12)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -434,6 +465,21 @@ private struct SessionChild: View, Equatable {
     }
 }
 
+// MARK: - Section header
+
+private struct SectionHeader: View {
+    let title: String
+    var body: some View {
+        Text(title.uppercased())
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 // MARK: - Fixed bottom bar
 
 private struct AddButton: View {
@@ -485,9 +531,14 @@ private struct DragPreview: View {
     }
 }
 
+enum DropTarget {
+    case before(Project.ID)
+    case end
+}
+
 private struct ProjectDropDelegate: DropDelegate {
     let store: ProjectStore
-    let target: Project.ID
+    let target: DropTarget
 
     func performDrop(info: DropInfo) -> Bool {
         guard let provider = info.itemProviders(for: [.plainText]).first
@@ -496,7 +547,10 @@ private struct ProjectDropDelegate: DropDelegate {
             guard let s = obj as? String, let srcID = UUID(uuidString: s)
             else { return }
             DispatchQueue.main.async {
-                store.move(srcID, before: target)
+                switch target {
+                case .before(let id): store.move(srcID, before: id)
+                case .end:            store.moveToEnd(srcID)
+                }
             }
         }
         return true
@@ -507,13 +561,3 @@ private struct ProjectDropDelegate: DropDelegate {
     }
 }
 
-// MARK: - Small helper
-
-private extension View {
-    /// Conditionally apply a modifier chain without breaking opaque
-    /// return-type inference (avoids `AnyView`).
-    @ViewBuilder
-    func `if`<T: View>(_ condition: Bool, transform: (Self) -> T) -> some View {
-        if condition { transform(self) } else { self }
-    }
-}

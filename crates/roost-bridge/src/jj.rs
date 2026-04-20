@@ -53,12 +53,13 @@ pub fn version() -> Result<String, String> {
 }
 
 pub fn list_workspaces(repo_dir: &str) -> Result<Vec<WorkspaceEntry>, String> {
-    // Template output: <name>\x1f<path>\x1f<change>\x1f<desc>\n
-    // Using 0x1f (Unit Separator) as field delimiter — unlikely to collide.
+    // jj template output: <name>\0<path>\0<change>\0<desc>\n
+    // Use NUL between fields so any non-NUL text is safe; jj templates only
+    // recognize \n \t \r \\ \" \0 as escapes, so `\u{1f}` doesn't parse.
     let tmpl = concat!(
-        r#"name ++ "\u{1f}" ++ "#,
-        r#"self.working_copy().path().display() ++ "\u{1f}" ++ "#,
-        r#"change_id.short() ++ "\u{1f}" ++ "#,
+        r#"name ++ "\0" ++ "#,
+        r#"self.working_copy().path().display() ++ "\0" ++ "#,
+        r#"change_id.short() ++ "\0" ++ "#,
         r#"self.working_copy().description().first_line() ++ "\n""#,
     );
 
@@ -67,7 +68,7 @@ pub fn list_workspaces(repo_dir: &str) -> Result<Vec<WorkspaceEntry>, String> {
 
     let mut entries = Vec::new();
     for line in out.stdout.lines() {
-        let fields: Vec<&str> = line.split('\u{1f}').collect();
+        let fields: Vec<&str> = line.split('\0').collect();
         if fields.len() < 4 {
             continue;
         }
@@ -137,8 +138,8 @@ pub fn workspace_root(workspace_dir: &str) -> Result<String, String> {
 
 pub fn current_revision(workspace_dir: &str) -> Result<RevisionEntry, String> {
     let tmpl = concat!(
-        r#"change_id.short() ++ "\u{1f}" ++ "#,
-        r#"description.first_line() ++ "\u{1f}" ++ "#,
+        r#"change_id.short() ++ "\0" ++ "#,
+        r#"description.first_line() ++ "\0" ++ "#,
         r#"bookmarks.map(|b| b.name()).join(",")"#,
     );
     let out = run(
@@ -146,7 +147,7 @@ pub fn current_revision(workspace_dir: &str) -> Result<RevisionEntry, String> {
         Some(workspace_dir),
     )?;
     let line = out.stdout.trim();
-    let fields: Vec<&str> = line.split('\u{1f}').collect();
+    let fields: Vec<&str> = line.split('\0').collect();
     if fields.len() < 3 {
         return Err(format!("unexpected `jj log` output: {line:?}"));
     }

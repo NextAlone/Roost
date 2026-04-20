@@ -116,15 +116,46 @@ final class TerminalNSView: NSView {
 
     // MARK: Keyboard
 
-    // Minimal: forward composed text. This is NOT a correct key encoding and
-    // will miss modifier-bound shortcuts, arrow keys, etc. — enough to prove
-    // the PTY round-trip on typing.
+    // Minimal key mapping: special keys (Enter/Backspace/Tab/Esc/Arrows) go
+    // through ghostty_surface_key; printable text still goes through
+    // ghostty_surface_text. Not a complete encoding — modifier shortcuts, IME,
+    // and repeat handling are omitted.
     override func keyDown(with event: NSEvent) {
         guard let surface else { return }
+
+        if let special = specialKey(for: event.keyCode) {
+            var key = ghostty_input_key_s(
+                action: GHOSTTY_ACTION_PRESS,
+                mods: GHOSTTY_MODS_NONE,
+                consumed_mods: GHOSTTY_MODS_NONE,
+                keycode: UInt32(special.rawValue),
+                text: nil,
+                unshifted_codepoint: 0,
+                composing: false
+            )
+            _ = ghostty_surface_key(surface, key)
+            return
+        }
+
         if let characters = event.characters, !characters.isEmpty {
             characters.withCString { cstr in
                 ghostty_surface_text(surface, cstr, UInt(strlen(cstr)))
             }
+        }
+    }
+
+    private func specialKey(for keyCode: UInt16) -> ghostty_input_key_e? {
+        switch keyCode {
+        case 0x24: return GHOSTTY_KEY_ENTER     // Return
+        case 0x4C: return GHOSTTY_KEY_ENTER     // Numpad Enter
+        case 0x33: return GHOSTTY_KEY_BACKSPACE // Delete (backspace)
+        case 0x30: return GHOSTTY_KEY_TAB
+        case 0x35: return GHOSTTY_KEY_ESCAPE
+        case 0x7B: return GHOSTTY_KEY_ARROW_LEFT
+        case 0x7C: return GHOSTTY_KEY_ARROW_RIGHT
+        case 0x7D: return GHOSTTY_KEY_ARROW_DOWN
+        case 0x7E: return GHOSTTY_KEY_ARROW_UP
+        default: return nil
         }
     }
 

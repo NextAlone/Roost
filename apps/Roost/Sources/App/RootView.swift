@@ -55,19 +55,23 @@ struct RootView: View {
         }
     }
 
+    /// Keep every session's `TerminalNSView` alive for the lifetime of the
+    /// session; switching tabs only flips visibility. Using `.id(selectedID)`
+    /// here (single view) would rebuild the NSView and kill the child PTY.
     @ViewBuilder
     private var terminalPane: some View {
-        if let active = sessions.first(where: { $0.id == selectedID }) {
-            TerminalView(
-                command: active.spec.command.isEmpty ? nil : active.spec.command,
-                workingDirectory: active.spec.workingDirectory.isEmpty
-                    ? nil : active.spec.workingDirectory
-            )
-            .id(active.id)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            Color.clear
+        ZStack {
+            ForEach(sessions) { session in
+                TerminalView(
+                    command: session.spec.command.isEmpty ? nil : session.spec.command,
+                    workingDirectory: session.spec.workingDirectory.isEmpty
+                        ? nil : session.spec.workingDirectory
+                )
+                .opacity(session.id == selectedID ? 1 : 0)
+                .allowsHitTesting(session.id == selectedID)
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: Actions

@@ -16,6 +16,7 @@ mod store;
 
 fn main() -> Result<()> {
     init_tracing();
+    install_panic_hook();
 
     // §4a: tokio multi-thread runtime, worker_threads=2.
     let runtime = Builder::new_multi_thread()
@@ -25,6 +26,20 @@ fn main() -> Result<()> {
         .context("build tokio runtime")?;
 
     runtime.block_on(async_main())
+}
+
+/// Best-effort manifest scrub on panic. The default hook still prints; we
+/// just chain a side effect so the next launch's adopt path doesn't get
+/// stuck on a stale manifest pointing at a now-dead pid.
+fn install_panic_hook() {
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let path = roost_core::paths::manifest_path();
+        let _ = std::fs::remove_file(&path);
+        let socket = roost_core::paths::socket_path();
+        let _ = std::fs::remove_file(&socket);
+        prev(info);
+    }));
 }
 
 fn init_tracing() {

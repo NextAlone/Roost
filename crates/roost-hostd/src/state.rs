@@ -9,6 +9,8 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use rand::RngCore;
 use sqlx::SqlitePool;
 
+use tokio::sync::Notify;
+
 use crate::events::EventBus;
 use crate::session::Registry;
 
@@ -20,6 +22,9 @@ pub struct HostState {
     pub db: SqlitePool,
     pub sessions: Arc<Registry>,
     pub events: EventBus,
+    /// Notified once when a `shutdown(Stop)` RPC arrives or a SIGTERM/SIGINT
+    /// fires; the rpc_server accept loop awaits this to break.
+    pub shutdown: Arc<Notify>,
 }
 
 impl HostState {
@@ -39,6 +44,7 @@ impl HostState {
             db,
             sessions: Arc::new(Registry::new()),
             events: EventBus::new(),
+            shutdown: Arc::new(Notify::new()),
         }
     }
 

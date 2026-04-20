@@ -100,6 +100,25 @@ impl Registry {
             .len()
     }
 
+    /// (id, pid) pairs for sessions currently `Running`. M8 shutdown uses
+    /// this to fan out SIGTERM/SIGKILL.
+    pub fn live_session_pids(&self) -> Vec<(SessionId, u32)> {
+        let g = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+        g.values()
+            .filter(|e| e.info.state == SessionState::Running)
+            .filter_map(|e| e.info.pid.map(|p| (e.info.id, p)))
+            .collect()
+    }
+
+    /// True if the given session is no longer `Running` (Exited, Detached,
+    /// or already removed).
+    pub fn is_done(&self, id: SessionId) -> bool {
+        let g = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+        g.get(&id)
+            .map(|e| e.info.state != SessionState::Running)
+            .unwrap_or(true)
+    }
+
     /// Hard-remove an entry. Today only used by future M8 cleanup paths;
     /// `set_exit` already drops the live channels so this is solely for
     /// reclaiming the SessionInfo row.

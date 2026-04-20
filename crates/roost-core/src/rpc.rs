@@ -162,6 +162,9 @@ pub mod methods {
     pub const KILL_SESSION: &str = "kill_session";
     pub const RESIZE_SESSION: &str = "resize_session";
     pub const SEND_INPUT: &str = "send_input";
+
+    // Daemon lifecycle (M8).
+    pub const SHUTDOWN: &str = "shutdown";
 }
 
 /// Server→client notification method names (sent as JSON-RPC frames with
@@ -170,6 +173,11 @@ pub mod events {
     pub const SESSION_STATE: &str = "session_state";
     pub const SESSION_EXITED: &str = "session_exited";
     pub const SESSION_OSC: &str = "session_osc";
+
+    // Daemon shutdown progress (M8). `shutdown_progress` fires per session
+    // termination during a Stop; `shutdown_done` fires once before exit.
+    pub const SHUTDOWN_PROGRESS: &str = "shutdown_progress";
+    pub const SHUTDOWN_DONE: &str = "shutdown_done";
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -322,6 +330,47 @@ pub struct SessionStateEvent {
 pub struct SessionExitedEvent {
     pub session_id: SessionId,
     pub exit_code: Option<i32>,
+}
+
+// MARK: - Daemon shutdown (M8)
+
+/// `release` = app disconnects, hostd keeps running and agents stay alive
+/// (manifest stays on disk so the next launch adopts).
+/// `stop` = SIGTERM all sessions with grace, then SIGKILL stragglers,
+/// remove manifest, exit. Notification-only RPC; the real progress comes
+/// over `shutdown_progress` / `shutdown_done` events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShutdownMode {
+    Release,
+    Stop,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShutdownParams {
+    pub mode: ShutdownMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShutdownAck {
+    /// Hint for the client UI ("Stopping 3 agents…"). Live count at the
+    /// moment shutdown was requested; subsequent events are the truth.
+    pub live_sessions: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShutdownProgressEvent {
+    pub remaining_sessions: u32,
+    pub elapsed_ms: u64,
+    /// The session that just exited (None for the initial 0 → live_sessions
+    /// progress tick, if any).
+    pub last_session_id: Option<SessionId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShutdownDoneEvent {
+    pub forced_kills: u32,
+    pub elapsed_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

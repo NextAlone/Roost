@@ -29,6 +29,7 @@ use roost_core::rpc::{
     CreateSessionResult, ForgetWorkspaceParams, Hello, HelloAck, HostInfoResult, IsJjRepoParams,
     IsJjRepoResult, KillSessionParams, Manifest, RenameWorkspaceParams, RepoDirParams, Request,
     ResizeSessionParams, Response, RevisionResult, RpcError, SendInputParams, SessionListResult,
+    ShutdownAck, ShutdownDoneEvent, ShutdownMode, ShutdownParams, ShutdownProgressEvent,
     StatusResult, StringResult, WorkspaceDirParams, WorkspaceListResult, WorkspaceResult,
 };
 use serde::Serialize;
@@ -76,6 +77,7 @@ pub async fn run(state: Arc<HostState>) -> Result<()> {
 
     let mut sigterm = signal(SignalKind::terminate())?;
     let mut sigint = signal(SignalKind::interrupt())?;
+    let shutdown_notify = state.shutdown.clone();
 
     loop {
         tokio::select! {
@@ -95,12 +97,26 @@ pub async fn run(state: Arc<HostState>) -> Result<()> {
                     }
                 }
             }
-            _ = sigterm.recv() => { info!("SIGTERM"); break; }
-            _ = sigint.recv()  => { info!("SIGINT"); break; }
+            _ = sigterm.recv() => {
+                info!("SIGTERM → Stop");
+                let live = state.sessions.live_session_pids();
+                run_stop(state.clone(), live).await; // never returns
+                break;
+            }
+            _ = sigint.recv() => {
+                info!("SIGINT → Stop");
+                let live = state.sessions.live_session_pids();
+                run_stop(state.clone(), live).await; // never returns
+                break;
+            }
+            _ = shutdown_notify.notified() => {
+                info!("shutdown notified");
+                break;
+            }
         }
     }
 
-    info!("shutting down; cleaning manifest + socket");
+    info!("accept loop exiting; cleaning manifest + socket");
     manifest::remove().await;
     Ok(())
 }
@@ -469,7 +485,12 @@ fn is_async_method(method: &str) -> bool {
     use rpc::methods::*;
     matches!(
         method,
-        CREATE_SESSION | LIST_SESSIONS | KILL_SESSION | RESIZE_SESSION | SEND_INPUT
+        CREATE_SESSION
+            | LIST_SESSIONS
+            | KILL_SESSION
+            | RESIZE_SESSION
+            | SEND_INPUT
+            | SHUTDOWN
     )
 }
 
@@ -555,6 +576,27 @@ async fn handle_async_method(
                     Err(RpcError::domain("resize channel closed (session exited?)"))
                 }
                 None => Err(RpcError::domain(format!("unknown session {}", p.session_id))),
+            }
+        }
+        SHUTDOWN => {
+            let p: ShutdownParams = decode(params)?;
+            let live = state.sessions.live_session_pids();
+            let live_count = live.len() as u32;
+            match p.mode {
+                ShutdownMode::Release => {
+                    // Remove the manifest so the next launch's adopt path
+                    // sees "no daemon" and spawns fresh — we keep running
+                    // (and can be re-adopted via socket) but we no longer
+                    // claim the canonical slot. Sessions stay alive.
+                    crate::manifest::remove().await;
+                    info!("shutdown(Release): manifest removed; staying up");
+                    ok(ShutdownAck { live_sessions: live_count })
+                }
+                ShutdownMode::Stop => {
+                    let state_for_bg = state.clone();
+                    tokio::spawn(async move { run_stop(state_for_bg, live).await });
+                    ok(ShutdownAck { live_sessions: live_count })
+                }
             }
         }
         SEND_INPUT => {
@@ -685,3 +727,106 @@ fn _force_use_session_id_from_str(s: &str) -> Option<SessionId> {
 // Capture for unused-but-conceptually-shared SessionEntry import.
 #[allow(dead_code)]
 fn _force_use_session_entry(_e: &SessionEntry) {}
+
+const STOP_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
+const STOP_KILL_GRACE: std::time::Duration = std::time::Duration::from_secs(1);
+const STOP_POLL: std::time::Duration = std::time::Duration::from_millis(100);
+
+async fn run_stop(state: Arc<HostState>, live: Vec<(SessionId, u32)>) {
+    let started = std::time::Instant::now();
+    let total = live.len();
+    info!("shutdown(Stop): SIGTERM {} session(s)", total);
+
+    // Initial progress so the client can render "Stopping N agents…"
+    state.events.emit_shutdown_progress(ShutdownProgressEvent {
+        remaining_sessions: total as u32,
+        elapsed_ms: 0,
+        last_session_id: None,
+    });
+
+    // Phase 1: SIGTERM all, await with grace.
+    for (_id, pid) in &live {
+        // SAFETY: standard libc kill; -1 just gets reported as a warn.
+        let rc = unsafe { libc::kill(*pid as libc::pid_t, libc::SIGTERM) };
+        if rc != 0 {
+            warn!(
+                "kill SIGTERM pid={pid} failed: {}",
+                std::io::Error::last_os_error()
+            );
+        }
+    }
+
+    let mut remaining: Vec<SessionId> = live.iter().map(|(id, _)| *id).collect();
+    let grace_deadline = started + STOP_GRACE;
+    while !remaining.is_empty() && std::time::Instant::now() < grace_deadline {
+        tokio::time::sleep(STOP_POLL).await;
+        prune_progress(&state, &mut remaining, total, started);
+    }
+
+    // Phase 2: SIGKILL stragglers, brief grace.
+    let mut forced = 0u32;
+    if !remaining.is_empty() {
+        warn!("shutdown(Stop): {} stragglers; SIGKILL", remaining.len());
+        // Re-snapshot pids: registry may have updated state for some.
+        let live_now = state.sessions.live_session_pids();
+        for (id, pid) in &live_now {
+            if remaining.contains(id) {
+                let rc = unsafe { libc::kill(*pid as libc::pid_t, libc::SIGKILL) };
+                if rc == 0 {
+                    forced += 1;
+                }
+            }
+        }
+        let kill_deadline = std::time::Instant::now() + STOP_KILL_GRACE;
+        while !remaining.is_empty() && std::time::Instant::now() < kill_deadline {
+            tokio::time::sleep(STOP_POLL).await;
+            prune_progress(&state, &mut remaining, total, started);
+        }
+    }
+
+    let elapsed_ms = started.elapsed().as_millis() as u64;
+    state.events.emit_shutdown_done(ShutdownDoneEvent {
+        forced_kills: forced,
+        elapsed_ms,
+    });
+
+    // Give the broadcast a chance to flush the done event to subscribers
+    // before we yank everything.
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    info!(
+        "shutdown(Stop) complete: forced={} elapsed_ms={} → process::exit(0)",
+        forced, elapsed_ms
+    );
+    crate::manifest::remove().await;
+    // The bg task owns the exit. Calling process::exit here (rather than
+    // notifying the accept loop and dropping the runtime) avoids a race
+    // where runtime Drop aborts this very task before we've flushed the
+    // last events to subscribers.
+    std::process::exit(0);
+}
+
+fn prune_progress(
+    state: &HostState,
+    remaining: &mut Vec<SessionId>,
+    total: usize,
+    started: std::time::Instant,
+) {
+    let mut just_done: Vec<SessionId> = Vec::new();
+    remaining.retain(|id| {
+        if state.sessions.is_done(*id) {
+            just_done.push(*id);
+            false
+        } else {
+            true
+        }
+    });
+    let _ = total; // referenced for future "n of total" UX strings.
+    for id in just_done {
+        state.events.emit_shutdown_progress(ShutdownProgressEvent {
+            remaining_sessions: remaining.len() as u32,
+            elapsed_ms: started.elapsed().as_millis() as u64,
+            last_session_id: Some(id),
+        });
+    }
+}

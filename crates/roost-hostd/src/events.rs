@@ -5,7 +5,8 @@
 //! the per-conn write task turns them into JSON-RPC notification frames.
 
 use roost_core::rpc::{
-    SessionExitedEvent, SessionOscEvent, SessionStateEvent, events as event_methods,
+    SessionExitedEvent, SessionOscEvent, SessionStateEvent, ShutdownDoneEvent,
+    ShutdownProgressEvent, events as event_methods,
 };
 use serde_json::Value;
 use tokio::sync::broadcast;
@@ -52,6 +53,20 @@ impl EventBus {
     pub fn emit_session_osc(&self, evt: SessionOscEvent) {
         let _ = self.tx.send(EventEnvelope {
             method: event_methods::SESSION_OSC,
+            params: serde_json::to_value(evt).unwrap_or(Value::Null),
+        });
+    }
+
+    pub fn emit_shutdown_progress(&self, evt: ShutdownProgressEvent) {
+        let _ = self.tx.send(EventEnvelope {
+            method: event_methods::SHUTDOWN_PROGRESS,
+            params: serde_json::to_value(evt).unwrap_or(Value::Null),
+        });
+    }
+
+    pub fn emit_shutdown_done(&self, evt: ShutdownDoneEvent) {
+        let _ = self.tx.send(EventEnvelope {
+            method: event_methods::SHUTDOWN_DONE,
             params: serde_json::to_value(evt).unwrap_or(Value::Null),
         });
     }

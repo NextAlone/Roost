@@ -294,6 +294,16 @@ impl Client {
         )?;
         Ok(())
     }
+
+    /// Notification-style: hostd ack'd that it received the request, but the
+    /// real progress comes via the events channel (`shutdown_progress` /
+    /// `shutdown_done`). For Stop, the caller should subscribe to events
+    /// before calling and keep the connection alive until `shutdown_done`.
+    pub fn shutdown(&self, mode: rpc::ShutdownMode) -> Result<rpc::ShutdownAck> {
+        let r: rpc::ShutdownAck =
+            self.call(methods::SHUTDOWN, &rpc::ShutdownParams { mode })?;
+        Ok(r)
+    }
 }
 
 impl Default for Client {
@@ -351,9 +361,27 @@ fn spawn_and_wait() -> Result<Manifest> {
         .ok_or_else(|| ClientError::Spawn("roost-hostd binary not found".into()))?;
 
     let mut cmd = std::process::Command::new(&bin);
-    cmd.stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
+    cmd.stdin(std::process::Stdio::null());
+    if let Ok(log_path) = std::env::var("ROOST_HOSTD_SPAWN_LOG") {
+        let f = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .ok();
+        if let Some(f) = f {
+            let f2 = f.try_clone().ok();
+            cmd.stdout(std::process::Stdio::from(f));
+            if let Some(f2) = f2 {
+                cmd.stderr(std::process::Stdio::from(f2));
+            }
+        } else {
+            cmd.stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null());
+        }
+    } else {
+        cmd.stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+    }
     unsafe {
         use std::os::unix::process::CommandExt;
         cmd.pre_exec(|| {

@@ -35,9 +35,11 @@ pub struct StatusEntry {
 }
 
 /// True if the given path (or an ancestor) is a jj repo. We just invoke
-/// `jj status` and trust its exit code.
+/// `jj status` and trust its exit code. Route through `jj_binary()` so
+/// GUI-launched apps still find the binary under a non-login PATH.
 pub fn is_jj_repo(dir: &str) -> bool {
-    Command::new("jj")
+    let Ok(bin) = jj_binary() else { return false };
+    Command::new(&bin)
         .arg("status")
         .arg("--quiet")
         .current_dir(dir)

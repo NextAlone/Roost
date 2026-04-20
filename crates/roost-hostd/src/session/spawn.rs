@@ -117,10 +117,10 @@ pub fn spawn_session(spec: AgentSpec, events: Option<EventBus>) -> Result<Spawne
 
     let entry = SessionEntry {
         info,
-        stdin_tx,
+        stdin_tx: Some(stdin_tx),
         broadcast_tx,
         ring,
-        resize_tx,
+        resize_tx: Some(resize_tx),
     };
 
     Ok(Spawned {

@@ -273,18 +273,22 @@ async fn handle_data_conn(
         return Ok(());
     }
 
-    let Some((stdin_tx, mut bcast_rx, replay)) = state.sessions.with(att.session_id, |entry| {
+    let attach = state.sessions.with(att.session_id, |entry| {
         let (snap, rx) = entry.subscribe();
         (entry.stdin_tx.clone(), rx, snap)
-    }) else {
-        let ack = AttachAck {
-            ok: false,
-            server_version: roost_core::HOSTD_VERSION.into(),
-            error: Some(format!("unknown session {}", att.session_id)),
-            replay_b64: String::new(),
-        };
-        send_json(&mut framed, &ack).await?;
-        return Ok(());
+    });
+    let (stdin_tx_opt, mut bcast_rx, replay) = match attach {
+        Some(t) => t,
+        None => {
+            let ack = AttachAck {
+                ok: false,
+                server_version: roost_core::HOSTD_VERSION.into(),
+                error: Some(format!("unknown session {}", att.session_id)),
+                replay_b64: String::new(),
+            };
+            send_json(&mut framed, &ack).await?;
+            return Ok(());
+        }
     };
 
     let ack = AttachAck {
@@ -302,8 +306,18 @@ async fn handle_data_conn(
     let (mut read_half, mut write_half) = stream.into_split();
 
     let sid = att.session_id;
+
+    // Exited session: stdin path is gone, but the ring replay we just sent
+    // is the scrollback the user came for. Half-close write so the client
+    // sees EOF and don't bother spawning the I/O tasks.
+    let Some(stdin_tx) = stdin_tx_opt else {
+        let _ = write_half.shutdown().await;
+        info!(%sid, "attach to exited session served replay; closing");
+        return Ok(());
+    };
+
     let stdin_tx_for_read = stdin_tx.clone();
-    let read_task = tokio::spawn(async move {
+    let mut read_task = tokio::spawn(async move {
         let mut buf = vec![0u8; 4096];
         loop {
             match read_half.read(&mut buf).await {
@@ -319,7 +333,7 @@ async fn handle_data_conn(
         }
     });
 
-    let write_task = tokio::spawn(async move {
+    let mut write_task = tokio::spawn(async move {
         loop {
             match bcast_rx.recv().await {
                 Ok(chunk) => {
@@ -327,19 +341,27 @@ async fn handle_data_conn(
                         break;
                     }
                 }
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                // Bytes lost from a raw stream put the VT state machine into
+                // an unrecoverable mid-sequence state (CSI/OSC truncation
+                // → permanent color/cursor corruption). Disconnect so the
+                // attacher reconnects + replays the ring instead of silently
+                // continuing on a torn stream.
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => break,
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
             }
         }
     });
 
-    // Either side closes → tear the other down. Mark detached only if the
-    // child is still alive — never overwrite an Exited state set by the
-    // wait task.
+    // Either side closes → tear the other down. tokio::JoinHandle's Drop
+    // doesn't abort, so without an explicit abort the surviving task runs
+    // forever (especially the read_task, which would keep entry.stdin_tx
+    // pinned and leak the writer/PTY chain).
     tokio::select! {
-        _ = read_task => {}
-        _ = write_task => {}
+        _ = &mut read_task  => { write_task.abort(); }
+        _ = &mut write_task => { read_task.abort();  }
     }
+    let _ = read_task.await;
+    let _ = write_task.await;
     if let Some(info) = state.sessions.get_info(att.session_id) {
         if info.state != SessionState::Exited {
             state
@@ -478,6 +500,11 @@ async fn handle_async_method(
             let events = state.events.clone();
             tokio::spawn(async move {
                 let code = exited_rx.await.ok().flatten();
+                // set_exit drops stdin_tx + resize_tx, which closes the
+                // spawn module's writer + resize channels and lets those
+                // blocking tasks (and the PTY master they hold) finally
+                // release. The SessionInfo row stays in the registry so
+                // list_sessions can still surface Exited + scrollback.
                 registry.set_exit(id, code);
                 events.emit_session_state(rpc::SessionStateEvent {
                     session_id: id,
@@ -516,12 +543,17 @@ async fn handle_async_method(
         }
         RESIZE_SESSION => {
             let p: ResizeSessionParams = decode(params)?;
-            let sent = state
-                .sessions
-                .with(p.session_id, |entry| entry.resize_tx.send((p.rows, p.cols)).is_ok());
+            let sent = state.sessions.with(p.session_id, |entry| {
+                entry
+                    .resize_tx
+                    .as_ref()
+                    .map(|tx| tx.send((p.rows, p.cols)).is_ok())
+            });
             match sent {
-                Some(true) => ok(rpc::Empty::default()),
-                Some(false) => Err(RpcError::domain("resize channel closed")),
+                Some(Some(true)) => ok(rpc::Empty::default()),
+                Some(Some(false)) | Some(None) => {
+                    Err(RpcError::domain("resize channel closed (session exited?)"))
+                }
                 None => Err(RpcError::domain(format!("unknown session {}", p.session_id))),
             }
         }
@@ -533,8 +565,14 @@ async fn handle_async_method(
             let tx = state
                 .sessions
                 .with(p.session_id, |entry| entry.stdin_tx.clone());
-            let Some(tx) = tx else {
-                return Err(RpcError::domain(format!("unknown session {}", p.session_id)));
+            let tx = match tx {
+                Some(Some(tx)) => tx,
+                Some(None) => {
+                    return Err(RpcError::domain("session stdin closed (session exited?)"));
+                }
+                None => {
+                    return Err(RpcError::domain(format!("unknown session {}", p.session_id)));
+                }
             };
             tx.send(Bytes::from(bytes))
                 .await

@@ -628,10 +628,23 @@ struct LaunchedSession: Identifiable, Equatable {
     /// What ghostty's surface child should run. M7 attach: relay binary +
     /// session id. Legacy: the prepared shell command (or nil for login
     /// shell).
+    ///
+    /// ghostty parses this string with whitespace splitting; quote the path
+    /// so installations under e.g. `/Applications/My Apps/Roost.app/...`
+    /// don't break execve. The session id is a UUID and never needs quoting.
     var surfaceCommand: String? {
         if let attach {
-            return "\(attach.attachBinaryPath) \(attach.sessionID)"
+            let quoted = Self.shellQuote(attach.attachBinaryPath)
+            return "\(quoted) \(attach.sessionID)"
         }
         return spec.command.isEmpty ? nil : spec.command
+    }
+
+    private static func shellQuote(_ path: String) -> String {
+        // Single-quote shell-style: the only thing a single-quoted POSIX
+        // string can't contain is another `'`, which we close-quote, escape,
+        // and re-open. Adequate for ghostty's command parser.
+        let escaped = path.replacingOccurrences(of: "'", with: "'\\''")
+        return "'\(escaped)'"
     }
 }

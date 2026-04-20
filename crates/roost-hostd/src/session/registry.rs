@@ -11,18 +11,20 @@ use tokio::sync::{broadcast, mpsc};
 use super::RingBuffer;
 
 /// Live state for one PTY-backed agent. Cloned cheaply (mostly Arcs).
+///
+/// `stdin_tx` / `resize_tx` are `Option` so that on exit we can `take()`
+/// them to drop the channels and let the spawn module's writer / resize
+/// blocking tasks exit (and release the PTY master). Keep the entry in the
+/// registry afterwards so `list_sessions` still surfaces the Exited row +
+/// final scrollback for the UI.
 pub struct SessionEntry {
     pub info: SessionInfo,
-    /// Sender into the writer task — bytes pushed here flow into the PTY
-    /// master. Dropping the last sender ends the writer task and EOFs the
-    /// agent's stdin (which is what we want when killing).
-    pub stdin_tx: mpsc::Sender<Bytes>,
+    pub stdin_tx: Option<mpsc::Sender<Bytes>>,
     /// Live PTY output, fanned out to all currently-attached subscribers.
     /// Late attachers replay `ring` first, then subscribe.
     pub broadcast_tx: broadcast::Sender<Bytes>,
     pub ring: Arc<Mutex<RingBuffer>>,
-    /// Sender to deliver a resize request to the spawn task.
-    pub resize_tx: mpsc::UnboundedSender<(u16, u16)>,
+    pub resize_tx: Option<mpsc::UnboundedSender<(u16, u16)>>,
 }
 
 impl SessionEntry {
@@ -83,6 +85,11 @@ impl Registry {
         if let Some(entry) = g.get_mut(&id) {
             entry.info.state = SessionState::Exited;
             entry.info.exit_code = code;
+            // Drop senders so writer + resize spawn_blocking tasks see
+            // their channels close and exit. PTY master is released as a
+            // side-effect — see spawn::spawn_resize_task.
+            entry.stdin_tx = None;
+            entry.resize_tx = None;
         }
     }
 
@@ -91,5 +98,14 @@ impl Registry {
             .lock()
             .unwrap_or_else(|p| p.into_inner())
             .len()
+    }
+
+    /// Hard-remove an entry. Today only used by future M8 cleanup paths;
+    /// `set_exit` already drops the live channels so this is solely for
+    /// reclaiming the SessionInfo row.
+    #[allow(dead_code)]
+    pub fn remove(&self, id: SessionId) -> Option<SessionEntry> {
+        let mut g = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+        g.remove(&id)
     }
 }

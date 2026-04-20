@@ -90,15 +90,15 @@ impl OscScanner {
                     State::Idle
                 } else {
                     // False alarm — the ESC was data, not the start of ST.
-                    if buf.len() < MAX_OSC_BYTES {
+                    // Guard the two pushes together so we don't accept the
+                    // ESC and then silently drop b once the cap is reached.
+                    if buf.len() + 2 <= MAX_OSC_BYTES {
                         buf.push(0x1b);
+                        buf.push(b);
                     }
                     if b == 0x1b {
                         State::InOscSeenEsc { buf }
                     } else {
-                        if buf.len() < MAX_OSC_BYTES {
-                            buf.push(b);
-                        }
                         State::InOsc { buf }
                     }
                 }

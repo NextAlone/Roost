@@ -3,6 +3,22 @@
 # Xcode to consume. Run from anywhere; paths are resolved from the script.
 set -euo pipefail
 
+# Xcode's PhaseScript phase runs with a minimal PATH (~/ /usr/bin:/bin:...).
+# Prepend the usual cargo install locations so `cargo` resolves.
+for p in \
+    "$HOME/.cargo/bin" \
+    "$HOME/.local/bin" \
+    /opt/homebrew/bin \
+    /usr/local/bin \
+    /run/current-system/sw/bin
+do
+    case ":$PATH:" in
+        *":$p:"*) ;;
+        *) [ -d "$p" ] && PATH="$p:$PATH" ;;
+    esac
+done
+export PATH
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 POC_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$POC_DIR/../.." && pwd)"

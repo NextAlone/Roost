@@ -11,6 +11,9 @@ struct RootView: View {
     @State private var selectedSessionID: LaunchedSession.ID?
     @State private var isShowingLauncher: Bool = false
     @State private var launchError: String?
+    /// Session IDs that have seen an OSC 9/99/777 notification since they
+    /// were last focused. Cleared when the user selects the session.
+    @State private var unreadSessions: Set<UUID> = []
 
     private let ghosttyInfo = GhosttyInfo.current
     private let bridgeVersion = RoostBridge.version
@@ -20,6 +23,7 @@ struct RootView: View {
             ProjectSidebar(
                 store: projects,
                 selection: $selectedProjectID,
+                unreadProjectIDs: projectsWithUnread,
                 onAdd: addProjectFlow
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
@@ -40,6 +44,9 @@ struct RootView: View {
             }
             // When switching project, fall back to the first matching session.
             selectedSessionID = filteredSessions.first?.id
+        }
+        .onChange(of: selectedSessionID) { newID in
+            if let newID { unreadSessions.remove(newID) }
         }
         .sheet(isPresented: $isShowingLauncher) {
             LauncherSheet(
@@ -68,6 +75,25 @@ struct RootView: View {
             }
             closeSession(id: id)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .roostAgentNotification)) { note in
+            guard let id = note.userInfo?[RoostNotificationKey.sessionID] as? UUID,
+                  id != selectedSessionID
+            else { return }
+            unreadSessions.insert(id)
+        }
+    }
+
+    // MARK: - Derived state (notifications)
+
+    /// Set of projects with at least one unread session.
+    private var projectsWithUnread: Set<Project.ID> {
+        var ids: Set<Project.ID> = []
+        for session in sessions where unreadSessions.contains(session.id) {
+            if let pid = session.projectID {
+                ids.insert(pid)
+            }
+        }
+        return ids
     }
 
     // MARK: - Derived state
@@ -106,6 +132,7 @@ struct RootView: View {
                 TabBar(
                     sessions: filteredSessions,
                     selectedID: selectedSessionID,
+                    unreadIDs: unreadSessions,
                     onSelect: { selectedSessionID = $0 },
                     onClose: closeSession,
                     onNew: { isShowingLauncher = true }

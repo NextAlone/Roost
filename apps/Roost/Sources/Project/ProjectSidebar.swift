@@ -3,6 +3,7 @@ import SwiftUI
 struct ProjectSidebar: View {
     @ObservedObject var store: ProjectStore
     @Binding var selection: Project.ID?
+    let unreadProjectIDs: Set<Project.ID>
     let onAdd: () -> Void
 
     var body: some View {
@@ -11,15 +12,18 @@ struct ProjectSidebar: View {
                 emptyState
             } else {
                 List(store.projects, selection: $selection) { project in
-                    ProjectRow(project: project)
-                        .tag(project.id)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                store.remove(project.id)
-                            } label: {
-                                Label("Remove", systemImage: "trash")
-                            }
+                    ProjectRow(
+                        project: project,
+                        isUnread: unreadProjectIDs.contains(project.id)
+                    )
+                    .tag(project.id)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            store.remove(project.id)
+                        } label: {
+                            Label("Remove", systemImage: "trash")
                         }
+                    }
                 }
                 .listStyle(.sidebar)
             }
@@ -56,17 +60,25 @@ struct ProjectSidebar: View {
 
 private struct ProjectRow: View {
     let project: Project
+    let isUnread: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(project.name)
-                .font(.body)
-                .lineLimit(1)
-            Text(project.path)
-                .font(.caption2.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+        HStack(spacing: 6) {
+            if isUnread {
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 6, height: 6)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(project.name)
+                    .font(.body)
+                    .lineLimit(1)
+                Text(project.path)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
         }
         .padding(.vertical, 2)
     }

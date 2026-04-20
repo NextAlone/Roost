@@ -6,11 +6,18 @@ extension Notification.Name {
     /// is the `UUID` of the owning `LaunchedSession` (or nil if we couldn't
     /// identify it).
     static let roostSurfaceClosed = Notification.Name("sh.roost.app.surfaceClosed")
+
+    /// Posted when the child of a surface emits a desktop notification (OSC
+    /// 9 / 99 / 777). `userInfo["sessionID"]` identifies the session;
+    /// `"title"` and `"body"` carry the payload.
+    static let roostAgentNotification = Notification.Name("sh.roost.app.agentNotification")
 }
 
-/// Bundles the keys we use on the `.roostSurfaceClosed` `userInfo` dict.
+/// Bundles the keys we use on `.roost*` `userInfo` dicts.
 enum RoostNotificationKey {
     static let sessionID = "sessionID"
+    static let title = "title"
+    static let body = "body"
 }
 
 /// Singleton wrapper around `ghostty_app_t`. One per process; all surfaces
@@ -41,9 +48,10 @@ final class GhosttyRuntime {
                     ghostty_app_tick(GhosttyRuntime.shared.app)
                 }
             },
-            action_cb: { _, _, _ in
-                // Stub: accept all actions (title change, tab ops, etc.).
-                // Real routing lands with M1+.
+            action_cb: { _, target, action in
+                GhosttyRuntime.handleAction(target: target, action: action)
+                // Accept everything silently for now — real routing (title
+                // changes, tab ops, etc.) comes with later milestones.
                 return true
             },
             read_clipboard_cb: { _, _, _ in false },
@@ -81,5 +89,49 @@ final class GhosttyRuntime {
             fatalError("ghostty_app_new returned nil")
         }
         app = handle
+    }
+
+    /// Route interesting `action_cb` events back to SwiftUI via
+    /// `NotificationCenter`. Keep this side-effect-free w.r.t. ghostty.
+    fileprivate static func handleAction(
+        target: ghostty_target_s,
+        action: ghostty_action_s
+    ) {
+        switch action.tag {
+        case GHOSTTY_ACTION_DESKTOP_NOTIFICATION:
+            let notif = action.action.desktop_notification
+            let title = notif.title.map { String(cString: $0) } ?? ""
+            let body = notif.body.map { String(cString: $0) } ?? ""
+            let sessionID = sessionID(from: target)
+            DispatchQueue.main.async {
+                var info: [AnyHashable: Any] = [
+                    RoostNotificationKey.title: title,
+                    RoostNotificationKey.body: body,
+                ]
+                if let sessionID {
+                    info[RoostNotificationKey.sessionID] = sessionID
+                }
+                NotificationCenter.default.post(
+                    name: .roostAgentNotification,
+                    object: nil,
+                    userInfo: info
+                )
+            }
+        default:
+            break
+        }
+    }
+
+    /// Translate a `ghostty_target_s` into the session UUID that lives on its
+    /// `TerminalNSView`. Returns nil for app-level targets.
+    private static func sessionID(from target: ghostty_target_s) -> UUID? {
+        guard target.tag == GHOSTTY_TARGET_SURFACE,
+              let surface = target.target.surface,
+              let userdata = ghostty_surface_userdata(surface)
+        else { return nil }
+        let view = Unmanaged<TerminalNSView>
+            .fromOpaque(userdata)
+            .takeUnretainedValue()
+        return view.sessionID
     }
 }

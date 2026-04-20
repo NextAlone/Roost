@@ -152,8 +152,14 @@ final class TerminalNSView: NSView {
     /// asynchronously on main queue; the second one becomes a no-op once
     /// markedText is already empty.
     @objc private func inputSourceDidChange(_ note: Notification) {
-        NSLog("[Roost] IME source changed notification=%@ markedLen=%d",
-              note.name.rawValue, markedText.length)
+        NSLog("[Roost] IME source changed notification=%@ inKey=%d markedLen=%d",
+              note.name.rawValue,
+              keyTextAccumulator != nil ? 1 : 0,
+              markedText.length)
+        // If we're inside keyDown the synchronous TIS check there will
+        // handle it. Acting here would race with a new IME that has
+        // already called setMarkedText for its own fresh composition.
+        guard keyTextAccumulator == nil else { return }
         guard markedText.length > 0 else { return }
         markedText.mutableString.setString("")
         inputContext?.discardMarkedText()
@@ -201,12 +207,18 @@ final class TerminalNSView: NSView {
         // wanted to commit and drop ghostty's preedit. macOS's default is to
         // commit the preedit on switch; we'd rather cancel so stray Pinyin
         // letters don't leak into the terminal.
-        if Self.currentInputSourceID() != keyboardIdBefore {
+        let keyboardIdAfter = Self.currentInputSourceID()
+        if keyboardIdAfter != keyboardIdBefore {
+            NSLog("[Roost] IME switch in keyDown before=%@ after=%@ hadMarked=%d afterMarked=%d",
+                  keyboardIdBefore ?? "nil",
+                  keyboardIdAfter ?? "nil",
+                  hadMarkedText ? 1 : 0,
+                  markedText.length)
             if markedText.length > 0 {
                 markedText.mutableString.setString("")
             }
             inputContext?.discardMarkedText()
-            syncPreedit(clearIfNeeded: hadMarkedText || markedText.length == 0)
+            syncPreedit(clearIfNeeded: true)
             return
         }
 

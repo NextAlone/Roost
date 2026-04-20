@@ -53,31 +53,32 @@ mod ffi {
         fn roost_prepare_session(agent: &str) -> SessionSpec;
         fn roost_prepare_session_in(agent: &str, working_directory: &str) -> SessionSpec;
 
-        // jj wrappers (M2)
+        // jj wrappers (M2). Note: using owned `String` args instead of `&str`
+        // on Result-returning fns, because swift-bridge 0.1.59 emits broken
+        // Swift around `toRustStr` when the inner closure throws.
         fn roost_is_jj_repo(dir: &str) -> bool;
         fn roost_jj_version() -> Result<String, String>;
         // `\n`-delimited records, `\u{1f}`-delimited fields:
         // name␟path␟change_id␟description␟is_current(0|1).
-        // swift-bridge's codegen doesn't handle Vec<SharedStruct> cleanly yet
-        // (WorkspaceEntry isn't Vectorizable), so we marshal to a string and
-        // split on the Swift side.
-        fn roost_list_workspaces_serialized(repo_dir: &str) -> Result<String, String>;
+        // swift-bridge can't yet ship Vec<SharedStruct> across FFI, so we
+        // marshal to a string and split on the Swift side.
+        fn roost_list_workspaces_serialized(repo_dir: String) -> Result<String, String>;
         fn roost_add_workspace(
-            repo_dir: &str,
-            workspace_path: &str,
-            name: &str,
+            repo_dir: String,
+            workspace_path: String,
+            name: String,
         ) -> Result<WorkspaceEntry, String>;
-        fn roost_forget_workspace(repo_dir: &str, name: &str) -> Result<(), String>;
+        fn roost_forget_workspace(repo_dir: String, name: String) -> Result<(), String>;
         fn roost_rename_workspace(
-            workspace_dir: &str,
-            new_name: &str,
+            workspace_dir: String,
+            new_name: String,
         ) -> Result<(), String>;
-        fn roost_update_stale(workspace_dir: &str) -> Result<(), String>;
-        fn roost_workspace_root(workspace_dir: &str) -> Result<String, String>;
-        fn roost_current_revision(workspace_dir: &str) -> Result<RevisionEntry, String>;
-        fn roost_workspace_status(workspace_dir: &str) -> Result<StatusEntry, String>;
-        fn roost_bookmark_create(workspace_dir: &str, name: &str) -> Result<(), String>;
-        fn roost_bookmark_forget(workspace_dir: &str, name: &str) -> Result<(), String>;
+        fn roost_update_stale(workspace_dir: String) -> Result<(), String>;
+        fn roost_workspace_root(workspace_dir: String) -> Result<String, String>;
+        fn roost_current_revision(workspace_dir: String) -> Result<RevisionEntry, String>;
+        fn roost_workspace_status(workspace_dir: String) -> Result<StatusEntry, String>;
+        fn roost_bookmark_create(workspace_dir: String, name: String) -> Result<(), String>;
+        fn roost_bookmark_forget(workspace_dir: String, name: String) -> Result<(), String>;
     }
 }
 
@@ -152,8 +153,8 @@ fn roost_jj_version() -> Result<String, String> {
     jj::version()
 }
 
-fn roost_list_workspaces_serialized(repo_dir: &str) -> Result<String, String> {
-    let entries = jj::list_workspaces(repo_dir)?;
+fn roost_list_workspaces_serialized(repo_dir: String) -> Result<String, String> {
+    let entries = jj::list_workspaces(&repo_dir)?;
     let mut out = String::new();
     for e in entries {
         // Record: name␟path␟change_id␟description␟is_current
@@ -172,43 +173,43 @@ fn roost_list_workspaces_serialized(repo_dir: &str) -> Result<String, String> {
 }
 
 fn roost_add_workspace(
-    repo_dir: &str,
-    workspace_path: &str,
-    name: &str,
+    repo_dir: String,
+    workspace_path: String,
+    name: String,
 ) -> Result<ffi::WorkspaceEntry, String> {
-    jj::add_workspace(repo_dir, workspace_path, name).map(Into::into)
+    jj::add_workspace(&repo_dir, &workspace_path, &name).map(Into::into)
 }
 
-fn roost_forget_workspace(repo_dir: &str, name: &str) -> Result<(), String> {
-    jj::forget_workspace(repo_dir, name)
+fn roost_forget_workspace(repo_dir: String, name: String) -> Result<(), String> {
+    jj::forget_workspace(&repo_dir, &name)
 }
 
-fn roost_rename_workspace(workspace_dir: &str, new_name: &str) -> Result<(), String> {
-    jj::rename_workspace(workspace_dir, new_name)
+fn roost_rename_workspace(workspace_dir: String, new_name: String) -> Result<(), String> {
+    jj::rename_workspace(&workspace_dir, &new_name)
 }
 
-fn roost_update_stale(workspace_dir: &str) -> Result<(), String> {
-    jj::update_stale(workspace_dir)
+fn roost_update_stale(workspace_dir: String) -> Result<(), String> {
+    jj::update_stale(&workspace_dir)
 }
 
-fn roost_workspace_root(workspace_dir: &str) -> Result<String, String> {
-    jj::workspace_root(workspace_dir)
+fn roost_workspace_root(workspace_dir: String) -> Result<String, String> {
+    jj::workspace_root(&workspace_dir)
 }
 
-fn roost_current_revision(workspace_dir: &str) -> Result<ffi::RevisionEntry, String> {
-    jj::current_revision(workspace_dir).map(Into::into)
+fn roost_current_revision(workspace_dir: String) -> Result<ffi::RevisionEntry, String> {
+    jj::current_revision(&workspace_dir).map(Into::into)
 }
 
-fn roost_workspace_status(workspace_dir: &str) -> Result<ffi::StatusEntry, String> {
-    jj::status(workspace_dir).map(Into::into)
+fn roost_workspace_status(workspace_dir: String) -> Result<ffi::StatusEntry, String> {
+    jj::status(&workspace_dir).map(Into::into)
 }
 
-fn roost_bookmark_create(workspace_dir: &str, name: &str) -> Result<(), String> {
-    jj::bookmark_create(workspace_dir, name)
+fn roost_bookmark_create(workspace_dir: String, name: String) -> Result<(), String> {
+    jj::bookmark_create(&workspace_dir, &name)
 }
 
-fn roost_bookmark_forget(workspace_dir: &str, name: &str) -> Result<(), String> {
-    jj::bookmark_forget(workspace_dir, name)
+fn roost_bookmark_forget(workspace_dir: String, name: String) -> Result<(), String> {
+    jj::bookmark_forget(&workspace_dir, &name)
 }
 
 // MARK: - domain → FFI conversions

@@ -4,6 +4,7 @@ import SwiftUI
 /// with a title bar + Cancel button.
 struct LauncherSheet: View {
     @Binding var form: LauncherForm
+    @Binding var errorMessage: String?
     let onLaunch: () -> Void
     let onCancel: () -> Void
 
@@ -25,5 +26,17 @@ struct LauncherSheet: View {
                 .frame(maxHeight: .infinity)
         }
         .frame(width: 480, height: 420)
+        .alert(
+            "Launch failed",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            ),
+            presenting: errorMessage
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { msg in
+            Text(msg)
+        }
     }
 }

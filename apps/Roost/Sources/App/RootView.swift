@@ -25,6 +25,7 @@ struct RootView: View {
         .sheet(isPresented: $isShowingLauncher) {
             LauncherSheet(
                 form: $form,
+                errorMessage: $launchError,
                 onLaunch: { launchFromSheet() },
                 onCancel: { isShowingLauncher = false }
             )
@@ -106,9 +107,17 @@ struct RootView: View {
             let spec = cwd.isEmpty
                 ? RoostBridge.prepareSession(agent: form.agent)
                 : RoostBridge.prepareSession(agent: form.agent, workingDirectory: cwd)
+            NSLog("[Roost] launch: agent=%@ cwd=%@ cmd=%@", form.agent, cwd, spec.command)
             return LaunchedSession(spec: spec, label: label)
+        } catch let err as RustString {
+            let msg = err.toString()
+            NSLog("[Roost] launch failed (rust): %@", msg)
+            launchError = msg
+            return nil
         } catch {
-            launchError = String(describing: error)
+            let msg = String(describing: error)
+            NSLog("[Roost] launch failed: %@", msg)
+            launchError = msg
             return nil
         }
     }

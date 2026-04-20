@@ -116,51 +116,54 @@ final class TerminalNSView: NSView {
 
     // MARK: Keyboard
 
-    // Minimal key mapping: special keys (Enter/Backspace/Tab/Esc/Arrows) go
-    // through ghostty_surface_key; printable text still goes through
-    // ghostty_surface_text. Not a complete encoding — modifier shortcuts, IME,
-    // and repeat handling are omitted.
     override func keyDown(with event: NSEvent) {
-        guard let surface else { return }
-
-        if let special = specialKey(for: event.keyCode) {
-            var key = ghostty_input_key_s(
-                action: GHOSTTY_ACTION_PRESS,
-                mods: GHOSTTY_MODS_NONE,
-                consumed_mods: GHOSTTY_MODS_NONE,
-                keycode: UInt32(special.rawValue),
-                text: nil,
-                unshifted_codepoint: 0,
-                composing: false
-            )
-            _ = ghostty_surface_key(surface, key)
-            return
-        }
-
-        if let characters = event.characters, !characters.isEmpty {
-            characters.withCString { cstr in
-                ghostty_surface_text(surface, cstr, UInt(strlen(cstr)))
-            }
-        }
+        forward(event: event, action: GHOSTTY_ACTION_PRESS)
     }
 
-    private func specialKey(for keyCode: UInt16) -> ghostty_input_key_e? {
-        switch keyCode {
-        case 0x24: return GHOSTTY_KEY_ENTER     // Return
-        case 0x4C: return GHOSTTY_KEY_ENTER     // Numpad Enter
-        case 0x33: return GHOSTTY_KEY_BACKSPACE // Delete (backspace)
-        case 0x30: return GHOSTTY_KEY_TAB
-        case 0x35: return GHOSTTY_KEY_ESCAPE
-        case 0x7B: return GHOSTTY_KEY_ARROW_LEFT
-        case 0x7C: return GHOSTTY_KEY_ARROW_RIGHT
-        case 0x7D: return GHOSTTY_KEY_ARROW_DOWN
-        case 0x7E: return GHOSTTY_KEY_ARROW_UP
-        default: return nil
-        }
+    override func keyUp(with event: NSEvent) {
+        forward(event: event, action: GHOSTTY_ACTION_RELEASE)
     }
 
     // Stub so AppKit doesn't beep on modifier-only presses.
     override func flagsChanged(with event: NSEvent) {}
+
+    private func forward(event: NSEvent, action: ghostty_input_action_e) {
+        guard let surface else { return }
+
+        // ghostty's `keycode` field expects the macOS virtual keyCode directly
+        // (see ghostty's Input.swift — it maps Key.enter → 0x24 etc., which is
+        // the NSEvent.keyCode value).
+        let mods = modsFrom(event.modifierFlags)
+
+        let runKey: (UnsafePointer<CChar>?) -> Void = { textPtr in
+            var k = ghostty_input_key_s(
+                action: action,
+                mods: mods,
+                consumed_mods: GHOSTTY_MODS_NONE,
+                keycode: UInt32(event.keyCode),
+                text: textPtr,
+                unshifted_codepoint: 0,
+                composing: false
+            )
+            _ = ghostty_surface_key(surface, k)
+        }
+
+        if let chars = event.characters, !chars.isEmpty {
+            chars.withCString { runKey($0) }
+        } else {
+            runKey(nil)
+        }
+    }
+
+    private func modsFrom(_ flags: NSEvent.ModifierFlags) -> ghostty_input_mods_e {
+        var raw: UInt32 = 0
+        if flags.contains(.shift)    { raw |= GHOSTTY_MODS_SHIFT.rawValue }
+        if flags.contains(.control)  { raw |= GHOSTTY_MODS_CTRL.rawValue }
+        if flags.contains(.option)   { raw |= GHOSTTY_MODS_ALT.rawValue }
+        if flags.contains(.command)  { raw |= GHOSTTY_MODS_SUPER.rawValue }
+        if flags.contains(.capsLock) { raw |= GHOSTTY_MODS_CAPS.rawValue }
+        return ghostty_input_mods_e(rawValue: raw)
+    }
 
     deinit {
         if let surface { ghostty_surface_free(surface) }

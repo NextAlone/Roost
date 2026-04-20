@@ -38,6 +38,24 @@ final class ProjectStore: ObservableObject {
 
     init() {
         self.projects = Self.loadFromDefaults()
+        // Re-probe each project on startup: an older build saved projects
+        // without the isJjRepo flag, and a dir's jj-ness can change between
+        // launches (e.g. the user ran `jj init`). `jj status --quiet` is a
+        // cheap process spawn (~tens of ms per project).
+        refreshVcsFlags()
+    }
+
+    /// Re-run `jj status` against each project's path to keep isJjRepo
+    /// honest.
+    func refreshVcsFlags() {
+        for idx in projects.indices {
+            let wasJj = projects[idx].isJjRepo
+            let nowJj = RoostBridge.isJjRepo(dir: projects[idx].path)
+            if wasJj != nowJj {
+                projects[idx].isJjRepo = nowJj
+            }
+        }
+        save()
     }
 
     // MARK: Mutations

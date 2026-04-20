@@ -123,16 +123,16 @@ struct RootView: View {
     // MARK: - Derived state
 
     private var filteredSessions: [LaunchedSession] {
-        if let projectID = selectedProjectID {
-            return sessions.filter { $0.projectID == projectID }
+        switch selectedProjectID {
+        case nil, Project.scratchID?:
+            return sessions.filter { $0.projectID == nil }
+        case let pid?:
+            return sessions.filter { $0.projectID == pid }
         }
-        // No project selected: show the freeform (projectID == nil) sessions
-        // so the terminals the user just opened don't disappear.
-        return sessions.filter { $0.projectID == nil }
     }
 
     private var currentProject: Project? {
-        guard let id = selectedProjectID else { return nil }
+        guard let id = selectedProjectID, id != Project.scratchID else { return nil }
         return projects.projects.first(where: { $0.id == id })
     }
 
@@ -217,12 +217,15 @@ struct RootView: View {
     /// Spawn a plain login shell in $HOME. Used when no project is selected.
     private func openPlainTerminal() {
         let spec = RoostBridge.prepareSession(agent: "shell")
-        sessions.append(LaunchedSession(
+        let session = LaunchedSession(
             projectID: nil,
             spec: spec,
             label: "shell"
-        ))
-        selectedSessionID = sessions.last?.id
+        )
+        sessions.append(session)
+        selectedSessionID = session.id
+        // Make Scratch the visible bucket so the user sees the new tab.
+        selectedProjectID = Project.scratchID
     }
 
     // MARK: - Launch

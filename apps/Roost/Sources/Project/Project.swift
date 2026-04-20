@@ -23,6 +23,11 @@ struct Project: Identifiable, Codable, Equatable, Hashable {
         let last = (path as NSString).lastPathComponent
         return last.isEmpty ? path : last
     }
+
+    /// Sentinel ID representing the "Scratch" (projectID = nil) sidebar row.
+    /// SwiftUI's `List` selection binding doesn't handle `.tag(Optional.none)`
+    /// reliably; use a stable UUID and translate at the boundary.
+    static let scratchID: UUID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
 }
 
 @MainActor

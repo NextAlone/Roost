@@ -16,14 +16,14 @@ struct ProjectSidebar: View {
                 List(selection: $selection) {
                     if scratchHasSessions {
                         ScratchRow(isUnread: scratchHasUnread)
-                            .tag(Project.ID?.none as Project.ID?)
+                            .tag(Project.scratchID)
                     }
                     ForEach(store.projects) { project in
                         ProjectRow(
                             project: project,
                             isUnread: unreadProjectIDs.contains(project.id)
                         )
-                        .tag(Project.ID?.some(project.id) as Project.ID?)
+                        .tag(project.id)
                         .contextMenu {
                             Button(role: .destructive) {
                                 store.remove(project.id)

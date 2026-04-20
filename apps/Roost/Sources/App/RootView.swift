@@ -62,7 +62,11 @@ struct RootView: View {
             }
             // When switching bucket, fall back to the first matching session.
             selectedSessionID = filteredSessions.first?.id
-            Self.saveSelection(newID)
+            // Persist off-main so rapid bucket switches don't queue up
+            // UserDefaults disk writes on the render thread.
+            DispatchQueue.global(qos: .utility).async {
+                Self.saveSelection(newID)
+            }
         }
         .onChange(of: selectedSessionID) { newID in
             if let newID { unreadSessions.remove(newID) }

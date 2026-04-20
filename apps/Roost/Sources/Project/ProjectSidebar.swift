@@ -24,14 +24,22 @@ struct ProjectSidebar: View {
     /// tabs without having to flip chevrons).
     @State private var collapsed: Set<Project.ID> = []
 
+    /// Single-pass bucketing. Avoids N+1 `sessions.filter` calls across
+    /// every project row on each view-tree rebuild. Optional key `nil`
+    /// groups Scratch sessions.
+    private var sessionsByBucket: [Project.ID?: [LaunchedSession]] {
+        Dictionary(grouping: sessions) { $0.projectID }
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
+        let grouped = sessionsByBucket
+        return VStack(spacing: 0) {
             List(selection: $selection) {
                 ScratchBucket(
                     isExpanded: !collapsed.contains(Project.scratchID),
                     hasUnread: scratchHasUnread,
                     sessionCount: scratchSessionCount,
-                    sessions: sessions.filter { $0.projectID == nil },
+                    sessions: grouped[nil] ?? [],
                     selectedSessionID: selectedSessionID,
                     unreadSessions: unreadSessions,
                     onToggle: { toggleCollapsed(Project.scratchID) },
@@ -55,7 +63,7 @@ struct ProjectSidebar: View {
                                 hookWarning: hookWarningsByProject[project.id],
                                 isRenaming: renamingID == project.id,
                                 renameDraft: $renameDraft,
-                                sessions: sessions.filter { $0.projectID == project.id },
+                                sessions: grouped[project.id] ?? [],
                                 selectedSessionID: selectedSessionID,
                                 unreadSessions: unreadSessions,
                                 onToggle: { toggleCollapsed(project.id) },
@@ -64,11 +72,32 @@ struct ProjectSidebar: View {
                                 onCloseSession: onCloseSession
                             )
                             .tag(project.id)
-                            .onDrag {
-                                NSItemProvider(
-                                    object: project.id.uuidString as NSString
-                                )
-                            }
+                            .onDrag(
+                                {
+                                    NSItemProvider(
+                                        object: project.id.uuidString as NSString
+                                    )
+                                },
+                                preview: {
+                                    // Lightweight drag image — using the
+                                    // full row's snapshot was leaving ghost
+                                    // trails behind the cursor because the
+                                    // `List`'s sidebar styling is expensive
+                                    // to rasterize every frame.
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "point.3.connected.trianglepath.dotted")
+                                            .foregroundStyle(.tint)
+                                        Text(project.name)
+                                            .font(.body)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(.regularMaterial)
+                                    )
+                                }
+                            )
                             .onDrop(
                                 of: [.plainText],
                                 delegate: ProjectDropDelegate(

@@ -104,7 +104,12 @@ final class ProjectStore: ObservableObject {
 
     private func save() {
         guard let data = try? JSONEncoder().encode(projects) else { return }
-        UserDefaults.standard.set(data, forKey: Self.defaultsKey)
+        // Hop off-main: UserDefaults.set can block under disk pressure and
+        // we call this on every rename / reorder / VCS refresh, which used
+        // to stall the sidebar during rapid interaction.
+        DispatchQueue.global(qos: .utility).async {
+            UserDefaults.standard.set(data, forKey: Self.defaultsKey)
+        }
     }
 
     private static func loadFromDefaults() -> [Project] {

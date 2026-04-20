@@ -189,14 +189,15 @@ struct JjOutput {
 }
 
 fn run(args: &[&str], dir: Option<&str>) -> Result<JjOutput, String> {
-    let mut cmd = Command::new("jj");
+    let bin = jj_binary()?;
+    let mut cmd = Command::new(&bin);
     cmd.args(args);
     if let Some(d) = dir {
         cmd.current_dir(d);
     }
     let output = cmd
         .output()
-        .map_err(|e| format!("failed to spawn jj {args:?}: {e}"))?;
+        .map_err(|e| format!("failed to spawn {bin} {args:?}: {e}"))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
@@ -237,4 +238,36 @@ fn path_component_last(p: &Path) -> String {
     p.file_name()
         .map(|s| s.to_string_lossy().into_owned())
         .unwrap_or_default()
+}
+
+/// Resolve `jj` absolute path. GUI-launched processes inherit launchd's thin
+/// PATH, which usually doesn't contain `~/.local/bin` or `/opt/homebrew/bin`;
+/// a bare `Command::new("jj")` spawn then fails with ENOENT. Walk the common
+/// locations explicitly, with `ROOST_JJ_PATH` as an override.
+fn jj_binary() -> Result<String, String> {
+    if let Ok(p) = std::env::var("ROOST_JJ_PATH") {
+        return Ok(p);
+    }
+
+    let home = std::env::var("HOME").unwrap_or_default();
+    let user = std::env::var("USER").unwrap_or_default();
+    let candidates = [
+        format!("{home}/.local/bin/jj"),
+        format!("{home}/.nix-profile/bin/jj"),
+        format!("/etc/profiles/per-user/{user}/bin/jj"),
+        "/opt/homebrew/bin/jj".to_string(),
+        "/usr/local/bin/jj".to_string(),
+        "/run/current-system/sw/bin/jj".to_string(),
+        "/nix/var/nix/profiles/default/bin/jj".to_string(),
+        "/usr/bin/jj".to_string(),
+    ];
+
+    for candidate in &candidates {
+        if Path::new(candidate).is_file() {
+            return Ok(candidate.clone());
+        }
+    }
+
+    // Last-ditch: rely on whatever PATH the process actually has.
+    Ok("jj".to_string())
 }

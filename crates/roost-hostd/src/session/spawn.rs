@@ -113,6 +113,9 @@ pub fn spawn_session(spec: AgentSpec, events: Option<EventBus>) -> Result<Spawne
         pid,
         exit_code: None,
         created_at_epoch_ms: now_ms(),
+        // Live `list_sessions` callers don't need this — the spec is in
+        // memory. History rows from SQLite carry the JSON instead.
+        agent_spec_json: None,
     };
 
     let entry = SessionEntry {

@@ -512,35 +512,29 @@ async fn handle_async_method(
             let info = spawned.entry.info.clone();
             state.sessions.insert(spawned.entry);
 
-            // Persist (fire-and-forget). An orphaned 'running' row on
-            // hostd crash is exactly what reconcile_orphans turns into
-            // 'exited_lost' on next start, so we don't await this.
-            {
-                let pool = state.db.clone();
-                let info = info.clone();
-                let spec = spec.clone();
-                tokio::spawn(async move {
-                    crate::store::insert_session(&pool, &info, &spec).await;
-                });
-            }
-
-            // Emit Running state on insert + arm exit watcher.
+            // Emit Running state on insert.
             state.events.emit_session_state(rpc::SessionStateEvent {
                 session_id: id,
                 state: SessionState::Running,
             });
 
+            // Single task: persist the row, THEN await exit, THEN persist
+            // the exit. Two independent spawns can race on a fast-exiting
+            // child — the UPDATE WHERE id=? matched zero rows because the
+            // INSERT hadn't run yet, leaving a permanent 'running' row.
             let exited_rx = spawned.exited_rx;
             let registry = state.sessions.clone();
             let events = state.events.clone();
             let pool = state.db.clone();
+            let info_for_task = info.clone();
             tokio::spawn(async move {
+                crate::store::insert_session(&pool, &info_for_task, &spec).await;
                 let code = exited_rx.await.ok().flatten();
-                // set_exit drops stdin_tx + resize_tx, which closes the
-                // spawn module's writer + resize channels and lets those
-                // blocking tasks (and the PTY master they hold) finally
-                // release. The SessionInfo row stays in the registry so
-                // list_sessions can still surface Exited + scrollback.
+                // set_exit drops stdin_tx + resize_tx, closing the writer
+                // + resize channels and letting those blocking tasks (and
+                // the PTY master they hold) finally release. The row
+                // stays in the registry so list_sessions still surfaces
+                // Exited + scrollback.
                 registry.set_exit(id, code);
                 crate::store::update_session_exit(&pool, id, code).await;
                 events.emit_session_state(rpc::SessionStateEvent {
@@ -778,25 +772,27 @@ async fn run_stop(state: Arc<HostState>, live: Vec<(SessionId, u32)>) {
         }
     }
 
-    let mut remaining: Vec<SessionId> = live.iter().map(|(id, _)| *id).collect();
+    // Carry the (id, pid) pair through both phases. SIGKILL needs the pid
+    // even after the session has transitioned to Detached (data conn
+    // closed mid-grace) — at which point live_session_pids() no longer
+    // returns it.
+    let mut remaining: Vec<(SessionId, u32)> = live.clone();
     let grace_deadline = started + STOP_GRACE;
     while !remaining.is_empty() && std::time::Instant::now() < grace_deadline {
         tokio::time::sleep(STOP_POLL).await;
         prune_progress(&state, &mut remaining, total, started);
     }
 
-    // Phase 2: SIGKILL stragglers, brief grace.
+    // Phase 2: SIGKILL stragglers, brief grace. Use the original pids;
+    // is_done is what tells us a process has actually exited (Detached
+    // means agent's still alive but unattached).
     let mut forced = 0u32;
     if !remaining.is_empty() {
         warn!("shutdown(Stop): {} stragglers; SIGKILL", remaining.len());
-        // Re-snapshot pids: registry may have updated state for some.
-        let live_now = state.sessions.live_session_pids();
-        for (id, pid) in &live_now {
-            if remaining.contains(id) {
-                let rc = unsafe { libc::kill(*pid as libc::pid_t, libc::SIGKILL) };
-                if rc == 0 {
-                    forced += 1;
-                }
+        for (_id, pid) in &remaining {
+            let rc = unsafe { libc::kill(*pid as libc::pid_t, libc::SIGKILL) };
+            if rc == 0 {
+                forced += 1;
             }
         }
         let kill_deadline = std::time::Instant::now() + STOP_KILL_GRACE;
@@ -813,8 +809,10 @@ async fn run_stop(state: Arc<HostState>, live: Vec<(SessionId, u32)>) {
     });
 
     // Give the broadcast a chance to flush the done event to subscribers
-    // before we yank everything.
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    // before we yank everything. 200ms ≫ tokio worker poll cycle on a busy
+    // Mac; reviewer flagged 50ms as borderline under load (event_task →
+    // mpsc → writer_task → socket all need to happen within the window).
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
     info!(
         "shutdown(Stop) complete: forced={} elapsed_ms={} → process::exit(0)",
@@ -830,12 +828,12 @@ async fn run_stop(state: Arc<HostState>, live: Vec<(SessionId, u32)>) {
 
 fn prune_progress(
     state: &HostState,
-    remaining: &mut Vec<SessionId>,
+    remaining: &mut Vec<(SessionId, u32)>,
     total: usize,
     started: std::time::Instant,
 ) {
     let mut just_done: Vec<SessionId> = Vec::new();
-    remaining.retain(|id| {
+    remaining.retain(|(id, _)| {
         if state.sessions.is_done(*id) {
             just_done.push(*id);
             false

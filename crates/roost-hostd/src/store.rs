@@ -37,10 +37,31 @@ pub async fn open() -> Result<SqlitePool> {
     sqlx::query("CREATE TABLE IF NOT EXISTS schema_version (v INTEGER NOT NULL PRIMARY KEY)")
         .execute(&pool)
         .await?;
-    sqlx::query("INSERT OR IGNORE INTO schema_version (v) VALUES (?)")
-        .bind(SCHEMA_VERSION)
-        .execute(&pool)
-        .await?;
+
+    // Read the highest recorded version. None = brand new db; less than
+    // SCHEMA_VERSION = old client wrote a lower number, we silently bump
+    // (additive migrations only); greater = future client wrote ahead of
+    // us, refuse so we don't quietly downgrade their data.
+    let actual: Option<i64> =
+        sqlx::query_scalar("SELECT MAX(v) FROM schema_version")
+            .fetch_one(&pool)
+            .await?;
+    if let Some(v) = actual {
+        if v > SCHEMA_VERSION {
+            anyhow::bail!(
+                "sqlite schema v{} is newer than this hostd's v{}; refusing to open",
+                v,
+                SCHEMA_VERSION
+            );
+        }
+    }
+    if actual != Some(SCHEMA_VERSION) {
+        sqlx::query("DELETE FROM schema_version").execute(&pool).await?;
+        sqlx::query("INSERT INTO schema_version (v) VALUES (?)")
+            .bind(SCHEMA_VERSION)
+            .execute(&pool)
+            .await?;
+    }
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS sessions (\
@@ -150,7 +171,8 @@ pub async fn update_session_exit(
 /// (Exited/ExitedLost) rows so callers can render a unified timeline.
 pub async fn list_session_history(pool: &SqlitePool) -> Result<Vec<SessionInfo>> {
     let rows = sqlx::query(
-        "SELECT id, agent_kind, working_directory, state, pid, exit_code, created_at_epoch_ms \
+        "SELECT id, agent_kind, working_directory, agent_spec_json, state, pid, exit_code, \
+                created_at_epoch_ms \
             FROM sessions ORDER BY created_at_epoch_ms DESC",
     )
     .fetch_all(pool)
@@ -162,6 +184,7 @@ pub async fn list_session_history(pool: &SqlitePool) -> Result<Vec<SessionInfo>>
         let state_str: String = row.try_get("state")?;
         let agent_kind: String = row.try_get("agent_kind")?;
         let working_directory: String = row.try_get("working_directory")?;
+        let agent_spec_json: String = row.try_get("agent_spec_json")?;
         let pid: Option<i64> = row.try_get("pid")?;
         let exit_code: Option<i64> = row.try_get("exit_code")?;
         let created: i64 = row.try_get("created_at_epoch_ms")?;
@@ -182,6 +205,11 @@ pub async fn list_session_history(pool: &SqlitePool) -> Result<Vec<SessionInfo>>
             pid: pid.map(|p| p as u32),
             exit_code: exit_code.map(|c| c as i32),
             created_at_epoch_ms: created as u64,
+            agent_spec_json: if agent_spec_json.is_empty() {
+                None
+            } else {
+                Some(agent_spec_json)
+            },
         });
     }
     Ok(out)

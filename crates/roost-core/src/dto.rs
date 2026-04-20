@@ -103,6 +103,12 @@ pub struct SessionInfo {
     pub pid: Option<u32>,
     pub exit_code: Option<i32>,
     pub created_at_epoch_ms: u64,
+    /// Original `AgentSpec` serialized as JSON. Populated when the row
+    /// came from `list_session_history`; `None` for live `list_sessions`
+    /// responses (the spec is still in memory there). Lets a future
+    /// "restart this agent" UX rebuild the spawn arguments faithfully.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_spec_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

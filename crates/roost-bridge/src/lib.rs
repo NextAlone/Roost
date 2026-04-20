@@ -271,6 +271,24 @@ fn roost_bookmark_forget(workspace_dir: String, name: String) -> Result<(), Stri
         .map_err(stringify)
 }
 
+// MARK: - hooks
+
+fn roost_run_setup_hooks(project_root: String, workspace_dir: String) -> Result<String, String> {
+    let results = hooks::run_setup(
+        std::path::Path::new(&project_root),
+        std::path::Path::new(&workspace_dir),
+    )?;
+    Ok(hooks::serialize(&results))
+}
+
+fn roost_run_teardown_hooks(project_root: String, workspace_dir: String) -> Result<String, String> {
+    let results = hooks::run_teardown(
+        std::path::Path::new(&project_root),
+        std::path::Path::new(&workspace_dir),
+    )?;
+    Ok(hooks::serialize(&results))
+}
+
 // MARK: - Session lifecycle (M7)
 
 fn roost_session_create(

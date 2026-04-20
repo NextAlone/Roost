@@ -110,12 +110,17 @@ impl Registry {
             .collect()
     }
 
-    /// True if the given session is no longer `Running` (Exited, Detached,
-    /// or already removed).
+    /// True if the session has actually exited (or has been removed).
+    /// Used by `run_stop` to know which sessions are reaped vs which still
+    /// need a SIGKILL — Detached doesn't count as done because the agent
+    /// is still running, just without an attacher.
     pub fn is_done(&self, id: SessionId) -> bool {
         let g = self.inner.lock().unwrap_or_else(|p| p.into_inner());
         g.get(&id)
-            .map(|e| e.info.state != SessionState::Running)
+            .map(|e| {
+                e.info.state == SessionState::Exited
+                    || e.info.state == SessionState::ExitedLost
+            })
             .unwrap_or(true)
     }
 

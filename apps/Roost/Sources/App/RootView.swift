@@ -289,8 +289,13 @@ struct RootView: View {
                 ? RoostBridge.prepareSession(agent: form.agent)
                 : RoostBridge.prepareSession(agent: form.agent, workingDirectory: cwd)
             NSLog("[Roost] launch: agent=%@ cwd=%@ cmd=%@", form.agent, cwd, spec.command)
+            // Scratch is a UI bucket, not a real project; store projectID=nil
+            // so filteredSessions and listings treat these sessions as
+            // free-floating. Real project IDs pass through unchanged.
+            let effectiveProjectID: Project.ID? =
+                (selectedProjectID == Project.scratchID) ? nil : selectedProjectID
             return LaunchedSession(
-                projectID: selectedProjectID,
+                projectID: effectiveProjectID,
                 spec: spec,
                 label: label
             )

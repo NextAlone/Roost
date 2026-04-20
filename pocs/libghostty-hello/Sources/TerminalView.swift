@@ -183,20 +183,31 @@ final class TerminalNSView: NSView {
             _ = ghostty_surface_key(surface, k)
         }
 
-        let chars = event.characters ?? ""
-        if !chars.isEmpty && !isFunctionKeyCharacters(chars) {
-            chars.withCString { runKey($0) }
+        if let text = ghosttyCharacters(from: event), !text.isEmpty {
+            text.withCString { runKey($0) }
         } else {
             runKey(nil)
         }
     }
 
-    /// AppKit puts arrow / function keys in `event.characters` as private-use
-    /// codepoints (U+F700..U+F8FF = "NSUpArrowFunctionKey" etc.). ghostty
-    /// treats a non-nil `text` as user-visible input and skips its own arrow
-    /// handling, so we must strip these.
-    private func isFunctionKeyCharacters(_ s: String) -> Bool {
-        s.unicodeScalars.allSatisfy { (0xF700...0xF8FF).contains($0.value) }
+    /// Mirror of ghostty's upstream `NSEvent.ghosttyCharacters`: strip control
+    /// bytes (< 0x20) and function-key PUA codepoints (U+F700..U+F8FF) from
+    /// `event.characters`. For Ctrl+<letter> we return the plain letter so
+    /// ghostty's KeyEncoder can emit the correct control byte itself; passing
+    /// \u{03} as `text` makes ghostty double-encode and breaks Ctrl+C.
+    private func ghosttyCharacters(from event: NSEvent) -> String? {
+        guard let characters = event.characters else { return nil }
+        if characters.count == 1, let scalar = characters.unicodeScalars.first {
+            if scalar.value < 0x20 {
+                return event.characters(
+                    byApplyingModifiers: event.modifierFlags.subtracting(.control)
+                )
+            }
+            if scalar.value >= 0xF700 && scalar.value <= 0xF8FF {
+                return nil
+            }
+        }
+        return characters
     }
 
     private func modsFrom(_ flags: NSEvent.ModifierFlags) -> ghostty_input_mods_e {

@@ -31,6 +31,7 @@ final class TerminalNSView: NSView {
         self.workingDirectory = workingDirectory ?? NSHomeDirectory()
         super.init(frame: frame)
         wantsLayer = true
+        NSLog("[Roost] TerminalNSView init session=%@", sessionID.uuidString)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -82,6 +83,9 @@ final class TerminalNSView: NSView {
     }
 
     deinit {
+        NSLog("[Roost] TerminalNSView deinit session=%@ surface=%@",
+              sessionID.uuidString,
+              surface == nil ? "nil" : "set")
         if let surface { ghostty_surface_free(surface) }
     }
 

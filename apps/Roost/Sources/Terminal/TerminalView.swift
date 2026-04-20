@@ -31,12 +31,16 @@ struct TerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: TerminalNSView, context: Context) {
-        guard isFocused, let window = nsView.window else { return }
-        // Defer until the run loop settles so SwiftUI's own layout pass
-        // doesn't reclaim first responder after we set it.
+        guard isFocused else { return }
+        // Defer so SwiftUI finishes its own layout / focus pass first, then
+        // re-check that the view is still in a window — SwiftUI can reparent
+        // a view between the sync update and the async dispatch, which made
+        // AppKit log "view is in a different window ((null))" and nil out
+        // first responder.
         DispatchQueue.main.async {
-            if window.firstResponder !== nsView {
-                window.makeFirstResponder(nsView)
+            guard let currentWindow = nsView.window else { return }
+            if currentWindow.firstResponder !== nsView {
+                currentWindow.makeFirstResponder(nsView)
             }
         }
     }

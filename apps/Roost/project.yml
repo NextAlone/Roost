@@ -1,0 +1,68 @@
+name: Roost
+options:
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    PRODUCT_BUNDLE_IDENTIFIER: sh.roost.app
+    CLANG_CXX_LIBRARY: "libc++"
+    # libghostty.a pulls in C++ STL, Carbon (TIS APIs), Metal / QuartzCore /
+    # IOSurface / UniformTypeIdentifiers. Must stay in sync with
+    # manaflow-ai/cmux's link line.
+    OTHER_LDFLAGS:
+      - "-lc++"
+      - "-lroost_bridge"
+      - "-framework"
+      - "Metal"
+      - "-framework"
+      - "QuartzCore"
+      - "-framework"
+      - "IOSurface"
+      - "-framework"
+      - "UniformTypeIdentifiers"
+      - "-framework"
+      - "Carbon"
+    HEADER_SEARCH_PATHS:
+      - "$(SRCROOT)/Generated"
+    LIBRARY_SEARCH_PATHS:
+      - "$(SRCROOT)/Generated"
+    SWIFT_OBJC_BRIDGING_HEADER: Generated/RoostBridge-Bridging.h
+
+targets:
+  Roost:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      - path: Generated/RoostBridge.swift
+      - path: Generated/SwiftBridgeCore.swift
+    dependencies:
+      - framework: ../../vendor/GhosttyKit.xcframework
+        embed: false
+        link: true
+    info:
+      path: Info.plist
+      properties:
+        CFBundleName: Roost
+        LSMinimumSystemVersion: "13.0"
+        NSPrincipalClass: NSApplication
+        NSHighResolutionCapable: true
+    preBuildScripts:
+      - script: |
+          set -e
+          "$SRCROOT/scripts/build-rust.sh"
+        name: Build roost-bridge (Rust)
+        inputFiles:
+          - $(SRCROOT)/../../crates/roost-bridge/src/lib.rs
+          - $(SRCROOT)/../../crates/roost-bridge/Cargo.toml
+        outputFiles:
+          - $(SRCROOT)/Generated/libroost_bridge.a
+    settings:
+      base:
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "-"
+        PRODUCT_BUNDLE_IDENTIFIER: sh.roost.app

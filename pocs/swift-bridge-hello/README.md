@@ -1,5 +1,8 @@
 # M0.1 POC: swift-bridge hello
 
+> **Frozen.** Development continues in [`apps/Roost/`](../../apps/Roost/).
+> This POC stays as a minimal reference for the Rust ↔ Swift FFI path.
+
 Validates that a SwiftUI app can call into `crates/roost-bridge` through
 [`swift-bridge`](https://github.com/chinedufn/swift-bridge). Zero libghostty in
 this POC — just the FFI path.

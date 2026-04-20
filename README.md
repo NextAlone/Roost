@@ -2,7 +2,7 @@
 
 macOS 原生、jj 一等公民的多 agent 终端编排器。
 
-> Status: **pre-alpha** / 设计阶段。没有可用产物。
+> Status: **pre-alpha**。M0 walking skeleton 已跑通（SwiftUI → swift-bridge → Rust `prepare_session` → libghostty surface → PTY → claude）。可在 [`apps/Roost/`](./apps/Roost/) 下 build & run。
 
 ## 定位
 
@@ -22,11 +22,42 @@ macOS 原生、jj 一等公民的多 agent 终端编排器。
 
 ## Roadmap
 
-见 [`design.md`](./design.md)。当前目标：
+见 [`design.md`](./design.md)。当前进度：
 
-- **M-1**：libghostty + SwiftUI POC，验证终端渲染可行。
-- **M0**：端到端跑通一个 agent（1 project × 1 workspace × 1 session）。
-- **M1+**：多 session tab、jj workspace 管理、目录侧边栏、OSC 通知……
+- ✅ **M-1** libghostty + SwiftUI POC
+- ✅ **M0.0** agent CLI 在 ghostty surface 里跑通
+- ✅ **M0.1** Cargo workspace + swift-bridge FFI
+- ✅ **M0.2** Rust `prepare_session` 驱动 ghostty surface
+- 🚧 **M1+** 多 session tab、jj workspace、目录侧边栏、OSC 通知
+
+## 仓库结构
+
+```
+.
+├── Cargo.toml              # workspace
+├── crates/
+│   └── roost-bridge/       # Rust staticlib exposing swift-bridge module
+├── apps/
+│   └── Roost/              # macOS SwiftUI app (current dev target)
+├── pocs/                   # frozen walking-skeleton POCs (reference only)
+│   ├── libghostty-hello/
+│   └── swift-bridge-hello/
+├── vendor/                 # gitignored: GhosttyKit.xcframework
+└── design.md
+```
+
+## Build
+
+```bash
+# one-time: fetch libghostty
+./pocs/libghostty-hello/scripts/fetch-prebuilt-xcframework.sh
+
+# build + run
+cd apps/Roost
+./scripts/build-rust.sh      # first run only; Xcode picks this up later
+xcodegen generate
+open Roost.xcodeproj          # ⌘R
+```
 
 ## License
 

@@ -3,7 +3,8 @@ import GhosttyKit
 
 struct ContentView: View {
     private let info = GhosttyInfo.current
-    @State private var commandDraft: String = Self.defaultCommand
+    private let bridgeVersion = roost_bridge_version().toString()
+    @State private var agentDraft: String = "claude"
     @State private var launched: LaunchedSession?
 
     var body: some View {
@@ -26,17 +27,16 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
+            Text("roost-bridge \(bridgeVersion)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             if let launched {
-                Text(launched.command.isEmpty ? "(default shell)" : launched.command)
+                Text("· \(launched.spec.agentKind)")
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Button("Stop") {
-                    self.launched = nil
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                Button("Stop") { self.launched = nil }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
             }
         }
         .padding(.horizontal, 12)
@@ -47,23 +47,37 @@ struct ContentView: View {
     @ViewBuilder
     private var content: some View {
         if let launched {
-            TerminalView(command: launched.command.isEmpty ? nil : launched.command)
-                .id(launched.id)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            TerminalView(
+                command: launched.spec.command.isEmpty ? nil : launched.spec.command,
+                workingDirectory: launched.spec.workingDirectory.isEmpty
+                    ? nil : launched.spec.workingDirectory
+            )
+            .id(launched.id)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             launcher
         }
     }
 
     private var launcher: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Command")
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Agent")
                 .font(.headline)
-            TextField("/path/to/agent", text: $commandDraft, onCommit: launch)
+
+            HStack(spacing: 8) {
+                ForEach(["claude", "codex", "shell"], id: \.self) { name in
+                    Button(name) { agentDraft = name }
+                        .buttonStyle(.bordered)
+                        .tint(agentDraft == name ? .accentColor : .secondary)
+                }
+            }
+
+            TextField("custom agent name", text: $agentDraft, onCommit: launch)
                 .textFieldStyle(.roundedBorder)
                 .font(.body.monospaced())
+
             HStack {
-                Text("Leave empty for user's login shell.")
+                Text("Rust resolves the binary path; falls back to 'zsh -il -c <agent>'.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -77,30 +91,25 @@ struct ContentView: View {
     }
 
     private func launch() {
-        launched = LaunchedSession(
-            command: commandDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let raw = roost_prepare_session(agentDraft)
+        let spec = PreparedSpec(
+            command: raw.command.toString(),
+            workingDirectory: raw.working_directory.toString(),
+            agentKind: raw.agent_kind.toString()
         )
+        launched = LaunchedSession(spec: spec)
     }
+}
 
-    private static var defaultCommand: String {
-        // Apps launched via Finder/Xcode inherit launchd's minimal PATH, so
-        // prefer an absolute path or a shell wrapper. Fall back to a generic
-        // hint if we can't guess.
-        let candidates = [
-            ("\(NSHomeDirectory())/.local/bin/claude"),
-            "/opt/homebrew/bin/claude",
-            "/usr/local/bin/claude",
-        ]
-        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
-            return path
-        }
-        return "/bin/zsh -il -c claude"
-    }
+private struct PreparedSpec {
+    let command: String
+    let workingDirectory: String
+    let agentKind: String
 }
 
 private struct LaunchedSession: Identifiable {
     let id = UUID()
-    let command: String
+    let spec: PreparedSpec
 }
 
 /// Thin wrapper around `ghostty_info()`.

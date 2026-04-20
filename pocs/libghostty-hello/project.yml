@@ -10,11 +10,11 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "13.0"
     PRODUCT_BUNDLE_IDENTIFIER: sh.roost.libghostty-hello
     CLANG_CXX_LIBRARY: "libc++"
-    # GhosttyKit.xcframework ships a static libghostty.a that pulls in C++ STL,
-    # Carbon (TIS APIs), Metal / QuartzCore / IOSurface / UniformTypeIdentifiers.
-    # Mirror manaflow-ai/cmux's link line verbatim.
+    # libghostty.a pulls in C++ STL, Carbon (TIS APIs), Metal / QuartzCore /
+    # IOSurface / UniformTypeIdentifiers. Mirror manaflow-ai/cmux verbatim.
     OTHER_LDFLAGS:
       - "-lc++"
+      - "-lroost_bridge"
       - "-framework"
       - "Metal"
       - "-framework"
@@ -25,6 +25,11 @@ settings:
       - "UniformTypeIdentifiers"
       - "-framework"
       - "Carbon"
+    HEADER_SEARCH_PATHS:
+      - "$(SRCROOT)/Generated"
+    LIBRARY_SEARCH_PATHS:
+      - "$(SRCROOT)/Generated"
+    SWIFT_OBJC_BRIDGING_HEADER: Generated/RoostBridge-Bridging.h
 
 targets:
   LibghosttyHello:
@@ -32,10 +37,9 @@ targets:
     platform: macOS
     sources:
       - path: Sources
+      - path: Generated/RoostBridge.swift
+      - path: Generated/SwiftBridgeCore.swift
     dependencies:
-      # GhosttyKit is a static archive packaged as xcframework. Do NOT embed:
-      # embedding forces codesign on libghostty.a as if it were a framework,
-      # which fails.
       - framework: ../../vendor/GhosttyKit.xcframework
         embed: false
         link: true
@@ -46,6 +50,16 @@ targets:
         LSMinimumSystemVersion: "13.0"
         NSPrincipalClass: NSApplication
         NSHighResolutionCapable: true
+    preBuildScripts:
+      - script: |
+          set -e
+          "$SRCROOT/scripts/build-rust.sh"
+        name: Build roost-bridge (Rust)
+        inputFiles:
+          - $(SRCROOT)/../../crates/roost-bridge/src/lib.rs
+          - $(SRCROOT)/../../crates/roost-bridge/Cargo.toml
+        outputFiles:
+          - $(SRCROOT)/Generated/libroost_bridge.a
     settings:
       base:
         CODE_SIGN_STYLE: Automatic

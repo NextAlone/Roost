@@ -46,6 +46,17 @@ final class TerminalNSView: NSView {
         super.init(frame: frame)
         wantsLayer = true
         NSLog("[Roost] TerminalNSView init session=%@", sessionID.uuidString)
+
+        // When the user switches IME while a preedit is active (⌃Space,
+        // etc.), AppKit doesn't always notify the old IME to discard its
+        // marked text, leaving stale glyphs on ghostty's cursor. Hook the
+        // system notification and flush.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(inputSourceDidChange(_:)),
+            name: NSTextInputContext.keyboardSelectionDidChangeNotification,
+            object: nil
+        )
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -120,7 +131,19 @@ final class TerminalNSView: NSView {
         NSLog("[Roost] TerminalNSView deinit session=%@ surface=%@",
               sessionID.uuidString,
               surface == nil ? "nil" : "set")
+        NotificationCenter.default.removeObserver(self)
         if let surface { ghostty_surface_free(surface) }
+    }
+
+    /// Called when the active macOS input source changes. If we had a
+    /// live preedit under the *old* IME, flush it: tell the old IME to
+    /// discard its marked text, clear our mirror, and clear ghostty's
+    /// preedit so no glyphs linger in the cursor cell.
+    @objc private func inputSourceDidChange(_ note: Notification) {
+        guard markedText.length > 0 else { return }
+        markedText.mutableString.setString("")
+        inputContext?.discardMarkedText()
+        syncPreedit(clearIfNeeded: true)
     }
 
     private func updateSurfaceSize() {

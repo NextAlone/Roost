@@ -5,7 +5,7 @@ import SwiftUI
 /// projects on the left, active project's terminal pane on the right.
 struct RootView: View {
     @StateObject private var projects = ProjectStore()
-    @State private var selectedProjectID: Project.ID?
+    @State private var selectedProjectID: Project.ID? = Self.loadSavedSelection()
     @State private var form = LauncherForm()
     @State private var sessions: [LaunchedSession] = []
     @State private var selectedSessionID: LaunchedSession.ID?
@@ -25,6 +25,8 @@ struct RootView: View {
                 selection: $selectedProjectID,
                 unreadProjectIDs: projectsWithUnread,
                 scratchHasUnread: scratchHasUnread,
+                scratchSessionCount: scratchSessionCount,
+                sessionCountByProject: sessionCountByProject,
                 onAdd: addProjectFlow
             )
             .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
@@ -54,6 +56,7 @@ struct RootView: View {
             }
             // When switching bucket, fall back to the first matching session.
             selectedSessionID = filteredSessions.first?.id
+            Self.saveSelection(newID)
         }
         .onChange(of: selectedSessionID) { newID in
             if let newID { unreadSessions.remove(newID) }
@@ -126,6 +129,19 @@ struct RootView: View {
     /// True if any projectID=nil (scratch) session is unread.
     private var scratchHasUnread: Bool {
         sessions.contains { $0.projectID == nil && unreadSessions.contains($0.id) }
+    }
+
+    private var scratchSessionCount: Int {
+        sessions.lazy.filter { $0.projectID == nil }.count
+    }
+
+    private var sessionCountByProject: [Project.ID: Int] {
+        var counts: [Project.ID: Int] = [:]
+        for session in sessions {
+            guard let pid = session.projectID else { continue }
+            counts[pid, default: 0] += 1
+        }
+        return counts
     }
 
     // MARK: - Derived state
@@ -360,6 +376,28 @@ private enum LaunchError: LocalizedError {
         switch self {
         case .missingProject:
             "Pick a project directory before creating a jj workspace."
+        }
+    }
+}
+
+// MARK: - Selection persistence
+
+extension RootView {
+    fileprivate static let selectionDefaultsKey = "sh.roost.app.selectedProject"
+
+    fileprivate static func loadSavedSelection() -> Project.ID? {
+        guard let raw = UserDefaults.standard.string(forKey: selectionDefaultsKey) else {
+            return nil
+        }
+        return UUID(uuidString: raw)
+    }
+
+    fileprivate static func saveSelection(_ id: Project.ID?) {
+        let defaults = UserDefaults.standard
+        if let id {
+            defaults.set(id.uuidString, forKey: selectionDefaultsKey)
+        } else {
+            defaults.removeObject(forKey: selectionDefaultsKey)
         }
     }
 }

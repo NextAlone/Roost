@@ -68,6 +68,7 @@ struct ProjectSidebar: View {
                                 Divider()
                                 Button("Reveal in Finder") { revealInFinder(project) }
                                 Button("Open in Terminal.app") { openInTerminal(project) }
+                                openInIDEMenu(for: project.path)
                                 Divider()
                                 Button(role: .destructive) {
                                     store.remove(project.id)
@@ -137,6 +138,25 @@ struct ProjectSidebar: View {
             withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
             configuration: NSWorkspace.OpenConfiguration()
         )
+    }
+
+    /// Context-menu sub-menu listing every IDE LaunchServices says is
+    /// installed. Empty list → a disabled placeholder so users still see
+    /// why nothing's available.
+    @ViewBuilder
+    private func openInIDEMenu(for path: String) -> some View {
+        let installed = IDEOpener.installed()
+        Menu("Open in IDE") {
+            if installed.isEmpty {
+                Text("No supported editors detected")
+            } else {
+                ForEach(installed, id: \.0.bundleID) { pair in
+                    Button(pair.0.name) {
+                        IDEOpener.open(directory: path, with: pair.1)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -294,6 +314,13 @@ private struct SessionRow: View {
     let onSelect: () -> Void
     let onClose: () -> Void
 
+    /// cwd for "Reveal" / "Open in …" menu items. Empty for sessions whose
+    /// spec left it blank (rare; agent CLI without workspace).
+    private var cwd: String? {
+        let d = session.spec.workingDirectory
+        return d.isEmpty ? nil : d
+    }
+
     var body: some View {
         HStack(spacing: 6) {
             if isUnread {
@@ -328,6 +355,40 @@ private struct SessionRow: View {
             RoundedRectangle(cornerRadius: 4)
                 .fill(isSelected ? Color.accentColor.opacity(0.18) : .clear)
         )
+        .contextMenu {
+            if let cwd = cwd {
+                Button("Reveal in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting(
+                        [URL(fileURLWithPath: cwd)]
+                    )
+                }
+                Button("Open in Terminal.app") {
+                    NSWorkspace.shared.open(
+                        [URL(fileURLWithPath: cwd)],
+                        withApplicationAt: URL(
+                            fileURLWithPath: "/System/Applications/Utilities/Terminal.app"
+                        ),
+                        configuration: NSWorkspace.OpenConfiguration()
+                    )
+                }
+                let installed = IDEOpener.installed()
+                Menu("Open in IDE") {
+                    if installed.isEmpty {
+                        Text("No supported editors detected")
+                    } else {
+                        ForEach(installed, id: \.0.bundleID) { pair in
+                            Button(pair.0.name) {
+                                IDEOpener.open(directory: cwd, with: pair.1)
+                            }
+                        }
+                    }
+                }
+                Divider()
+            }
+            Button(role: .destructive, action: onClose) {
+                Label("Close", systemImage: "xmark.circle")
+            }
+        }
     }
 
     private var agentIcon: String {

@@ -7,6 +7,8 @@
 
 mod hooks;
 
+use std::sync::Arc;
+
 use roost_client::{Client, ClientError};
 
 #[swift_bridge::bridge]
@@ -117,13 +119,13 @@ fn spec_to_ffi(s: roost_core::dto::SessionSpec) -> ffi::SessionSpec {
 
 // MARK: - jj wrappers (delegate to roost-hostd over UDS)
 //
-// Per-call connect: each FFI invocation opens a fresh UnixStream, does the
-// hello handshake, makes one request, and drops. Avoids tokio inside FFI and
-// removes any global Client state — Swift can call from any thread without
-// us caring.
+// Process-wide singleton `Client` holds a long-lived `Connection` that
+// demuxes responses by id and ferries server-pushed events to the (M7-P3+)
+// event consumers. The connection is opened lazily on first call and
+// reconnects (with hostd respawn if needed) after a `Disconnected`.
 
-fn client() -> Client {
-    Client::new()
+fn client() -> Arc<Client> {
+    Client::shared()
 }
 
 fn roost_is_jj_repo(dir: &str) -> bool {

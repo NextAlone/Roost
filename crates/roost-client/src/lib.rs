@@ -1,24 +1,34 @@
 //! Synchronous client SDK for talking to `roost-hostd` over Unix socket.
 //!
-//! Sync `std::os::unix::net::UnixStream` (no tokio) — keeps the staticlib
-//! Xcode links lean and avoids a tokio runtime inside the FFI boundary.
-//! Per-call connect: open → hello → request → response → close. ~1ms
-//! overhead, dominated by the jj CLI spawn it wraps.
+//! M6: per-call connect (stateless). M7: persistent `Connection` so server-
+//! pushed events (`session_state`, `session_exited`, `session_osc`) can be
+//! observed. The Connection runs a background reader thread (std, not tokio)
+//! that demuxes responses by `id` and routes notifications to an events
+//! channel.
+//!
+//! Bridge usage stays sync: `Client::shared()` hands back a singleton that
+//! lazily connects (or reconnects after `Disconnected`) and exposes the
+//! same typed RPC surface as before.
 
-mod transport;
+mod connection;
 
 pub use roost_core;
-pub use roost_core::dto::{HostInfo, RevisionEntry, SessionSpec, StatusEntry, WorkspaceEntry};
+pub use roost_core::dto::{
+    AgentSpec, HostInfo, RevisionEntry, SessionId, SessionInfo, SessionSpec, SessionState,
+    StatusEntry, WorkspaceEntry,
+};
+
+pub use connection::{Connection, Event};
 
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use roost_core::paths;
-use roost_core::rpc::{self, methods, Manifest};
-use serde::de::DeserializeOwned;
+use roost_core::rpc::{self, Manifest, methods};
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use thiserror::Error;
-use transport::Conn;
 
 const HELLO_TIMEOUT: Duration = Duration::from_secs(2);
 const CALL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -55,12 +65,58 @@ pub type Result<T> = std::result::Result<T, ClientError>;
 
 pub const CLIENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Stateless handle. Each call opens its own connection — see module doc.
-pub struct Client;
+/// Process-wide handle. The bridge holds one of these for the lifetime of the
+/// app; `roost-attach` makes its own (with `Client::new()`).
+pub struct Client {
+    inner: Mutex<Option<Arc<Connection>>>,
+}
+
+static SHARED: OnceLock<Arc<Client>> = OnceLock::new();
 
 impl Client {
+    /// Return the process-wide shared client. Use this from FFI / library
+    /// callers; only `roost-attach` (which subscribes to events on its own
+    /// connection) should call `Client::new()` directly.
+    pub fn shared() -> Arc<Client> {
+        SHARED
+            .get_or_init(|| Arc::new(Client::new()))
+            .clone()
+    }
+
     pub fn new() -> Self {
-        Self
+        Self {
+            inner: Mutex::new(None),
+        }
+    }
+
+    /// Get the underlying `Connection`, opening it (and spawning hostd if
+    /// needed) on first use; reconnect once if the previous one died.
+    pub fn connection(&self) -> Result<Arc<Connection>> {
+        let mut g = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+        if let Some(conn) = g.as_ref() {
+            if conn.is_alive() {
+                return Ok(conn.clone());
+            }
+        }
+        let conn = Arc::new(open_new_connection()?);
+        *g = Some(conn.clone());
+        Ok(conn)
+    }
+
+    fn call<P: Serialize, R: DeserializeOwned>(&self, method: &str, params: &P) -> Result<R> {
+        let conn = self.connection()?;
+        match conn.call(method, params, CALL_TIMEOUT) {
+            Err(ClientError::Io(_)) => {
+                // Drop the dead conn and retry once on a freshly spawned hostd.
+                {
+                    let mut g = self.inner.lock().unwrap_or_else(|p| p.into_inner());
+                    *g = None;
+                }
+                let conn = self.connection()?;
+                conn.call(method, params, CALL_TIMEOUT)
+            }
+            other => other,
+        }
     }
 
     pub fn host_info(&self) -> Result<HostInfo> {
@@ -193,26 +249,17 @@ impl Client {
         )?;
         Ok(())
     }
-
-    fn call<P: Serialize, R: DeserializeOwned>(&self, method: &str, params: &P) -> Result<R> {
-        let manifest = ensure_hostd()?;
-        let mut conn = match Conn::connect(&manifest.socket, &manifest.auth_token, HELLO_TIMEOUT) {
-            Ok(c) => c,
-            Err(ClientError::Io(_)) | Err(ClientError::Timeout) => {
-                // Daemon may have crashed; one retry after respawn.
-                let manifest = spawn_and_wait()?;
-                Conn::connect(&manifest.socket, &manifest.auth_token, HELLO_TIMEOUT)?
-            }
-            Err(e) => return Err(e),
-        };
-        conn.call(method, params, CALL_TIMEOUT)
-    }
 }
 
 impl Default for Client {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn open_new_connection() -> Result<Connection> {
+    let manifest = ensure_hostd()?;
+    Connection::connect(&manifest.socket, &manifest.auth_token, HELLO_TIMEOUT)
 }
 
 /// Read the manifest. If absent or refers to a dead pid, spawn hostd.
@@ -258,7 +305,6 @@ fn spawn_and_wait() -> Result<Manifest> {
     let bin = locate_hostd_binary()
         .ok_or_else(|| ClientError::Spawn("roost-hostd binary not found".into()))?;
 
-    // Detach the daemon: ignore SIGHUP from parent app exit, new session.
     let mut cmd = std::process::Command::new(&bin);
     cmd.stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
@@ -266,7 +312,6 @@ fn spawn_and_wait() -> Result<Manifest> {
     unsafe {
         use std::os::unix::process::CommandExt;
         cmd.pre_exec(|| {
-            // setsid → new session, detached from controlling terminal.
             if libc::setsid() == -1 {
                 return Err(std::io::Error::last_os_error());
             }
@@ -300,17 +345,12 @@ fn locate_hostd_binary() -> Option<PathBuf> {
         }
     }
 
-    // Bundle Resources path: when the FFI is invoked from inside Roost.app,
-    // the executable is at .../Roost.app/Contents/MacOS/Roost and the daemon
-    // is shipped beside it.
     if let Ok(exe) = std::env::current_exe() {
         if let Some(macos_dir) = exe.parent() {
             let beside = macos_dir.join("roost-hostd");
             if beside.is_file() {
                 return Some(beside);
             }
-            // Resources dir (XcodeGen `buildPhase: resources`):
-            // .../Contents/MacOS/Roost → .../Contents/Resources/roost-hostd
             if let Some(contents) = macos_dir.parent() {
                 let res = contents.join("Resources").join("roost-hostd");
                 if res.is_file() {
@@ -320,7 +360,6 @@ fn locate_hostd_binary() -> Option<PathBuf> {
         }
     }
 
-    // Dev fallback: walk up from CWD looking for target/{debug,release}/.
     let mut cur: PathBuf = std::env::current_dir().ok()?;
     for _ in 0..6 {
         for profile in &["debug", "release"] {
@@ -334,7 +373,6 @@ fn locate_hostd_binary() -> Option<PathBuf> {
         }
     }
 
-    // Last-ditch: PATH lookup.
     if let Ok(path_var) = std::env::var("PATH") {
         for dir in path_var.split(':') {
             let candidate = Path::new(dir).join("roost-hostd");

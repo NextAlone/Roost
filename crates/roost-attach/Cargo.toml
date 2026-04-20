@@ -1,0 +1,23 @@
+[package]
+name = "roost-attach"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Tiny relay binary: libghostty-spawned child that bridges PTY-as-stdio to a hostd session over Unix socket"
+publish = false
+
+[[bin]]
+name = "roost-attach"
+path = "src/main.rs"
+
+[dependencies]
+roost-core = { path = "../roost-core" }
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+libc.workspace = true
+signal-hook.workspace = true
+uuid.workspace = true
+anyhow.workspace = true

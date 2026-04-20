@@ -5,13 +5,27 @@ import GhosttyKit
 /// `NSView` that owns a single `ghostty_surface_t` and forwards keyboard /
 /// layout events to it. libghostty mounts a `CAMetalLayer` on this view and
 /// spawns the requested command (or the user's login shell) behind the scenes.
+/// Description of the relay child to spawn for an M7 session: hostd owns
+/// the agent's PTY, libghostty's child is `roost-attach <session_id>`, and
+/// the env vars below tell the relay where to dial.
+struct TerminalAttach: Equatable {
+    let attachBinaryPath: String
+    /// hostd-issued session UUID (string form to avoid round-tripping
+    /// through Foundation UUID).
+    let backendSessionID: String
+    let socket: String
+    let authToken: String
+}
+
 final class TerminalNSView: NSView {
     /// Owning session's identity. Used by `close_surface_cb` to tell the UI
     /// which tab to tear down.
     let sessionID: UUID
     /// Shell-style command string ghostty will spawn. `nil` = login shell.
+    /// In M7 attach mode, this is `<attach_binary> <backendSessionID>`.
     let command: String?
     let workingDirectory: String?
+    let attach: TerminalAttach?
 
     private var surface: ghostty_surface_t?
 
@@ -37,6 +51,7 @@ final class TerminalNSView: NSView {
         sessionID: UUID,
         command: String?,
         workingDirectory: String? = nil,
+        attach: TerminalAttach? = nil,
         frame: NSRect = .zero
     ) {
         self.sessionID = sessionID
@@ -44,9 +59,11 @@ final class TerminalNSView: NSView {
         // GUI-launched apps inherit launchd's cwd ('/'), which makes ghostty
         // spawn shells in '/'. Default to $HOME when the caller doesn't care.
         self.workingDirectory = workingDirectory ?? NSHomeDirectory()
+        self.attach = attach
         super.init(frame: frame)
         wantsLayer = true
-        NSLog("[Roost] TerminalNSView init session=%@", sessionID.uuidString)
+        NSLog("[Roost] TerminalNSView init session=%@ attach=%d",
+              sessionID.uuidString, attach != nil ? 1 : 0)
 
         // When the user switches IME while a preedit is active (⌃Space,
         // etc.), AppKit doesn't always notify the old IME to discard its
@@ -93,7 +110,11 @@ final class TerminalNSView: NSView {
         // Build env_vars. ghostty copies these internally on
         // ghostty_surface_new, so the strdup'd buffers can be freed after
         // the call returns.
-        let envPairs = Self.defaultEnvPairs()
+        var envPairs = Self.defaultEnvPairs()
+        if let attach {
+            envPairs.append(("ROOST_HOSTD_SOCKET", attach.socket))
+            envPairs.append(("ROOST_AUTH_TOKEN", attach.authToken))
+        }
         var cEnv: [ghostty_env_var_s] = envPairs.map { pair in
             ghostty_env_var_s(
                 key: strdup(pair.0),
@@ -456,7 +477,7 @@ final class TerminalNSView: NSView {
     /// defaults. Currently ships the bundled xterm-ghostty terminfo so
     /// less / nano / tmux stop complaining about "terminal is not fully
     /// functional".
-    private static func defaultEnvPairs() -> [(String, String)] {
+    fileprivate static func defaultEnvPairs() -> [(String, String)] {
         var out: [(String, String)] = []
         if let resPath = Bundle.main.resourcePath {
             let terminfo = (resPath as NSString).appendingPathComponent("terminfo")

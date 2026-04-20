@@ -8,17 +8,22 @@ struct TerminalView: NSViewRepresentable {
     let sessionID: UUID
     let command: String?
     let workingDirectory: String?
+    /// When set, the surface's child becomes the M7 relay rather than
+    /// ghostty's default login shell.
+    let attach: TerminalAttach?
     let isFocused: Bool
 
     init(
         sessionID: UUID,
         command: String? = nil,
         workingDirectory: String? = nil,
+        attach: TerminalAttach? = nil,
         isFocused: Bool
     ) {
         self.sessionID = sessionID
         self.command = command
         self.workingDirectory = workingDirectory
+        self.attach = attach
         self.isFocused = isFocused
     }
 
@@ -26,7 +31,8 @@ struct TerminalView: NSViewRepresentable {
         TerminalNSView(
             sessionID: sessionID,
             command: command,
-            workingDirectory: workingDirectory
+            workingDirectory: workingDirectory,
+            attach: attach
         )
     }
 

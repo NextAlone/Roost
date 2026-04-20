@@ -99,6 +99,31 @@ enum RoostBridge {
         let serialized = try roost_run_teardown_hooks(projectRoot, workspaceDir).toString()
         return HookStepResult.parseAll(serialized)
     }
+
+    // MARK: M7 sessions
+
+    /// Ask hostd to spawn `agent` on a fresh PTY and return everything the
+    /// ghostty surface needs to wire up the relay child. The child's
+    /// command/argv lives in `SessionHandleSwift`.
+    static func createSession(
+        agentKind: String,
+        workingDirectory: String,
+        rows: UInt16 = 24,
+        cols: UInt16 = 80
+    ) throws -> SessionHandleSwift {
+        SessionHandleSwift(
+            raw: try roost_session_create(agentKind, workingDirectory, rows, cols)
+        )
+    }
+
+    /// SIGTERM by default. Use `SIGKILL` for force-kill.
+    static func killSession(sessionID: String, signal: Int32 = Int32(SIGTERM)) throws {
+        try roost_session_kill(sessionID, signal)
+    }
+
+    static func resizeSession(sessionID: String, rows: UInt16, cols: UInt16) throws {
+        try roost_session_resize(sessionID, rows, cols)
+    }
 }
 
 // MARK: - Swift-native mirrors of shared structs
@@ -222,5 +247,21 @@ struct HookStepResult: Equatable {
         self.exitCode = code
         self.command = String(fields[4])
         self.stderrTail = String(fields[5])
+    }
+}
+
+/// Output of `RoostBridge.createSession`: everything the surface child needs
+/// to attach to the live PTY in hostd.
+struct SessionHandleSwift: Equatable {
+    let sessionID: String
+    let attachBinaryPath: String
+    let socket: String
+    let authToken: String
+
+    init(raw: SessionHandle) {
+        self.sessionID = raw.session_id.toString()
+        self.attachBinaryPath = raw.attach_binary_path.toString()
+        self.socket = raw.socket.toString()
+        self.authToken = raw.auth_token.toString()
     }
 }

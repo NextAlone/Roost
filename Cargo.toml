@@ -5,6 +5,7 @@ members = [
     "crates/roost-client",
     "crates/roost-hostd",
     "crates/roost-bridge",
+    "crates/roost-attach",
 ]
 
 [workspace.package]
@@ -49,6 +50,7 @@ sqlx = { version = "0.8", default-features = false, features = [
 portable-pty = "0.9"
 bytes = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
+signal-hook = "0.3"
 
 [profile.release]
 lto = true

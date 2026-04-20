@@ -43,6 +43,8 @@ targets:
       - path: Assets.xcassets
       - path: Generated/roost-hostd
         buildPhase: resources
+      - path: Generated/roost-attach
+        buildPhase: resources
       - path: Resources
         buildPhase: resources
         type: folder
@@ -78,10 +80,19 @@ targets:
           - $(SRCROOT)/../../crates/roost-hostd/src/manifest.rs
           - $(SRCROOT)/../../crates/roost-hostd/src/state.rs
           - $(SRCROOT)/../../crates/roost-hostd/src/store.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/events.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/session/mod.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/session/registry.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/session/ring.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/session/spawn.rs
+          - $(SRCROOT)/../../crates/roost-hostd/src/session/osc.rs
+          - $(SRCROOT)/../../crates/roost-attach/src/main.rs
+          - $(SRCROOT)/../../crates/roost-attach/Cargo.toml
           - $(SRCROOT)/../../Cargo.toml
         outputFiles:
           - $(SRCROOT)/Generated/libroost_bridge.a
           - $(SRCROOT)/Generated/roost-hostd
+          - $(SRCROOT)/Generated/roost-attach
     settings:
       base:
         CODE_SIGN_STYLE: Automatic

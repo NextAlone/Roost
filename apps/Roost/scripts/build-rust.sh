@@ -24,6 +24,7 @@ POC_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$POC_DIR/../.." && pwd)"
 CRATE_NAME="roost-bridge"
 HOSTD_NAME="roost-hostd"
+ATTACH_NAME="roost-attach"
 
 PROFILE="${CARGO_PROFILE:-release}"
 TARGET_DIR="$REPO_ROOT/target/$PROFILE"
@@ -31,13 +32,13 @@ OUT_GLOB="$REPO_ROOT/target/$PROFILE/build/${CRATE_NAME}-*/out/$CRATE_NAME/$CRAT
 
 GEN_DIR="$POC_DIR/Generated"
 
-echo "[build-rust] cargo build (profile=$PROFILE) -p $CRATE_NAME -p $HOSTD_NAME"
+echo "[build-rust] cargo build (profile=$PROFILE) -p $CRATE_NAME -p $HOSTD_NAME -p $ATTACH_NAME"
 (
     cd "$REPO_ROOT"
     if [ "$PROFILE" = "release" ]; then
-        cargo build --release -p "$CRATE_NAME" -p "$HOSTD_NAME"
+        cargo build --release -p "$CRATE_NAME" -p "$HOSTD_NAME" -p "$ATTACH_NAME"
     else
-        cargo build -p "$CRATE_NAME" -p "$HOSTD_NAME"
+        cargo build -p "$CRATE_NAME" -p "$HOSTD_NAME" -p "$ATTACH_NAME"
     fi
 )
 
@@ -50,6 +51,12 @@ fi
 HOSTD_BIN="$TARGET_DIR/$HOSTD_NAME"
 if [ ! -f "$HOSTD_BIN" ]; then
     echo "[build-rust] missing $HOSTD_BIN" >&2
+    exit 1
+fi
+
+ATTACH_BIN="$TARGET_DIR/$ATTACH_NAME"
+if [ ! -f "$ATTACH_BIN" ]; then
+    echo "[build-rust] missing $ATTACH_BIN" >&2
     exit 1
 fi
 
@@ -70,6 +77,8 @@ mkdir -p "$GEN_DIR"
 cp "$STATIC_LIB" "$GEN_DIR/libroost_bridge.a"
 cp "$HOSTD_BIN" "$GEN_DIR/$HOSTD_NAME"
 chmod +x "$GEN_DIR/$HOSTD_NAME"
+cp "$ATTACH_BIN" "$GEN_DIR/$ATTACH_NAME"
+chmod +x "$GEN_DIR/$ATTACH_NAME"
 
 # swift-bridge lays out:
 #   $OUT_DIR/SwiftBridgeCore.{swift,h}
@@ -94,5 +103,6 @@ EOF
 echo "[build-rust] done."
 echo "  Static lib:  $GEN_DIR/libroost_bridge.a"
 echo "  Hostd bin:   $GEN_DIR/$HOSTD_NAME"
+echo "  Attach bin:  $GEN_DIR/$ATTACH_NAME"
 echo "  Bindings:    $GEN_DIR/RoostBridge.swift (+ SwiftBridgeCore.swift)"
 echo "  Bridging H:  $GEN_DIR/RoostBridge-Bridging.h"

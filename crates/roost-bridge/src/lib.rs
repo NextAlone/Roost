@@ -46,11 +46,42 @@ mod ffi {
         text: String,
     }
 
+    // MARK: - Session handle (M7)
+
+    #[swift_bridge(swift_repr = "struct")]
+    struct SessionHandle {
+        /// Stringified UUID. Pass back through `roost_session_kill` etc.
+        session_id: String,
+        /// Absolute path to the `roost-attach` binary the app should spawn
+        /// as the libghostty surface child.
+        attach_binary_path: String,
+        /// Hostd UDS path; injected to the relay child as
+        /// `ROOST_HOSTD_SOCKET` env var.
+        socket: String,
+        /// Hostd auth token; injected as `ROOST_AUTH_TOKEN`.
+        auth_token: String,
+    }
+
     extern "Rust" {
         fn roost_greet(name: &str) -> String;
         fn roost_bridge_version() -> String;
         fn roost_prepare_session(agent: &str) -> SessionSpec;
         fn roost_prepare_session_in(agent: &str, working_directory: &str) -> SessionSpec;
+
+        // M7 session lifecycle (PTY now lives in hostd).
+        fn roost_session_create(
+            agent_kind: String,
+            working_directory: String,
+            rows: u16,
+            cols: u16,
+        ) -> Result<SessionHandle, String>;
+        fn roost_session_kill(session_id: String, signal: i32) -> Result<(), String>;
+        fn roost_session_resize(
+            session_id: String,
+            rows: u16,
+            cols: u16,
+        ) -> Result<(), String>;
+        fn roost_attach_binary_path() -> Result<String, String>;
 
         fn roost_is_jj_repo(dir: &str) -> bool;
         fn roost_jj_version() -> Result<String, String>;
@@ -215,22 +246,110 @@ fn roost_bookmark_forget(workspace_dir: String, name: String) -> Result<(), Stri
         .map_err(stringify)
 }
 
-// MARK: - hooks
+// MARK: - Session lifecycle (M7)
 
-fn roost_run_setup_hooks(project_root: String, workspace_dir: String) -> Result<String, String> {
-    let results = hooks::run_setup(
-        std::path::Path::new(&project_root),
-        std::path::Path::new(&workspace_dir),
-    )?;
-    Ok(hooks::serialize(&results))
+fn roost_session_create(
+    agent_kind: String,
+    working_directory: String,
+    rows: u16,
+    cols: u16,
+) -> Result<ffi::SessionHandle, String> {
+    // Domain logic stays in core::session::prepare so M9 CLI sees the same
+    // PATH-resolution behaviour.
+    let prepared = roost_core::session::prepare(&agent_kind, &working_directory);
+    let spec = roost_client::AgentSpec {
+        command: prepared.command,
+        working_directory: prepared.working_directory,
+        agent_kind: prepared.agent_kind,
+        rows,
+        cols,
+        env: Default::default(),
+    };
+
+    let info = client().create_session(spec).map_err(stringify)?;
+    let manifest = roost_client::ensure_hostd().map_err(stringify)?;
+    let attach = locate_attach_binary().ok_or_else(|| {
+        "roost-attach binary not found (set ROOST_ATTACH_PATH or bundle into Resources)"
+            .to_string()
+    })?;
+
+    Ok(ffi::SessionHandle {
+        session_id: info.id.to_string(),
+        attach_binary_path: attach,
+        socket: manifest.socket,
+        auth_token: manifest.auth_token,
+    })
 }
 
-fn roost_run_teardown_hooks(project_root: String, workspace_dir: String) -> Result<String, String> {
-    let results = hooks::run_teardown(
-        std::path::Path::new(&project_root),
-        std::path::Path::new(&workspace_dir),
-    )?;
-    Ok(hooks::serialize(&results))
+fn roost_session_kill(session_id: String, signal: i32) -> Result<(), String> {
+    let sid = parse_sid(&session_id)?;
+    client().kill_session(sid, signal).map_err(stringify)
+}
+
+fn roost_session_resize(session_id: String, rows: u16, cols: u16) -> Result<(), String> {
+    let sid = parse_sid(&session_id)?;
+    client().resize_session(sid, rows, cols).map_err(stringify)
+}
+
+fn roost_attach_binary_path() -> Result<String, String> {
+    locate_attach_binary().ok_or_else(|| "roost-attach binary not found".to_string())
+}
+
+fn parse_sid(s: &str) -> Result<roost_client::SessionId, String> {
+    s.parse::<roost_client::SessionId>()
+        .map_err(|e| format!("invalid session id {s:?}: {e}"))
+}
+
+/// Mirror of roost-client's hostd lookup, for the `roost-attach` sibling.
+/// Order: $ROOST_ATTACH_PATH > Bundle Resources > target/{debug,release}
+/// > $PATH.
+fn locate_attach_binary() -> Option<String> {
+    use std::path::{Path, PathBuf};
+
+    if let Ok(p) = std::env::var("ROOST_ATTACH_PATH") {
+        let path = PathBuf::from(p);
+        if path.is_file() {
+            return Some(path.to_string_lossy().into_owned());
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(macos_dir) = exe.parent() {
+            let beside = macos_dir.join("roost-attach");
+            if beside.is_file() {
+                return Some(beside.to_string_lossy().into_owned());
+            }
+            if let Some(contents) = macos_dir.parent() {
+                let res = contents.join("Resources").join("roost-attach");
+                if res.is_file() {
+                    return Some(res.to_string_lossy().into_owned());
+                }
+            }
+        }
+    }
+
+    let mut cur: PathBuf = std::env::current_dir().ok()?;
+    for _ in 0..6 {
+        for profile in &["debug", "release"] {
+            let candidate = cur.join("target").join(profile).join("roost-attach");
+            if candidate.is_file() {
+                return Some(candidate.to_string_lossy().into_owned());
+            }
+        }
+        if !cur.pop() {
+            break;
+        }
+    }
+
+    if let Ok(path_var) = std::env::var("PATH") {
+        for dir in path_var.split(':') {
+            let candidate = Path::new(dir).join("roost-attach");
+            if candidate.is_file() {
+                return Some(candidate.to_string_lossy().into_owned());
+            }
+        }
+    }
+    None
 }
 
 // MARK: - conversions

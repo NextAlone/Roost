@@ -255,9 +255,17 @@ struct RootView: View {
                 let visible = session.id == visibleID
                 TerminalView(
                     sessionID: session.id,
-                    command: session.spec.command.isEmpty ? nil : session.spec.command,
+                    command: session.surfaceCommand,
                     workingDirectory: session.spec.workingDirectory.isEmpty
                         ? nil : session.spec.workingDirectory,
+                    attach: session.attach.map { handle in
+                        TerminalAttach(
+                            attachBinaryPath: handle.attachBinaryPath,
+                            backendSessionID: handle.sessionID,
+                            socket: handle.socket,
+                            authToken: handle.authToken
+                        )
+                    },
                     isFocused: visible
                 )
                 .opacity(visible ? 1 : 0)
@@ -346,9 +354,25 @@ struct RootView: View {
                 ? RoostBridge.prepareSession(agent: form.agent)
                 : RoostBridge.prepareSession(agent: form.agent, workingDirectory: cwd)
             NSLog("[Roost] launch: agent=%@ cwd=%@ cmd=%@", form.agent, cwd, spec.command)
+            // M7: agents (non-shell) go through hostd. Plain shells stay on
+            // the M6 path so the terminal launcher keeps working with no
+            // hostd round-trip.
+            let attach: SessionHandleSwift?
+            let agentNorm = spec.agentKind.lowercased()
+            if !agentNorm.isEmpty, !["shell", "bash", "zsh", "fish"].contains(agentNorm) {
+                attach = try RoostBridge.createSession(
+                    agentKind: spec.agentKind,
+                    workingDirectory: cwd
+                )
+                NSLog("[Roost] hostd session sid=%@ via=%@",
+                      attach!.sessionID, attach!.attachBinaryPath)
+            } else {
+                attach = nil
+            }
             return LaunchedSession(
                 projectID: form.target,
                 spec: spec,
+                attach: attach,
                 label: label
             )
         } catch let err as RustString {
@@ -579,6 +603,10 @@ struct LaunchedSession: Identifiable, Equatable {
     /// any registered project.
     let projectID: Project.ID?
     let spec: SessionSpecSwift
+    /// Set when the agent runs inside hostd (M7+). When non-nil, the surface
+    /// child becomes `roost-attach <session_id>` and PTY ownership lives in
+    /// the daemon. nil = legacy direct-spawn path.
+    let attach: SessionHandleSwift?
     /// Short label shown in the tab (e.g. `claude@ws-foo`). Falls back to
     /// `spec.agentKind` for non-workspace sessions.
     let label: String
@@ -587,11 +615,23 @@ struct LaunchedSession: Identifiable, Equatable {
         id: UUID = UUID(),
         projectID: Project.ID? = nil,
         spec: SessionSpecSwift,
+        attach: SessionHandleSwift? = nil,
         label: String? = nil
     ) {
         self.id = id
         self.projectID = projectID
         self.spec = spec
+        self.attach = attach
         self.label = label ?? spec.agentKind
+    }
+
+    /// What ghostty's surface child should run. M7 attach: relay binary +
+    /// session id. Legacy: the prepared shell command (or nil for login
+    /// shell).
+    var surfaceCommand: String? {
+        if let attach {
+            return "\(attach.attachBinaryPath) \(attach.sessionID)"
+        }
+        return spec.command.isEmpty ? nil : spec.command
     }
 }

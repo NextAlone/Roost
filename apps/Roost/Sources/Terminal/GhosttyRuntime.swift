@@ -109,12 +109,15 @@ final class GhosttyRuntime {
         target: ghostty_target_s,
         action: ghostty_action_s
     ) {
+        NSLog("[Roost] action_cb tag=%u", action.tag.rawValue)
         switch action.tag {
         case GHOSTTY_ACTION_DESKTOP_NOTIFICATION:
             let notif = action.action.desktop_notification
             let title = notif.title.map { String(cString: $0) } ?? ""
             let body = notif.body.map { String(cString: $0) } ?? ""
             let sessionID = sessionID(from: target)
+            NSLog("[Roost] desktop_notification session=%@ title=%@ body=%@",
+                  sessionID?.uuidString ?? "nil", title, body)
             DispatchQueue.main.async {
                 var info: [AnyHashable: Any] = [
                     RoostNotificationKey.title: title,

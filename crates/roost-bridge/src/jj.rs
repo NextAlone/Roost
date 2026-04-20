@@ -10,7 +10,7 @@
 //! the Swift UI can surface them.
 
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 #[derive(Debug)]
 pub struct WorkspaceEntry {
@@ -37,12 +37,20 @@ pub struct StatusEntry {
 /// True if the given path (or an ancestor) is a jj repo. We just invoke
 /// `jj status` and trust its exit code. Route through `jj_binary()` so
 /// GUI-launched apps still find the binary under a non-login PATH.
+///
+/// We stdio-null + `--no-pager` to defend against jj's pager launching
+/// against an inherited tty (which would hang the app with `less` waiting
+/// on RETURN), and suppress the stderr ANSI "no jj repo" message.
 pub fn is_jj_repo(dir: &str) -> bool {
     let Ok(bin) = jj_binary() else { return false };
     Command::new(&bin)
+        .arg("--no-pager")
         .arg("status")
         .arg("--quiet")
         .current_dir(dir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
@@ -208,7 +216,12 @@ struct JjOutput {
 fn run(args: &[&str], dir: Option<&str>) -> Result<JjOutput, String> {
     let bin = jj_binary()?;
     let mut cmd = Command::new(&bin);
+    // `--no-pager` + closed stdin: the FFI runs under a GUI process where
+    // an inherited tty would deadlock jj behind `less`. `cmd.output()`
+    // already pipes stdout/stderr, but stdin still inherits by default.
+    cmd.arg("--no-pager");
     cmd.args(args);
+    cmd.stdin(Stdio::null());
     if let Some(d) = dir {
         cmd.current_dir(d);
     }

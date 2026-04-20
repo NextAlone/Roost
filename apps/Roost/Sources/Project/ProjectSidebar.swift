@@ -67,7 +67,7 @@ struct ProjectSidebar: View {
                                 Button("Rename") { beginRename(project) }
                                 Divider()
                                 Button("Reveal in Finder") { revealInFinder(project) }
-                                Button("Open in Terminal.app") { openInTerminal(project) }
+                                openInTerminalMenu(for: project.path)
                                 openInIDEMenu(for: project.path)
                                 Divider()
                                 Button(role: .destructive) {
@@ -131,15 +131,6 @@ struct ProjectSidebar: View {
         )
     }
 
-    private func openInTerminal(_ project: Project) {
-        let url = URL(fileURLWithPath: project.path)
-        NSWorkspace.shared.open(
-            [url],
-            withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
-            configuration: NSWorkspace.OpenConfiguration()
-        )
-    }
-
     /// Context-menu sub-menu listing every IDE LaunchServices says is
     /// installed. Empty list → a disabled placeholder so users still see
     /// why nothing's available.
@@ -153,6 +144,25 @@ struct ProjectSidebar: View {
                 ForEach(installed, id: \.0.bundleID) { pair in
                     Button(pair.0.name) {
                         IDEOpener.open(directory: path, with: pair.1)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Sibling of `openInIDEMenu`: lists installed terminal emulators
+    /// (Ghostty / iTerm / WezTerm / Alacritty / Kitty / Warp / Hyper /
+    /// Terminal.app).
+    @ViewBuilder
+    private func openInTerminalMenu(for path: String) -> some View {
+        let installed = TerminalOpener.installed()
+        Menu("Open in Terminal") {
+            if installed.isEmpty {
+                Text("No supported terminals detected")
+            } else {
+                ForEach(installed, id: \.0.bundleID) { pair in
+                    Button(pair.0.name) {
+                        TerminalOpener.open(directory: path, with: pair.1)
                     }
                 }
             }
@@ -362,21 +372,24 @@ private struct SessionRow: View {
                         [URL(fileURLWithPath: cwd)]
                     )
                 }
-                Button("Open in Terminal.app") {
-                    NSWorkspace.shared.open(
-                        [URL(fileURLWithPath: cwd)],
-                        withApplicationAt: URL(
-                            fileURLWithPath: "/System/Applications/Utilities/Terminal.app"
-                        ),
-                        configuration: NSWorkspace.OpenConfiguration()
-                    )
+                let terminals = TerminalOpener.installed()
+                Menu("Open in Terminal") {
+                    if terminals.isEmpty {
+                        Text("No supported terminals detected")
+                    } else {
+                        ForEach(terminals, id: \.0.bundleID) { pair in
+                            Button(pair.0.name) {
+                                TerminalOpener.open(directory: cwd, with: pair.1)
+                            }
+                        }
+                    }
                 }
-                let installed = IDEOpener.installed()
+                let ides = IDEOpener.installed()
                 Menu("Open in IDE") {
-                    if installed.isEmpty {
+                    if ides.isEmpty {
                         Text("No supported editors detected")
                     } else {
-                        ForEach(installed, id: \.0.bundleID) { pair in
+                        ForEach(ides, id: \.0.bundleID) { pair in
                             Button(pair.0.name) {
                                 IDEOpener.open(directory: cwd, with: pair.1)
                             }

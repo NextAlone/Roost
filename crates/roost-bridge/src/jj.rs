@@ -75,9 +75,15 @@ pub fn list_workspaces(repo_dir: &str) -> Result<Vec<WorkspaceEntry>, String> {
     );
 
     let out = run(&["workspace", "list", "-T", tmpl], Some(repo_dir))?;
+    Ok(parse_workspace_lines(&out.stdout, repo_dir))
+}
 
+/// Parse the NUL-separated template output of `jj workspace list`.
+/// Exposed for unit tests so we don't need a jj binary to cover format
+/// drift.
+pub(crate) fn parse_workspace_lines(stdout: &str, repo_dir: &str) -> Vec<WorkspaceEntry> {
     let mut entries = Vec::new();
-    for line in out.stdout.lines() {
+    for line in stdout.lines() {
         let fields: Vec<&str> = line.split('\0').collect();
         if fields.len() < 3 {
             continue;
@@ -92,10 +98,10 @@ pub fn list_workspaces(repo_dir: &str) -> Result<Vec<WorkspaceEntry>, String> {
             is_current: false,
         });
     }
-    Ok(entries)
+    entries
 }
 
-fn derive_workspace_path(repo_dir: &str, name: &str) -> String {
+pub(crate) fn derive_workspace_path(repo_dir: &str, name: &str) -> String {
     if name == "default" {
         return repo_dir.to_string();
     }
@@ -170,7 +176,12 @@ pub fn current_revision(workspace_dir: &str) -> Result<RevisionEntry, String> {
         &["log", "-r", "@", "--no-graph", "-T", tmpl, "--limit", "1"],
         Some(workspace_dir),
     )?;
-    let line = out.stdout.trim();
+    parse_revision(&out.stdout)
+}
+
+/// Parse the NUL-separated template output of `jj log -r @`.
+pub(crate) fn parse_revision(stdout: &str) -> Result<RevisionEntry, String> {
+    let line = stdout.trim();
     let fields: Vec<&str> = line.split('\0').collect();
     if fields.len() < 3 {
         return Err(format!("unexpected `jj log` output: {line:?}"));
@@ -188,10 +199,15 @@ pub fn current_revision(workspace_dir: &str) -> Result<RevisionEntry, String> {
 
 pub fn status(workspace_dir: &str) -> Result<StatusEntry, String> {
     let out = run(&["status", "--color=never"], Some(workspace_dir))?;
-    let lines: Vec<String> = out.stdout.lines().map(|s| s.to_string()).collect();
+    Ok(parse_status(&out.stdout))
+}
+
+/// Build `StatusEntry` from a raw `jj status --color=never` stdout.
+pub(crate) fn parse_status(stdout: &str) -> StatusEntry {
+    let lines: Vec<String> = stdout.lines().map(|s| s.to_string()).collect();
     // `jj status` prints "The working copy has no changes." when clean.
-    let clean = out.stdout.contains("no changes");
-    Ok(StatusEntry { clean, lines })
+    let clean = stdout.contains("no changes");
+    StatusEntry { clean, lines }
 }
 
 // MARK: - bookmarks
@@ -279,4 +295,183 @@ fn jj_binary() -> Result<String, String> {
 
     // Last-ditch: rely on whatever PATH the process actually has.
     Ok("jj".to_string())
+}
+
+// MARK: - tests
+//
+// The pure parse helpers above (`parse_workspace_lines`, `parse_revision`,
+// `parse_status`, `derive_workspace_path`) intentionally don't spawn jj so
+// we can cover format-drift regressions cheaply. Integration tests that
+// actually invoke a jj binary live in `tests/` (M6+).
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn tempdir(label: &str) -> std::path::PathBuf {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let n = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let mut p = std::env::temp_dir();
+        p.push(format!("roost-jj-{label}-{}-{n:x}", std::process::id()));
+        fs::create_dir_all(&p).unwrap();
+        p
+    }
+
+    // --- derive_workspace_path -------------------------------------------
+
+    #[test]
+    fn default_workspace_maps_to_repo_root() {
+        assert_eq!(
+            derive_workspace_path("/some/repo", "default"),
+            "/some/repo"
+        );
+    }
+
+    #[test]
+    fn named_workspace_uses_worktrees_convention_when_exists() {
+        let repo = tempdir("derive-exists");
+        let ws = repo.join(".worktrees").join("foo");
+        fs::create_dir_all(&ws).unwrap();
+        assert_eq!(
+            derive_workspace_path(repo.to_str().unwrap(), "foo"),
+            ws.to_str().unwrap()
+        );
+    }
+
+    #[test]
+    fn named_workspace_returns_empty_when_missing() {
+        let repo = tempdir("derive-missing");
+        // No .worktrees/foo created.
+        assert_eq!(
+            derive_workspace_path(repo.to_str().unwrap(), "foo"),
+            ""
+        );
+    }
+
+    #[test]
+    fn derive_does_not_treat_file_as_dir() {
+        let repo = tempdir("derive-file");
+        let fake = repo.join(".worktrees").join("bar");
+        fs::create_dir_all(fake.parent().unwrap()).unwrap();
+        fs::write(&fake, "").unwrap(); // regular file, not a dir
+        assert_eq!(
+            derive_workspace_path(repo.to_str().unwrap(), "bar"),
+            ""
+        );
+    }
+
+    // --- parse_workspace_lines -------------------------------------------
+
+    #[test]
+    fn parse_workspace_lines_basic() {
+        let stdout = "default\0abc1234\0initial commit\nws-a\0def5678\0feat: login\n";
+        let entries = parse_workspace_lines(stdout, "/repo");
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].name, "default");
+        assert_eq!(entries[0].path, "/repo");
+        assert_eq!(entries[0].change_id, "abc1234");
+        assert_eq!(entries[0].description, "initial commit");
+        assert_eq!(entries[1].name, "ws-a");
+        // ws-a has no directory on disk → path empty (caller can still display).
+        assert_eq!(entries[1].path, "");
+    }
+
+    #[test]
+    fn parse_workspace_lines_skips_malformed() {
+        let stdout = "good\0id\0desc\njust-a-name\n\0\0\n";
+        let entries = parse_workspace_lines(stdout, "/repo");
+        // Only the first and third (empty-empty-empty) lines have >=3 fields.
+        // The second ("just-a-name") is a single field → skipped.
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].name, "good");
+        assert_eq!(entries[1].name, ""); // all-empty row still parseable
+    }
+
+    #[test]
+    fn parse_workspace_lines_empty_input() {
+        assert!(parse_workspace_lines("", "/repo").is_empty());
+        assert!(parse_workspace_lines("\n\n", "/repo").is_empty());
+    }
+
+    #[test]
+    fn parse_workspace_lines_extra_fields_are_ignored() {
+        // Future-proofing: if the template gains a 4th field we shouldn't
+        // reject the row, just drop the tail.
+        let stdout = "default\0abc\0desc\0extra\0stuff\n";
+        let entries = parse_workspace_lines(stdout, "/repo");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].change_id, "abc");
+        assert_eq!(entries[0].description, "desc");
+    }
+
+    // --- parse_revision --------------------------------------------------
+
+    #[test]
+    fn parse_revision_with_bookmarks() {
+        let rev = parse_revision("xyz9876\0fix: race in foo\0main,feat-login").unwrap();
+        assert_eq!(rev.change_id, "xyz9876");
+        assert_eq!(rev.description, "fix: race in foo");
+        assert_eq!(rev.bookmarks, vec!["main", "feat-login"]);
+    }
+
+    #[test]
+    fn parse_revision_no_bookmarks() {
+        let rev = parse_revision("abc1234\0wip\0").unwrap();
+        assert!(rev.bookmarks.is_empty());
+    }
+
+    #[test]
+    fn parse_revision_missing_fields_errs() {
+        let err = parse_revision("abc1234\0wip").unwrap_err();
+        assert!(err.contains("unexpected"));
+    }
+
+    #[test]
+    fn parse_revision_trims_trailing_newline() {
+        // jj tends to append a newline after the template output.
+        let rev = parse_revision("abc\0desc\0\n").unwrap();
+        assert_eq!(rev.change_id, "abc");
+    }
+
+    // --- parse_status ----------------------------------------------------
+
+    #[test]
+    fn parse_status_clean() {
+        let s = parse_status("The working copy has no changes.\n");
+        assert!(s.clean);
+        assert_eq!(s.lines.len(), 1);
+    }
+
+    #[test]
+    fn parse_status_dirty() {
+        let stdout = "M src/lib.rs\nA README.md\nChanges since main:\n";
+        let s = parse_status(stdout);
+        assert!(!s.clean);
+        assert_eq!(s.lines.len(), 3);
+    }
+
+    #[test]
+    fn parse_status_empty() {
+        let s = parse_status("");
+        // Empty stdout isn't "clean" by our heuristic (no "no changes" marker).
+        assert!(!s.clean);
+        assert!(s.lines.is_empty());
+    }
+
+    // --- jj_binary env override -----------------------------------------
+
+    #[test]
+    fn jj_binary_honors_env_override() {
+        // Use a process-unique sentinel path so the test is independent of
+        // whatever the dev machine has at the candidate locations.
+        let sentinel = "/tmp/roost-fake-jj-override-only-for-test";
+        // SAFETY: tests in the same crate run on separate threads by default;
+        // set_var is unsafe since Rust 1.79. We accept the risk because no
+        // other test reads $ROOST_JJ_PATH.
+        unsafe { std::env::set_var("ROOST_JJ_PATH", sentinel) };
+        let resolved = jj_binary().unwrap();
+        unsafe { std::env::remove_var("ROOST_JJ_PATH") };
+        assert_eq!(resolved, sentinel);
+    }
 }

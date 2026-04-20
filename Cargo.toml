@@ -8,7 +8,7 @@ members = [
 edition = "2024"
 rust-version = "1.85"
 repository = "https://github.com/NextAlone/Roost"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 
 [workspace.dependencies]
 swift-bridge = "0.1.59"

@@ -115,4 +115,4 @@ open Roost.xcodeproj          # ⌘R
 
 ## License
 
-暂未选择。先 pre-alpha 开发，发第一版前决定（倾向 MIT 或 Apache-2.0）。
+[Apache-2.0](./LICENSE). 选择理由：允许商用 & 修改、专利许可条款明确、与绝大多数 Rust / Swift 生态依赖兼容。若未来引入 GPL-only 依赖，再评估切 GPL-3.0（见 `design.md` §0）。

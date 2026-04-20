@@ -56,6 +56,7 @@ macOS 原生、jj 一等公民的多 agent 终端编排器。
 - ⬜ **M15** Agent 预设系统（去硬编码 presets）
 - ⬜ **M16** 通知偏好（per-agent 声音 / banner 开关）
 - ⬜ **M17** 键绑定自定义
+- ⬜ **M18** 三层 Sidebar（Project → Workspace → Session）+ workspace 新建 UI（计划等 M6 hostd 合入后开工）
 
 ## 仓库结构
 

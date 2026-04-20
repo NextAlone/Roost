@@ -5,37 +5,27 @@ struct ContentView: View {
     private let info = GhosttyInfo.current
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "terminal")
-                .font(.system(size: 48))
-                .foregroundStyle(.tint)
-            Text("libghostty linked")
-                .font(.title2)
-                .bold()
-            VStack(alignment: .leading, spacing: 4) {
-                Row(label: "Version", value: info.version)
-                Row(label: "Build mode", value: info.buildMode)
-            }
-            .padding()
-            .background(.quinary, in: RoundedRectangle(cornerRadius: 10))
+        VStack(spacing: 0) {
+            header
+            Divider()
+            TerminalView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(32)
     }
-}
 
-private struct Row: View {
-    let label: String
-    let value: String
-
-    var body: some View {
+    private var header: some View {
         HStack {
-            Text(label)
+            Image(systemName: "terminal")
+            Text("libghostty")
+                .bold()
+            Text("\(info.version) · \(info.buildMode)")
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(width: 100, alignment: .leading)
-            Text(value)
-                .font(.body.monospaced())
-                .textSelection(.enabled)
+            Spacer()
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.bar)
     }
 }
 
@@ -51,7 +41,7 @@ enum GhosttyInfo {
         case GHOSTTY_BUILD_MODE_RELEASE_SAFE: buildMode = "ReleaseSafe"
         case GHOSTTY_BUILD_MODE_RELEASE_FAST: buildMode = "ReleaseFast"
         case GHOSTTY_BUILD_MODE_RELEASE_SMALL: buildMode = "ReleaseSmall"
-        default: buildMode = "Unknown(\(raw.build_mode.rawValue))"
+        default: buildMode = "Unknown"
         }
         return (version, buildMode)
     }

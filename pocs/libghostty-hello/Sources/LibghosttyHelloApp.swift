@@ -5,7 +5,9 @@ struct LibghosttyHelloApp: App {
     var body: some Scene {
         WindowGroup("Libghostty Hello") {
             ContentView()
-                .frame(minWidth: 480, minHeight: 240)
+                .frame(minWidth: 640, minHeight: 400)
+                .frame(idealWidth: 960, idealHeight: 600)
         }
+        .windowResizability(.contentSize)
     }
 }

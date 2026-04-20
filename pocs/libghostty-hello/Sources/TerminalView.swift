@@ -13,6 +13,15 @@ final class GhosttyRuntime {
     private let config: ghostty_config_t
 
     private init() {
+        // ghostty_init runs global C++ constructors and must be called once
+        // before any other ghostty_* API. Pass the process's real argv so that
+        // `ghostty_cli_try_action` and diagnostics see it.
+        let args = CommandLine.unsafeArgv
+        let argc = CommandLine.argc
+        if ghostty_init(UInt(argc), args) != 0 {
+            fatalError("ghostty_init failed")
+        }
+
         config = ghostty_config_new()
         ghostty_config_load_default_files(config)
         ghostty_config_finalize(config)

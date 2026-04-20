@@ -41,10 +41,6 @@ targets:
       - path: Generated/RoostBridge.swift
       - path: Generated/SwiftBridgeCore.swift
       - path: Assets.xcassets
-      - path: Generated/roost-hostd
-        buildPhase: resources
-      - path: Generated/roost-attach
-        buildPhase: resources
       - path: Resources
         buildPhase: resources
         type: folder
@@ -93,6 +89,26 @@ targets:
           - $(SRCROOT)/Generated/libroost_bridge.a
           - $(SRCROOT)/Generated/roost-hostd
           - $(SRCROOT)/Generated/roost-attach
+    # Helpers belong in Contents/MacOS/ (or Contents/Helpers/), not
+    # Contents/Resources/, so hardened-runtime / Library Validation passes
+    # on a signed build. XcodeGen 'copyFiles' didn't generate a Copy Files
+    # phase here for reasons we haven't tracked down; do it explicitly via
+    # a post-build script.
+    postBuildScripts:
+      - script: |
+          set -euo pipefail
+          DEST="$TARGET_BUILD_DIR/$WRAPPER_NAME/Contents/MacOS"
+          mkdir -p "$DEST"
+          cp -f "$SRCROOT/Generated/roost-hostd" "$DEST/roost-hostd"
+          cp -f "$SRCROOT/Generated/roost-attach" "$DEST/roost-attach"
+          chmod +x "$DEST/roost-hostd" "$DEST/roost-attach"
+        name: Stage roost helpers into MacOS/
+        inputFiles:
+          - $(SRCROOT)/Generated/roost-hostd
+          - $(SRCROOT)/Generated/roost-attach
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/MacOS/roost-hostd
+          - $(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/MacOS/roost-attach
     settings:
       base:
         CODE_SIGN_STYLE: Automatic

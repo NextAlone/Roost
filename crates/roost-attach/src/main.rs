@@ -18,8 +18,8 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::os::fd::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::process::ExitCode;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -27,7 +27,7 @@ use anyhow::{Context, Result, bail};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use roost_core::dto::SessionId;
 use roost_core::rpc::{
-    self, AttachAck, AttachHello, Hello, HelloAck, Request, Response, events as event_methods,
+    self, AttachAck, AttachHello, Hello, HelloAck, Request, events as event_methods,
     methods,
 };
 use serde_json::Value;
@@ -51,7 +51,13 @@ fn run() -> Result<()> {
 
     // Control conn first — gives us a place to push resize requests and
     // listen for session_exited.
-    let mut ctrl = open_control_conn(&socket, &token)?;
+    // Split the ctrl conn so the SIGWINCH thread can reuse the write side
+    // under a Mutex while the reader thread drains inbound frames on its
+    // own clone.
+    let ctrl = open_control_conn(&socket, &token)?;
+    let ctrl_reader = ctrl.try_clone()?;
+    let ctrl_writer = Arc::new(Mutex::new(ctrl));
+
     let data = open_data_conn(&socket, &token, sid)?;
 
     // Reader of the ctrl conn: looking specifically for session_exited
@@ -61,11 +67,10 @@ fn run() -> Result<()> {
     let target_sid = sid;
     thread::Builder::new()
         .name("roost-attach-ctrl".into())
-        .spawn(move || ctrl_event_loop(&mut ctrl, target_sid, exit_code_for_thread))?;
+        .spawn(move || ctrl_event_loop(ctrl_reader, target_sid, exit_code_for_thread))?;
 
-    // SIGWINCH → resize. Capture the writer side of the ctrl socket; the
-    // signal handler enqueues resize requests to a background thread.
-    install_resize_pump(&socket, &token, sid)?;
+    // SIGWINCH → resize on the existing ctrl conn (no per-signal handshake).
+    install_resize_pump(ctrl_writer, sid)?;
 
     // Data conn: split into halves, pump stdin↔socket↔stdout.
     let read_half = data.try_clone()?;
@@ -155,10 +160,8 @@ fn open_data_conn(socket: &str, token: &str, sid: SessionId) -> Result<UnixStrea
     Ok(stream)
 }
 
-fn ctrl_event_loop(stream: &mut UnixStream, target: SessionId, exit_code: Arc<AtomicI32>) {
-    let reader = stream.try_clone();
-    let Ok(reader) = reader else { return };
-    let mut br = BufReader::new(reader);
+fn ctrl_event_loop(stream: UnixStream, target: SessionId, exit_code: Arc<AtomicI32>) {
+    let mut br = BufReader::new(stream);
     let mut buf = String::new();
     loop {
         buf.clear();
@@ -200,26 +203,23 @@ fn ctrl_event_loop(stream: &mut UnixStream, target: SessionId, exit_code: Arc<At
     }
 }
 
-fn install_resize_pump(socket: &str, token: &str, sid: SessionId) -> Result<()> {
+fn install_resize_pump(ctrl: Arc<Mutex<UnixStream>>, sid: SessionId) -> Result<()> {
     use signal_hook::consts::SIGWINCH;
     use signal_hook::iterator::Signals;
 
     let mut signals = Signals::new([SIGWINCH])?;
-    let socket = socket.to_string();
-    let token = token.to_string();
+    let mut next_id: u64 = 100;
 
     thread::Builder::new()
         .name("roost-attach-winch".into())
         .spawn(move || {
             for _sig in &mut signals {
-                let Ok(conn) = open_resize_conn(&socket, &token) else {
-                    continue;
-                };
                 let Some((rows, cols)) = current_winsize() else {
                     continue;
                 };
+                next_id = next_id.wrapping_add(1);
                 let req = Request::new(
-                    1,
+                    next_id,
                     methods::RESIZE_SESSION,
                     rpc::ResizeSessionParams {
                         session_id: sid,
@@ -227,29 +227,14 @@ fn install_resize_pump(socket: &str, token: &str, sid: SessionId) -> Result<()> 
                         cols,
                     },
                 );
-                if write_line(&conn, &req).is_err() {
-                    continue;
-                }
-                let _: Result<Response> = read_line(&conn);
+                let Ok(stream) = ctrl.lock() else {
+                    return; // Mutex poisoned → ctrl is dead anyway.
+                };
+                let _ = write_line(&stream, &req);
+                // ctrl_event_loop drains the response.
             }
         })?;
     Ok(())
-}
-
-fn open_resize_conn(socket: &str, token: &str) -> Result<UnixStream> {
-    let stream = UnixStream::connect(socket)?;
-    stream.set_read_timeout(Some(HELLO_TIMEOUT))?;
-    stream.set_write_timeout(Some(HELLO_TIMEOUT))?;
-    let hello = Hello {
-        auth_token: token.to_string(),
-        client_version: env!("CARGO_PKG_VERSION").to_string(),
-    };
-    write_line(&stream, &hello)?;
-    let ack: HelloAck = read_line(&stream)?;
-    if !ack.ok {
-        bail!("resize hello rejected: {:?}", ack.error);
-    }
-    Ok(stream)
 }
 
 fn current_winsize() -> Option<(u16, u16)> {

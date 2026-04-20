@@ -428,14 +428,18 @@ fn locate_hostd_binary() -> Option<PathBuf> {
 
     if let Ok(exe) = std::env::current_exe() {
         if let Some(macos_dir) = exe.parent() {
+            // Sibling in Contents/MacOS/ — production layout (M8 P4).
             let beside = macos_dir.join("roost-hostd");
             if beside.is_file() {
                 return Some(beside);
             }
+            // Helpers/ + Resources/ — historical layouts kept as fallbacks.
             if let Some(contents) = macos_dir.parent() {
-                let res = contents.join("Resources").join("roost-hostd");
-                if res.is_file() {
-                    return Some(res);
+                for sub in &["Helpers", "Resources"] {
+                    let candidate = contents.join(sub).join("roost-hostd");
+                    if candidate.is_file() {
+                        return Some(candidate);
+                    }
                 }
             }
         }

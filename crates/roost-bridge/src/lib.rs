@@ -436,14 +436,19 @@ fn locate_attach_binary() -> Option<String> {
 
     if let Ok(exe) = std::env::current_exe() {
         if let Some(macos_dir) = exe.parent() {
+            // Sibling in Contents/MacOS/ — production layout (M8 P4).
             let beside = macos_dir.join("roost-attach");
             if beside.is_file() {
                 return Some(beside.to_string_lossy().into_owned());
             }
+            // Helpers/ + Resources/ — historical layouts; keep as fallbacks
+            // so an old DerivedData build still launches.
             if let Some(contents) = macos_dir.parent() {
-                let res = contents.join("Resources").join("roost-attach");
-                if res.is_file() {
-                    return Some(res.to_string_lossy().into_owned());
+                for sub in &["Helpers", "Resources"] {
+                    let candidate = contents.join(sub).join("roost-attach");
+                    if candidate.is_file() {
+                        return Some(candidate.to_string_lossy().into_owned());
+                    }
                 }
             }
         }

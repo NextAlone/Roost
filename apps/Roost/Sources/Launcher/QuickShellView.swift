@@ -25,7 +25,8 @@ struct QuickShellView: View {
                         .labelStyle(.titleAndIcon)
                         .frame(minWidth: 120)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
+                .tint(.accentColor)
                 .controlSize(.large)
 
                 Button(action: onOpenTerminal) {

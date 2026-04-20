@@ -60,14 +60,21 @@ Currently NOT the recommended path for this POC:
 
 - [x] `GhosttyKit.xcframework` downloads and expands with module map present.
 - [x] `ghostty.h` (1208 lines, embedding API) parses with clang.
-- [ ] SwiftUI app links `GhosttyKit` and calls `ghostty_info()` at runtime.
-- [ ] `ghostty_app_new` / `ghostty_surface_new` succeed with a real `NSView`.
-- [ ] PTY attached to `bash` renders inside the surface, keyboard is
-      interactive.
+- [x] SwiftUI app links `GhosttyKit` and calls `ghostty_info()` at runtime.
+- [x] `ghostty_app_new` / `ghostty_surface_new` succeed with a real `NSView`.
+- [x] PTY attached to the user's shell renders inside the surface; printable
+      text plus Enter / Backspace / Tab / Escape / arrows round-trip.
 
-If step 3 fails (missing symbols, framework issues), Roost's architecture
-changes. Options at that point: switch to SwiftTerm, vendor a different
-ghostty build, or build a custom renderer.
+**M-1 passed.** Libghostty is a viable terminal engine for Roost under the
+Rust-core + Swift-frontend architecture. Proceed to M0 (walking skeleton).
+
+Remaining POC gaps (deferred to roost-core work, not blockers):
+- No IME (`NSTextInputClient` not implemented).
+- No key repeat handling.
+- No modifier-chord keybindings (`⌘C` / `⌘V` pass-through).
+- No resize-driven font re-layout polish.
+- `wakeup_cb` currently relies on ghostty calling it; no display-link tick
+  fallback.
 
 ## Pinning
 

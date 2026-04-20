@@ -42,6 +42,12 @@ struct RootView: View {
         } message: { message in
             Text(message)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .roostSurfaceClosed)) { note in
+            guard let id = note.userInfo?[RoostNotificationKey.sessionID] as? UUID else {
+                return
+            }
+            closeSession(id: id)
+        }
     }
 
     // MARK: Content switch
@@ -73,6 +79,7 @@ struct RootView: View {
         ZStack {
             ForEach(sessions) { session in
                 TerminalView(
+                    sessionID: session.id,
                     command: session.spec.command.isEmpty ? nil : session.spec.command,
                     workingDirectory: session.spec.workingDirectory.isEmpty
                         ? nil : session.spec.workingDirectory

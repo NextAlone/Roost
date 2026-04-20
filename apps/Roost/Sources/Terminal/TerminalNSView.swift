@@ -5,6 +5,9 @@ import GhosttyKit
 /// layout events to it. libghostty mounts a `CAMetalLayer` on this view and
 /// spawns the requested command (or the user's login shell) behind the scenes.
 final class TerminalNSView: NSView {
+    /// Owning session's identity. Used by `close_surface_cb` to tell the UI
+    /// which tab to tear down.
+    let sessionID: UUID
     /// Shell-style command string ghostty will spawn. `nil` = login shell.
     let command: String?
     let workingDirectory: String?
@@ -15,7 +18,13 @@ final class TerminalNSView: NSView {
     override var isFlipped: Bool { false }
     override var wantsUpdateLayer: Bool { true }
 
-    init(command: String?, workingDirectory: String? = nil, frame: NSRect = .zero) {
+    init(
+        sessionID: UUID,
+        command: String?,
+        workingDirectory: String? = nil,
+        frame: NSRect = .zero
+    ) {
+        self.sessionID = sessionID
         self.command = command
         // GUI-launched apps inherit launchd's cwd ('/'), which makes ghostty
         // spawn shells in '/'. Default to $HOME when the caller doesn't care.

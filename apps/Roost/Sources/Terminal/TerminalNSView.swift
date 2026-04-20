@@ -14,6 +14,20 @@ final class TerminalNSView: NSView {
 
     private var surface: ghostty_surface_t?
 
+    // MARK: IME (NSTextInputClient) state
+
+    /// Preedit / marked text currently being composed by a macOS input
+    /// method (Pinyin, Hangul, Kotoeri, dead-keys, emoji picker).
+    private let markedText = NSMutableAttributedString()
+    /// When non-nil we're inside `keyDown`; `insertText(_:replacementRange:)`
+    /// appends to this instead of sending to ghostty immediately so the
+    /// keystroke that confirmed the IME doesn't double-encode.
+    private var keyTextAccumulator: [String]?
+    /// Set by `doCommand(by:)` when it forwarded the current event to
+    /// ghostty. Outer `keyDown` checks this to avoid double-dispatching
+    /// arrow keys / Ctrl+letter.
+    private var consumedViaDoCommand = false
+
     override var acceptsFirstResponder: Bool { true }
     override var isFlipped: Bool { false }
     override var wantsUpdateLayer: Bool { true }
@@ -129,6 +143,52 @@ final class TerminalNSView: NSView {
            handleCommandShortcut(event) {
             return
         }
+
+        // Route through the IME pipeline first so CJK / Hangul / dead-key
+        // composition can translate keystrokes into `insertText` /
+        // `setMarkedText` callbacks below. On pass-through the IME calls
+        // `doCommand(by:)`, which forwards the raw event to ghostty.
+        let hadMarkedText = hasMarkedText()
+        keyTextAccumulator = []
+        consumedViaDoCommand = false
+        defer {
+            keyTextAccumulator = nil
+            consumedViaDoCommand = false
+        }
+
+        _ = inputContext?.handleEvent(event)
+
+        // Sync preedit state: if IME set marked text, push to ghostty as
+        // preedit; if it cleared, clear ghostty's preedit too.
+        syncPreedit(clearIfNeeded: hadMarkedText)
+
+        // IME confirmed one or more strings via insertText; commit them as a
+        // single text batch (`ghostty_surface_text`). Path for
+        // "type Pinyin + space → 汉字", emoji picker, etc.
+        if let strings = keyTextAccumulator, !strings.isEmpty {
+            let joined = strings.joined()
+            if !joined.isEmpty, let surface {
+                joined.withCString { cstr in
+                    ghostty_surface_text(surface, cstr, UInt(strlen(cstr)))
+                }
+            }
+            return
+        }
+
+        // IME routed the event to `doCommand(by:)` (arrow keys, Ctrl+letter,
+        // Enter while not composing). That path already forwarded the event
+        // to ghostty — don't double-send.
+        if consumedViaDoCommand {
+            return
+        }
+
+        // Still composing (marked text unchanged or just entered). Preedit
+        // owns the glyph; don't emit an extra keystroke to ghostty.
+        if hasMarkedText() || hadMarkedText {
+            return
+        }
+
+        // Fallback: IME ignored the event entirely. Send it raw.
         forward(event: event, action: GHOSTTY_ACTION_PRESS)
     }
 
@@ -295,6 +355,20 @@ final class TerminalNSView: NSView {
         return ghostty_input_mods_e(rawValue: raw)
     }
 
+    // MARK: IME bridge
+
+    private func syncPreedit(clearIfNeeded: Bool) {
+        guard let surface else { return }
+        if markedText.length > 0 {
+            let s = markedText.string
+            s.withCString { cstr in
+                ghostty_surface_preedit(surface, cstr, UInt(strlen(cstr)))
+            }
+        } else if clearIfNeeded {
+            ghostty_surface_preedit(surface, nil, 0)
+        }
+    }
+
     private func withOptionalCString<R>(
         _ s: String?,
         _ body: (UnsafePointer<CChar>?) -> R
@@ -318,5 +392,111 @@ final class TerminalNSView: NSView {
             }
         }
         return out
+    }
+}
+
+// MARK: - NSTextInputClient (IME / dead-keys / emoji picker)
+
+extension TerminalNSView: NSTextInputClient {
+    func hasMarkedText() -> Bool {
+        markedText.length > 0
+    }
+
+    func markedRange() -> NSRange {
+        guard markedText.length > 0 else {
+            return NSRange(location: NSNotFound, length: 0)
+        }
+        return NSRange(location: 0, length: markedText.length)
+    }
+
+    func selectedRange() -> NSRange {
+        NSRange(location: NSNotFound, length: 0)
+    }
+
+    func setMarkedText(
+        _ string: Any,
+        selectedRange: NSRange,
+        replacementRange: NSRange
+    ) {
+        switch string {
+        case let v as NSAttributedString:
+            markedText.setAttributedString(v)
+        case let v as String:
+            markedText.mutableString.setString(v)
+        default:
+            markedText.mutableString.setString("")
+        }
+        // Mid-keyDown the outer loop will call `syncPreedit`. For external
+        // events (e.g. keyboard layout change while composing) push now.
+        if keyTextAccumulator == nil {
+            syncPreedit(clearIfNeeded: true)
+        }
+    }
+
+    func unmarkText() {
+        guard markedText.length > 0 else { return }
+        markedText.mutableString.setString("")
+        if keyTextAccumulator == nil {
+            syncPreedit(clearIfNeeded: true)
+        }
+    }
+
+    func validAttributesForMarkedText() -> [NSAttributedString.Key] { [] }
+
+    func attributedSubstring(
+        forProposedRange range: NSRange,
+        actualRange: NSRangePointer?
+    ) -> NSAttributedString? { nil }
+
+    func insertText(_ string: Any, replacementRange: NSRange) {
+        let text: String = {
+            if let s = string as? String { return s }
+            if let a = string as? NSAttributedString { return a.string }
+            return ""
+        }()
+        guard !text.isEmpty else { return }
+
+        // Confirmation → clear preedit locally; syncPreedit in outer keyDown
+        // will push the clear to ghostty.
+        if markedText.length > 0 {
+            markedText.mutableString.setString("")
+        }
+
+        if keyTextAccumulator != nil {
+            keyTextAccumulator?.append(text)
+        } else if let surface {
+            // Called from outside a keyDown (emoji picker etc.): commit now.
+            text.withCString { cstr in
+                ghostty_surface_text(surface, cstr, UInt(strlen(cstr)))
+            }
+        }
+    }
+
+    func characterIndex(for point: NSPoint) -> Int { NSNotFound }
+
+    func firstRect(
+        forCharacterRange range: NSRange,
+        actualRange: NSRangePointer?
+    ) -> NSRect {
+        // Anchor the IME candidate window to the bottom-left of our view in
+        // screen space. Glyph-cell precision requires querying ghostty for
+        // cursor position, which we skip for MVP.
+        guard let window else { return .zero }
+        let viewRect = convert(bounds, to: nil)
+        return window.convertToScreen(viewRect)
+    }
+
+    // `doCommand(by:)` is declared on NSResponder too, so this must be an
+    // override rather than a fresh protocol method.
+    override func doCommand(by selector: Selector) {
+        // IME passed the event back to AppKit without consuming it (arrow
+        // keys, esc, return while not composing). Forward the original event
+        // to ghostty as a raw keystroke so its KeyEncoder can emit the
+        // correct escape sequence. Flag it so outer keyDown skips its
+        // fallback path and we don't double-send.
+        if let event = NSApp.currentEvent, event.type == .keyDown {
+            forward(event: event, action: GHOSTTY_ACTION_PRESS)
+            consumedViaDoCommand = true
+        }
     }
 }

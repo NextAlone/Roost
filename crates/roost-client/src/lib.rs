@@ -345,3 +345,56 @@ fn locate_hostd_binary() -> Option<PathBuf> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn locate_hostd_honors_env_override_when_file_exists() {
+        // Create a temp executable-looking file and point the env at it.
+        let tmp = std::env::temp_dir().join(format!(
+            "roost-fake-hostd-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(&tmp, b"#!/bin/sh\n").unwrap();
+        // SAFETY: no other test in this crate reads $ROOST_HOSTD_PATH.
+        unsafe { std::env::set_var("ROOST_HOSTD_PATH", tmp.to_string_lossy().as_ref()) };
+        let found = locate_hostd_binary();
+        unsafe { std::env::remove_var("ROOST_HOSTD_PATH") };
+        let _ = std::fs::remove_file(&tmp);
+        assert_eq!(found.as_deref(), Some(tmp.as_path()));
+    }
+
+    #[test]
+    fn locate_hostd_env_override_ignored_when_file_missing() {
+        unsafe {
+            std::env::set_var(
+                "ROOST_HOSTD_PATH",
+                "/tmp/roost-definitely-does-not-exist-hostd",
+            )
+        };
+        let found = locate_hostd_binary();
+        unsafe { std::env::remove_var("ROOST_HOSTD_PATH") };
+        // Falls through to other candidates; the only guarantee is that the
+        // sentinel path wasn't returned.
+        assert_ne!(
+            found.as_deref().map(|p| p.to_string_lossy().into_owned()),
+            Some("/tmp/roost-definitely-does-not-exist-hostd".to_string())
+        );
+    }
+
+    #[test]
+    fn pid_zero_is_never_alive() {
+        assert!(!pid_alive(0));
+    }
+
+    #[test]
+    fn pid_self_is_alive() {
+        assert!(pid_alive(std::process::id()));
+    }
+}

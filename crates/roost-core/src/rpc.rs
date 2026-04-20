@@ -239,3 +239,43 @@ pub struct HostInfoResult {
     #[serde(flatten)]
     pub info: HostInfo,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn major_of_extracts_first_component() {
+        assert_eq!(major_of("0.1.0"), "0");
+        assert_eq!(major_of("1.2.3"), "1");
+        assert_eq!(major_of("10.0.0-alpha"), "10");
+    }
+
+    #[test]
+    fn major_of_handles_missing_dots() {
+        // Unusual but shouldn't panic — return the whole input.
+        assert_eq!(major_of("abc"), "abc");
+        assert_eq!(major_of(""), "");
+    }
+
+    #[test]
+    fn major_compare_rejects_cross_major() {
+        // Client on 0.x, server on 1.x → major mismatch even if minor is 0.
+        assert_ne!(major_of("0.9.9"), major_of("1.0.0"));
+    }
+
+    #[test]
+    fn major_compare_accepts_same_major_minor_drift() {
+        // 0.1 vs 0.2 → minor drift, same major.
+        assert_eq!(major_of("0.1.0"), major_of("0.2.7"));
+    }
+
+    #[test]
+    fn rpc_error_helpers_tag_codes_correctly() {
+        assert_eq!(RpcError::invalid_params("x").code, error_codes::INVALID_PARAMS);
+        assert_eq!(RpcError::internal("y").code, error_codes::INTERNAL);
+        assert_eq!(RpcError::domain("z").code, error_codes::DOMAIN);
+        assert_eq!(RpcError::panic("p").code, error_codes::INTERNAL_PANIC);
+        assert_eq!(RpcError::method_not_found("m").code, error_codes::METHOD_NOT_FOUND);
+    }
+}

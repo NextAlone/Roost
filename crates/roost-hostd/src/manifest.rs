@@ -132,3 +132,26 @@ pub async fn wait_for_ready(timeout: Duration) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pid_zero_is_never_alive() {
+        assert!(!pid_alive(0));
+    }
+
+    #[test]
+    fn pid_self_is_alive() {
+        let me = std::process::id();
+        assert!(pid_alive(me));
+    }
+
+    #[test]
+    fn pid_garbage_is_not_alive() {
+        // A deliberately huge pid that's extremely unlikely to be assigned.
+        // Linux/macOS default pid_max well under 4 million.
+        assert!(!pid_alive(u32::MAX - 1));
+    }
+}

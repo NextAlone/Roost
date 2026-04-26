@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import Muxy
+@testable import Roost
 
 @Suite("ZaiUsageProvider")
 struct ZaiUsageProviderTests {

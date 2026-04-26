@@ -1,7 +1,7 @@
 import AppKit
 import Testing
 
-@testable import Muxy
+@testable import Roost
 
 @Suite("Mermaid code block normalization")
 struct MermaidCodeBlockNormalizerTests {

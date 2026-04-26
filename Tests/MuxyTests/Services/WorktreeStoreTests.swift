@@ -2,7 +2,7 @@ import Foundation
 import MuxyShared
 import Testing
 
-@testable import Muxy
+@testable import Roost
 
 @Suite("WorktreeStore")
 @MainActor

@@ -1,81 +1,32 @@
-<p align="center">
-  <img src="Muxy/Resources/Assets.xcassets/AppIcon.appiconset/icon_128@2x.png" alt="Muxy" width="128" height="128">
-</p>
+# Roost
 
-<h1 align="center">Muxy</h1>
+macOS native, jj-first terminal orchestration for multiple coding agents.
 
-<p align="center">Lightweight and Memory efficient terminal for Mac built with SwiftUI and <a href="https://github.com/ghostty-org/ghostty">libghostty</a>.</p>
-<p align="center"><p align="center"><a href="#install">Mac</a> | <a href="#ios-app-testing">iOS</a> | <a href="https://discord.gg/4eMXAmJQ2n">Discord</a></p>
+Roost is being rebuilt on top of the upstream Muxy codebase so it can inherit a solid SwiftUI + libghostty terminal foundation while adding jj-native workspaces, agent sessions, and Roost-specific orchestration.
 
-<div align="center">
-  <img src="https://img.shields.io/github/downloads/muxy-app/muxy/total" />
-  <img src="https://img.shields.io/github/v/release/muxy-app/muxy" />
-  <img src="https://img.shields.io/github/license/muxy-app/muxy" />
-  <img src="https://img.shields.io/github/commit-activity/m/muxy-app/muxy" />
-</div>
+## Baseline
 
-## Screenshots
+- Upstream: https://github.com/muxy-app/muxy
+- Current tracked upstream bookmark: `vendor/muxy-main`
+- App baseline: Swift Package, Swift 6, macOS 14+, SwiftUI, libghostty, Sparkle
 
-<img width="3004" alt="image" src="https://github.com/user-attachments/assets/721c6b4a-bd9c-4e4e-ade0-cd2597399801" />
+The initial Roost mainline intentionally keeps the upstream directory layout (`Muxy/`, `MuxyShared/`, `MuxyServer/`) to reduce future merge conflicts with Muxy. Roost-specific code should be added incrementally instead of doing a full directory rename up front.
 
-## Features
+## Direction
 
-- **Project-based workflow** — Organize terminals by project with persistent workspace state
-- **Vertical tabs** — Sidebar tab strip with drag-and-drop reordering, pinning, renaming, and middle-click close
-- **Split panes** — Horizontal and vertical splits with keyboard navigation and resizable dividers
-- **Built-in VCS** — Simple and lightweight basic git diff and operations
-- **200+ themes** — Browse and search Ghostty themes with a built-in theme picker
-- **Customizable shortcuts** — 40+ configurable keyboard shortcuts with conflict detection
-- **Workspace persistence** — Tabs, splits, and focus state are saved and restored per project
-- **In-terminal search** — Find text in terminal output with match navigation
-- **Drag and drop** — Reorder tabs and projects, drag tabs between panes to create splits
-- **Auto-updates** — Built-in update checking via Sparkle
-- **Text Editor** - Native, Lightweight Text (not code) Editor with code highlight support for most of the programming languages
-
-## Requirements
-
-- macOS 14+
-- Swift 6.0+
-- Ghostty installed (optional for themes)
-- `gh` installed (optional for PR management)
-
-## Install
-
-### Homebrew
-
-```bash
-brew tap muxy-app/tap
-brew install --cask muxy
-```
-
-### Manual
-
-Download the latest release from the [releases page](https://github.com/muxy-app/muxy/releases)
-
-### iOS app (Testing)
-
-The iOS app is available for testers on TestFlight
-
-- Install the iOS app via TestFlight (https://testflight.apple.com/join/7t1AaYHW)
-- Open Muxy on your Mac
-- Go to Settings (Cmd + `,`)
-- Go to Mobile tab
-- Toggle the `Allow mobile device connection`
-- Open the iOS app
-- Enter the IP and Port
-- Approve the connection on your Mac
-- Test and open issues for the bugs
-
-**The iOS app is also open-source and the source is in this repo**
+- Keep Muxy's terminal, split-pane, project/workspace persistence, settings, theme, and remote-control foundations.
+- Replace Git-first worktree behavior with jj-first workspace/change/bookmark behavior.
+- Add agent-aware sessions for Claude Code, Codex, Gemini CLI, OpenCode, and plain terminals.
+- Later migrate selected host/session persistence ideas from the old Roost `feat-m6` line.
 
 ## Local Development
 
 ```bash
-scripts/setup.sh          # downloads GhosttyKit.xcframework
-swift build               # debug build
-swift run Muxy             # run
+scripts/setup.sh
+swift build
+swift run Roost
 ```
 
 ## License
 
-[MIT](LICENSE)
+Roost is currently based on Muxy, which is licensed under MIT. Keep upstream license and attribution intact while Roost-specific licensing is finalized.

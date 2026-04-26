@@ -20,3 +20,15 @@ appcast*.xml
 .plans/
 .muxy/
 /muxy-markdown-remote-image-urlcache
+
+# Roost local workspaces and legacy build artifacts kept out of the Muxy-based mainline.
+/.worktrees/
+/target/
+/vendor/
+/apps/
+/crates/
+/pocs/
+/.cargo/
+/Cargo.lock
+/Cargo.toml
+/design.md

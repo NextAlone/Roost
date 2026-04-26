@@ -1,6 +1,6 @@
 import Testing
 
-@testable import Muxy
+@testable import Roost
 
 @Suite("ViewportState")
 @MainActor

@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import Muxy
+@testable import Roost
 
 @Suite("CodableFileStore")
 struct CodableFileStoreTests {

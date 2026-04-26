@@ -52,3 +52,76 @@ public enum JjProcessRunner {
         return args
     }
 }
+
+extension JjProcessRunner {
+    private static let searchPaths = [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+    ]
+
+    public static func resolveExecutable() -> String? {
+        for directory in searchPaths {
+            let path = "\(directory)/jj"
+            if FileManager.default.isExecutableFile(atPath: path) {
+                return path
+            }
+        }
+        return nil
+    }
+
+    public static func run(
+        repoPath: String,
+        command: [String],
+        snapshot: JjSnapshotPolicy,
+        atOp: String? = nil
+    ) async throws -> JjProcessResult {
+        guard let exec = resolveExecutable() else {
+            throw JjProcessError.launchFailed("jj not found on PATH")
+        }
+        let args = buildArguments(
+            repoPath: repoPath,
+            command: command,
+            snapshot: snapshot,
+            atOp: atOp
+        )
+        let env = buildEnvironment(inherited: ProcessInfo.processInfo.environment)
+        return try await Task.detached(priority: .userInitiated) {
+            try runProcess(executable: exec, arguments: args, environment: env)
+        }.value
+    }
+
+    private static func runProcess(
+        executable: String,
+        arguments: [String],
+        environment: [String: String]
+    ) throws -> JjProcessResult {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.environment = environment
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        let stdin = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+        process.standardInput = stdin
+        try? stdin.fileHandleForWriting.close()
+
+        do {
+            try process.run()
+        } catch {
+            throw JjProcessError.launchFailed(String(describing: error))
+        }
+        let outData = stdout.fileHandleForReading.readDataToEndOfFile()
+        let errData = stderr.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return JjProcessResult(
+            status: process.terminationStatus,
+            stdout: outData,
+            stderr: String(data: errData, encoding: .utf8) ?? ""
+        )
+    }
+}

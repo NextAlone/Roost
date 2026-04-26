@@ -150,6 +150,14 @@ Source references:
 - Superset fork: `apps/desktop/src/lib/trpc/routers/workspaces/utils/vcs/jj-provider.ts`
 - Superset fork: `apps/desktop/src/lib/trpc/routers/changes/jj-*.ts`
 
+Foundation status (as of 2026-04-27):
+
+- Service-layer foundation landed via plan `docs/superpowers/plans/2026-04-27-jj-service-layer-foundation.md`. 11 commits add `JjProcessRunner` (env + args + subprocess), `JjProcessQueue` actor, `JjVersion`, parsers (`JjStatusParser`, `JjOpLogParser`, `JjConflictParser`, `JjWorkspaceParser`), and service shells (`JjRepositoryService`, `JjWorkspaceService`) plus a gated live-jj integration smoke. New Jj suite: 29 tests across 10 suites, all green.
+- Outstanding Phase 1 items not in foundation: bookmark service (`bookmark create/list/forget/set`), `jj show`, diff service (`jj diff --stat` / `--summary`).
+- Outstanding cleanup tracked separately (not blocking Phase 1):
+  - `JjProcessRunner.resolveExecutable` only searches `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`, `/bin`. Nix-profile users (`/etc/profiles/...`) need an env-driven extension.
+  - 5 `MuxyURLOpenTests` cases (`muxy://...` URL parsing) fail at runtime because `AppDelegate.resolveProjectPath` was rebranded to expect `roost://` but tests still use `muxy://`. Pre-existing legacy fallout from the upstream Muxy → Roost rename; orthogonal to jj work.
+
 ## Phase 2: Worktree to jj Workspace Adapter
 
 Goal: map Muxy's Worktree layer onto jj workspaces with minimal UI churn.

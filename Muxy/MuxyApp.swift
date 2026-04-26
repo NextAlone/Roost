@@ -121,6 +121,7 @@ struct MuxyApp: App {
     }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var onTerminate: (() -> Void)?
     var hasUnsavedEditorTabs: (() -> [EditorTabState])?
@@ -157,7 +158,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let standardized = url.standardizedFileURL.path
             return standardized.isEmpty || standardized == "/" ? nil : standardized
         }
-        guard url.scheme == "muxy" else { return nil }
+        guard url.scheme == "roost" else { return nil }
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             return nil
         }

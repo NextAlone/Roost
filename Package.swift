@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Muxy",
+    name: "Roost",
     platforms: [
         .macOS(.v14),
         .iOS(.v17),
@@ -33,7 +33,7 @@ let package = Package(
             path: "MuxyServer"
         ),
         .executableTarget(
-            name: "Muxy",
+            name: "Roost",
             dependencies: [
                 "GhosttyKit",
                 "MuxyShared",
@@ -62,9 +62,9 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "MuxyTests",
+            name: "RoostTests",
             dependencies: [
-                "Muxy",
+                "Roost",
                 "MuxyShared",
                 "MuxyServer",
             ],

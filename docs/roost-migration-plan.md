@@ -384,6 +384,14 @@ Exit criteria:
 - Active workspace and active session are clear.
 - Dirty/conflict/running indicators update without manual app restart.
 
+**Status (2026-04-28): Phase 4a (UI relabel) landed.**
+
+- All user-facing "Worktree" / "worktree" strings rewritten to "Workspace" / "workspace" across sidebar (popover, project row, expanded row), creation sheet, refresh alert, global switcher overlay, settings, and File menu.
+- Wholesale rename — no per-VcsKind branching. Roost is jj-first; "Workspace" is acceptable umbrella terminology for git projects.
+- Internal type names (`Worktree`, `WorktreeStore`, `WorktreeKey`, `WorktreeDTO`, `WorktreeConfig`) and persistence (UserDefaults keys, `.muxy/worktree.json` config path) **kept** for backwards compatibility. Renaming model identifiers and migrating persistence is out of scope.
+- ShortcutAction enum case `.switchWorktree` kept (stable keybinding identifier); only its `displayName` changed.
+- Phase 4b (op_heads watcher + dirty/conflict badges), 4c (session list under workspace), 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
+
 ## Phase 5: jj Changes Panel
 
 Goal: replace Git-first VCS behavior with jj-first review behavior.

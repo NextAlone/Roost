@@ -62,7 +62,23 @@ extension JjProcessRunner {
     ]
 
     static func resolveExecutable() -> String? {
-        for directory in searchPaths {
+        let env = ProcessInfo.processInfo.environment
+        if let override = env["ROOST_JJ_PATH"], FileManager.default.isExecutableFile(atPath: override) {
+            return override
+        }
+        var dynamicPaths: [String] = []
+        if let home = env["HOME"], !home.isEmpty {
+            dynamicPaths.append("\(home)/.nix-profile/bin")
+            dynamicPaths.append("\(home)/.local/bin")
+            dynamicPaths.append("\(home)/.cargo/bin")
+        }
+        if let user = env["USER"], !user.isEmpty {
+            dynamicPaths.append("/etc/profiles/per-user/\(user)/bin")
+        }
+        dynamicPaths.append("/run/current-system/sw/bin")
+        dynamicPaths.append("/nix/var/nix/profiles/default/bin")
+
+        for directory in dynamicPaths + searchPaths {
             let path = "\(directory)/jj"
             if FileManager.default.isExecutableFile(atPath: path) {
                 return path
@@ -95,12 +111,16 @@ extension JjProcessRunner {
     private static func runProcess(
         executable: String,
         arguments: [String],
-        environment: [String: String]
+        environment: [String: String],
+        currentDirectory: String? = nil
     ) throws -> JjProcessResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
         process.environment = environment
+        if let currentDirectory {
+            process.currentDirectoryURL = URL(fileURLWithPath: currentDirectory)
+        }
 
         let stdout = Pipe()
         let stderr = Pipe()
@@ -136,11 +156,17 @@ typealias JjRunFn = @Sendable (
 extension JjProcessRunner {
     static func runRaw(
         executable: String,
-        arguments: [String]
+        arguments: [String],
+        currentDirectory: String? = nil
     ) async throws -> JjProcessResult {
         let env = buildEnvironment(inherited: ProcessInfo.processInfo.environment)
         return try await Task.detached(priority: .userInitiated) {
-            try runProcess(executable: executable, arguments: arguments, environment: env)
+            try runProcess(
+                executable: executable,
+                arguments: arguments,
+                environment: env,
+                currentDirectory: currentDirectory
+            )
         }.value
     }
 }

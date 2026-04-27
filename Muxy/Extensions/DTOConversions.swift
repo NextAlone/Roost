@@ -25,7 +25,8 @@ extension Worktree {
             branch: branch,
             isPrimary: isPrimary,
             canBeRemoved: canBeRemoved,
-            createdAt: createdAt
+            createdAt: createdAt,
+            vcsKind: vcsKind
         )
     }
 }

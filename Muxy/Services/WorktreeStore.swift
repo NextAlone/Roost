@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 import os
 
 private let logger = Logger(subsystem: "app.muxy", category: "WorktreeStore")
@@ -10,16 +11,23 @@ final class WorktreeStore {
     private var projectIDByPath: [String: UUID] = [:]
     private let persistence: any WorktreePersisting
     private let listGitWorktrees: @Sendable (String) async throws -> [GitWorktreeRecord]
+    private let listJjWorkspaces: @Sendable (String) async throws -> [JjWorkspaceEntry]
 
     init(
         persistence: any WorktreePersisting,
         listGitWorktrees: @escaping @Sendable (String) async throws -> [GitWorktreeRecord] = {
             try await GitWorktreeService.shared.listWorktrees(repoPath: $0)
         },
+        listJjWorkspaces: @escaping @Sendable (String) async throws -> [JjWorkspaceEntry] = { repoPath in
+            let queue = JjProcessQueue()
+            let service = JjWorkspaceService(queue: queue)
+            return try await service.list(repoPath: repoPath)
+        },
         projects: [Project] = []
     ) {
         self.persistence = persistence
         self.listGitWorktrees = listGitWorktrees
+        self.listJjWorkspaces = listJjWorkspaces
         guard !projects.isEmpty else { return }
         loadAll(projects: projects)
     }

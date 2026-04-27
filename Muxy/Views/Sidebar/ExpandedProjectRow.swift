@@ -472,6 +472,7 @@ private struct ExpandedWorktreeRow: View {
     let onRename: (String) -> Void
     let onRemove: (() -> Void)?
 
+    @Environment(WorkspaceStatusStore.self) private var statusStore
     @State private var hovered = false
     @State private var isRenaming = false
     @State private var renameText = ""
@@ -517,6 +518,7 @@ private struct ExpandedWorktreeRow: View {
                         if worktree.vcsKind == .jj {
                             JjBadge()
                         }
+                        WorkspaceStatusBadge(status: statusStore.status(forWorktreeID: worktree.id))
                     }
 
                     if let branch = branchLabel {

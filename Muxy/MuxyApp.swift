@@ -9,6 +9,7 @@ struct MuxyApp: App {
     @State private var appState: AppState
     @State private var projectStore: ProjectStore
     @State private var worktreeStore: WorktreeStore
+    @State private var statusStore: WorkspaceStatusStore
     private let updateService = UpdateService.shared
 
     init() {
@@ -24,6 +25,7 @@ struct MuxyApp: App {
             terminalViews: environment.terminalViews,
             workspacePersistence: environment.workspacePersistence
         )
+        let statusStore = WorkspaceStatusStore()
         appState.restoreSelection(
             projects: projectStore.projects,
             worktrees: worktreeStore.worktrees
@@ -31,6 +33,7 @@ struct MuxyApp: App {
         _appState = State(initialValue: appState)
         _projectStore = State(initialValue: projectStore)
         _worktreeStore = State(initialValue: worktreeStore)
+        _statusStore = State(initialValue: statusStore)
     }
 
     var body: some Scene {
@@ -39,6 +42,7 @@ struct MuxyApp: App {
                 .environment(appState)
                 .environment(projectStore)
                 .environment(worktreeStore)
+                .environment(statusStore)
                 .environment(GhosttyService.shared)
                 .environment(MuxyConfig.shared)
                 .environment(ThemeService.shared)
@@ -113,6 +117,7 @@ struct MuxyApp: App {
                 .environment(appState)
                 .environment(projectStore)
                 .environment(worktreeStore)
+                .environment(statusStore)
                 .environment(GhosttyService.shared)
                 .preferredColorScheme(MuxyTheme.colorScheme)
         }

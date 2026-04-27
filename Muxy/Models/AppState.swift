@@ -191,6 +191,11 @@ final class AppState {
         return workspaceRoots[key]?.allAreas() ?? []
     }
 
+    func allTabs(forKey key: WorktreeKey) -> [TerminalTab] {
+        guard let root = workspaceRoots[key] else { return [] }
+        return root.allAreas().flatMap(\.tabs)
+    }
+
     func splitFocusedArea(direction: SplitDirection, projectID: UUID) {
         guard let area = focusedArea(for: projectID) else { return }
         dispatch(.splitArea(.init(

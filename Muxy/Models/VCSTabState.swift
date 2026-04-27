@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 @MainActor
 @Observable
@@ -154,9 +155,11 @@ final class VCSTabState {
     @ObservationIgnored private var lastFetchedHeadSha: String?
     private(set) var hasCompletedInitialLoad = false
     @ObservationIgnored private static let commitsPerPage = 100
+    private(set) var vcsKind: VcsKind = .git
 
     init(projectPath: String) {
         self.projectPath = projectPath
+        self.vcsKind = VcsKindDetector.detect(at: projectPath)
         pullRequestAutoSyncMinutes = VCSPersistedSettings.loadAutoSyncMinutes(repoPath: projectPath)
         let visibility = VCSPersistedSettings.loadSectionVisibility(repoPath: projectPath)
         changesVisible = visibility.changes
@@ -218,6 +221,10 @@ final class VCSTabState {
     }
 
     private func performRefresh(incremental: Bool, forcePRFetch: Bool = false) {
+        guard vcsKind == .git else {
+            hasCompletedInitialLoad = true
+            return
+        }
         loadFilesTask?.cancel()
         if !incremental, files.isEmpty {
             isLoadingFiles = true
@@ -416,6 +423,10 @@ final class VCSTabState {
     }
 
     func loadBranches() {
+        guard vcsKind == .git else {
+            isLoadingBranches = false
+            return
+        }
         loadBranchesTask?.cancel()
         isLoadingBranches = true
         loadBranchesTask = Task { [weak self] in
@@ -603,6 +614,10 @@ final class VCSTabState {
     }
 
     func loadCommits() {
+        guard vcsKind == .git else {
+            isLoadingCommits = false
+            return
+        }
         commitLogTask?.cancel()
         isLoadingCommits = true
         commitLogTask = Task { [weak self] in

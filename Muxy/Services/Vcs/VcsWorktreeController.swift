@@ -13,6 +13,7 @@ protocol VcsWorktreeController: Sendable {
     func removeWorktree(
         repoPath: String,
         path: String,
+        identifier: String?,
         force: Bool
     ) async throws
 

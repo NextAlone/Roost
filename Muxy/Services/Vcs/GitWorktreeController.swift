@@ -20,6 +20,7 @@ struct GitWorktreeController: VcsWorktreeController {
     func removeWorktree(
         repoPath: String,
         path: String,
+        identifier _: String?,
         force: Bool
     ) async throws {
         try await GitWorktreeService.shared.removeWorktree(

@@ -39,16 +39,23 @@ struct JjWorktreeController: VcsWorktreeController {
     func removeWorktree(
         repoPath: String,
         path: String,
-        force: Bool
+        identifier: String?,
+        force _: Bool
     ) async throws {
-        let entries = try await workspaceList(repoPath)
-        let leaf = (path as NSString).lastPathComponent
-        if let match = entries.first(where: { $0.name == leaf }) {
-            try await workspaceForget(repoPath, match.name)
-        } else if entries.count == 1, let only = entries.first {
-            try await workspaceForget(repoPath, only.name)
+        let resolvedName: String?
+        if let identifier {
+            resolvedName = identifier
+        } else {
+            let entries = try await workspaceList(repoPath)
+            let leaf = (path as NSString).lastPathComponent
+            resolvedName = entries.first(where: { $0.name == leaf })?.name
         }
-        try? FileManager.default.removeItem(atPath: path)
+        if let resolvedName {
+            try await workspaceForget(repoPath, resolvedName)
+        } else {
+            throw JjWorktreeControllerError.workspaceNameNotFound(path: path)
+        }
+        try FileManager.default.removeItem(atPath: path)
     }
 
     func deleteRef(repoPath: String, name: String) async throws {
@@ -79,4 +86,8 @@ struct JjWorktreeController: VcsWorktreeController {
         let service = JjBookmarkService(queue: JjProcessQueue.shared)
         try await service.forget(repoPath: repoPath, name: name)
     }
+}
+
+enum JjWorktreeControllerError: Error, Sendable {
+    case workspaceNameNotFound(path: String)
 }

@@ -1,3 +1,4 @@
+import MuxyShared
 import SwiftUI
 
 enum CreateWorktreeResult {
@@ -24,6 +25,18 @@ struct CreateWorktreeSheet: View {
     private let gitRepository = GitRepositoryService()
     @Environment(\.vcsWorktreeControllerResolver) private var vcsResolver
 
+    private var projectVcsKind: VcsKind {
+        worktreeStore.primary(for: project.id)?.vcsKind ?? .default
+    }
+
+    private var refTerm: String {
+        projectVcsKind == .jj ? "Bookmark" : "Branch"
+    }
+
+    private var refTermLower: String {
+        projectVcsKind == .jj ? "bookmark" : "branch"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("New Worktree")
@@ -37,12 +50,12 @@ struct CreateWorktreeSheet: View {
 
             SegmentedPicker(
                 selection: $createNewBranch,
-                options: [(true, "Create new branch"), (false, "Use existing branch")]
+                options: [(true, "Create new \(refTermLower)"), (false, "Use existing \(refTermLower)")]
             )
 
             if createNewBranch {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Branch Name").font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
+                    Text("\(refTerm) Name").font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
                     TextField("feature-x", text: $branchName)
                         .textFieldStyle(.roundedBorder)
                         .onChange(of: branchName) { _, newValue in
@@ -51,7 +64,7 @@ struct CreateWorktreeSheet: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Branch").font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
+                    Text(refTerm).font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
                     Picker("", selection: $selectedExistingBranch) {
                         ForEach(availableBranches, id: \.self) { branch in
                             Text(branch).tag(branch)

@@ -24,6 +24,7 @@ struct ProjectRow: View {
     @State private var logoCropImage: IdentifiableImage?
     @State private var isRefreshingWorktrees = false
     @State private var showColorPicker = false
+    @State private var pendingAgentKind: AgentKind?
 
     private var isActive: Bool {
         appState.activeProjectID == project.id
@@ -100,6 +101,14 @@ struct ProjectRow: View {
                     showCreateWorktreeSheet = false
                     handleCreateWorktreeResult(result)
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .requestCreateWorkspaceForAgent)) { note in
+                guard appState.activeProjectID == project.id,
+                      let raw = note.userInfo?["kind"] as? String,
+                      let kind = AgentKind(rawValue: raw)
+                else { return }
+                pendingAgentKind = kind
+                showCreateWorktreeSheet = true
             }
             .sheet(item: $logoCropImage) { item in
                 LogoCropperSheet(
@@ -224,9 +233,14 @@ struct ProjectRow: View {
     }
 
     private func handleCreateWorktreeResult(_ result: CreateWorktreeResult) {
+        let pending = pendingAgentKind
+        pendingAgentKind = nil
         switch result {
         case let .created(worktree, runSetup):
             appState.selectWorktree(projectID: project.id, worktree: worktree)
+            if let pending {
+                appState.createAgentTab(pending, projectID: project.id)
+            }
             if runSetup,
                let paneID = appState.focusedArea(for: project.id)?.activeTab?.content.pane?.id
             {

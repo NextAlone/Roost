@@ -39,7 +39,7 @@ struct CreateWorktreeSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("New Worktree")
+            Text("New Workspace")
                 .font(.system(size: 14, weight: .semibold))
 
             VStack(alignment: .leading, spacing: 6) {
@@ -122,7 +122,7 @@ struct CreateWorktreeSheet: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(MuxyTheme.fg)
             }
-            Text("These commands will run in the new worktree's terminal. Only enable this if you trust this repository.")
+            Text("These commands will run in the new workspace's terminal. Only enable this if you trust this repository.")
                 .font(.system(size: 10))
                 .foregroundStyle(MuxyTheme.fgMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -137,7 +137,7 @@ struct CreateWorktreeSheet: View {
             }
             .padding(8)
             .background(MuxyTheme.surface, in: RoundedRectangle(cornerRadius: 4))
-            Toggle("Run these commands after creating the worktree", isOn: $runSetup)
+            Toggle("Run these commands after creating the workspace", isOn: $runSetup)
                 .font(.system(size: 11))
         }
         .padding(10)
@@ -154,7 +154,7 @@ struct CreateWorktreeSheet: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(MuxyTheme.fg)
             }
-            Text("To run setup commands after creating a worktree, add .muxy/worktree.json in this repository.")
+            Text("To run setup commands after creating a workspace, add .muxy/worktree.json in this repository.")
                 .font(.system(size: 10))
                 .foregroundStyle(MuxyTheme.fgMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -222,7 +222,7 @@ struct CreateWorktreeSheet: View {
         if FileManager.default.fileExists(atPath: worktreeDirectory) {
             await MainActor.run {
                 inProgress = false
-                errorMessage = "A worktree with this name already exists on disk."
+                errorMessage = "A workspace with this name already exists on disk."
             }
             return
         }

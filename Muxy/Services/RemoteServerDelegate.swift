@@ -459,7 +459,7 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
             throw RemoteVCSError.invalidInput("A worktree with this name already exists on disk.")
         }
 
-        let kind = worktreeStore.primary(for: project.id)?.vcsKind ?? .default
+        let kind = worktreeStore.primary(for: project.id)?.vcsKind ?? .git
         let controller = resolver.controller(kind)
         try await controller.addWorktree(
             repoPath: project.path,

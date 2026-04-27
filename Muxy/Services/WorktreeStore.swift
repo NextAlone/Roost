@@ -235,7 +235,7 @@ final class WorktreeStore {
 
     func refresh(project: Project) async throws -> [Worktree] {
         ensurePrimary(for: project)
-        let kind = primary(for: project.id)?.vcsKind ?? .default
+        let kind = primary(for: project.id)?.vcsKind ?? .git
         switch kind {
         case .git:
             return try await refreshFromGit(project: project)
@@ -287,7 +287,7 @@ final class WorktreeStore {
             await cleanupOnDisk(worktree: worktree, repoPath: project.path)
         }
 
-        let primaryKind = knownWorktrees.first(where: \.isPrimary)?.vcsKind ?? .default
+        let primaryKind = knownWorktrees.first(where: \.isPrimary)?.vcsKind ?? .git
         let controller = VcsWorktreeControllerFactory.controller(for: primaryKind)
 
         let root = MuxyFileStorage.worktreeRoot(forProjectID: project.id)

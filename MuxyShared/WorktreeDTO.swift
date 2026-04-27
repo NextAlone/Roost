@@ -29,7 +29,7 @@ public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
         isPrimary: Bool,
         canBeRemoved: Bool? = nil,
         createdAt: Date,
-        vcsKind: VcsKind = .default
+        vcsKind: VcsKind = .git
     ) {
         self.id = id
         self.name = name
@@ -50,6 +50,6 @@ public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
         isPrimary = try container.decode(Bool.self, forKey: .isPrimary)
         canBeRemoved = try container.decodeIfPresent(Bool.self, forKey: .canBeRemoved) ?? !isPrimary
         createdAt = try container.decode(Date.self, forKey: .createdAt)
-        vcsKind = try container.decodeIfPresent(VcsKind.self, forKey: .vcsKind) ?? .default
+        vcsKind = try container.decodeIfPresent(VcsKind.self, forKey: .vcsKind) ?? .git
     }
 }

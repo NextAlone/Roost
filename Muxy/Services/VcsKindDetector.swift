@@ -14,4 +14,15 @@ enum VcsKindDetector {
         }
         return .default
     }
+
+    static func isVcsRepository(at path: String) -> Bool {
+        let fm = FileManager.default
+        let jjPath = (path as NSString).appendingPathComponent(".jj")
+        var isDir: ObjCBool = false
+        if fm.fileExists(atPath: jjPath, isDirectory: &isDir), isDir.boolValue {
+            return true
+        }
+        let gitPath = (path as NSString).appendingPathComponent(".git")
+        return fm.fileExists(atPath: gitPath)
+    }
 }

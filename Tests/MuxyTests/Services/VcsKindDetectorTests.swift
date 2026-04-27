@@ -80,4 +80,32 @@ struct VcsKindDetectorTests {
         let kind = VcsKindDetector.detect(at: project.path)
         #expect(kind == .git)
     }
+
+    @Test("isVcsRepository true when .jj present")
+    func isVcsJj() throws {
+        let dir = makeTempDir()
+        defer { try? fm.removeItem(at: dir) }
+        try fm.createDirectory(at: dir.appendingPathComponent(".jj"), withIntermediateDirectories: true)
+        #expect(VcsKindDetector.isVcsRepository(at: dir.path) == true)
+    }
+
+    @Test("isVcsRepository true when .git present")
+    func isVcsGit() throws {
+        let dir = makeTempDir()
+        defer { try? fm.removeItem(at: dir) }
+        try fm.createDirectory(at: dir.appendingPathComponent(".git"), withIntermediateDirectories: true)
+        #expect(VcsKindDetector.isVcsRepository(at: dir.path) == true)
+    }
+
+    @Test("isVcsRepository false for empty directory")
+    func isVcsEmpty() {
+        let dir = makeTempDir()
+        defer { try? fm.removeItem(at: dir) }
+        #expect(VcsKindDetector.isVcsRepository(at: dir.path) == false)
+    }
+
+    @Test("isVcsRepository false for non-existent path")
+    func isVcsNonexistent() {
+        #expect(VcsKindDetector.isVcsRepository(at: "/this/path/does/not/exist/zzz") == false)
+    }
 }

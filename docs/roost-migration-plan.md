@@ -228,6 +228,12 @@ Phase 2.2b2 status (2026-04-27):
 - `CreateWorktreeSheet` reads the resolver via `@Environment(\.vcsWorktreeControllerResolver)`, dispatches `addWorktree` by the project's primary `vcsKind`, and stamps that kind on the newly created `Worktree`.
 - Phase 2.2c remains: `VCSTabState.deleteBranch` and read-side probes (`isGitRepository`, `hasUncommittedChanges`) need a broader VCS abstraction; sidebar UI badges + `WorktreeDTO` IPC update also pending.
 
+Phase 2.2c1 status (2026-04-28):
+
+- `VcsStatusProbe` protocol + `GitStatusProbe` + `JjStatusProbe` + factory + `VcsStatusProbeResolver` (with SwiftUI environment key) added. Mirrors the controller-resolver pattern from Phase 2.2b2. Plan: `docs/superpowers/plans/2026-04-28-phase2-2c1-vcs-status-probe.md`.
+- `ExpandedProjectRow` + `WorktreePopover` route `hasUncommittedChanges` through the resolver, dispatching by `worktree.vcsKind`. Behavior unchanged for git worktrees; jj worktrees now get a real status probe (snapshot-isolated `jj status --ignore-working-copy`) instead of an always-stale git answer.
+- Phase 2.2c2/3 remains: `isGitRepository` callers, `VCSTabState.deleteBranch`, sidebar UI badges, `WorktreeDTO` IPC.
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

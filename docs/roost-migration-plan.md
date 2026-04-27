@@ -262,6 +262,16 @@ Phase 2.2e status (2026-04-28):
 - Mutating ops (commit/push/pull/etc.) intentionally not gated — their UI is reachable only after a successful read populates buttons; jj path leaves them dormant. Phase 5 jj Changes Panel will replace VCSTabState's read-side rather than extend it, so deeper abstraction here would be wasted effort.
 - Phase 2 VCS adapter work effectively complete. Outstanding (Phase 5 territory): jj-native branches/commits/status/PR equivalents, conflict viewer, op log undo, dag view, "branch" → "bookmark" labels.
 
+Phase 2 cleanup batch (2026-04-28):
+
+- Pre-existing test fallout fixed: `MuxyURLOpenTests` 5 failures (`muxy://` → `roost://` URL strings); whole suite now 603/603 green.
+- `JjIntegrationTests` gates on git binary in addition to jj (was implicit dep).
+- `JjProcessRunner.resolveExecutable` extends to Nix profiles, `ROOST_JJ_PATH` env override, and `runRaw` supports cwd — `jj git init` integration smoke now actually executes on Nix-installed jj.
+- `JjStatus.description` renamed to `workingCopySummary` for semantic clarity.
+- `VCSTabState` mutating ops (push / pull / cherryPick / revert / createBranch / createTag / checkoutDetached / switchBranch / createAndSwitchBranch / pushSetUpstream + performGitOperation chokepoint) gated on `vcsKind == .git`.
+- `CreateWorktreeSheet` labels switch between "Branch" / "Bookmark" based on the project's primary `VcsKind`.
+- `WorktreeStore.refreshJj` now detects untracked external jj workspaces (names from `jj workspace list` not in tracked Worktree set) and surfaces via `untrackedJjWorkspaces(for:)`. `ExpandedProjectRow` shows an "N external jj workspaces detected" hint listing names. Path-based import binding deferred (jj's `WorkspaceRef` doesn't expose path).
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

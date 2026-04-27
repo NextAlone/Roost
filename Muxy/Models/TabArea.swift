@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 @MainActor
 @Observable
@@ -72,6 +73,18 @@ final class TabArea: Identifiable {
             title: title.isEmpty ? Self.commandTitle(trimmedCommand) : title,
             startupCommand: trimmedCommand,
             startupCommandInteractive: true
+        )
+        insertTab(TerminalTab(pane: pane))
+    }
+
+    func createAgentTab(kind: AgentKind) {
+        let preset = AgentPresetCatalog.preset(for: kind)
+        let pane = TerminalPaneState(
+            projectPath: projectPath,
+            title: preset.kind.displayName,
+            startupCommand: preset.defaultCommand,
+            startupCommandInteractive: preset.defaultCommand != nil,
+            agentKind: kind
         )
         insertTab(TerminalTab(pane: pane))
     }

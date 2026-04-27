@@ -344,6 +344,16 @@ Exit criteria:
 - Agent kind is visible in tab/session metadata.
 - Session metadata survives app restart where possible.
 
+**Status (2026-04-28): Phase 3 implementation landed.**
+
+- AgentKind + AgentPreset live in MuxyShared (`MuxyShared/Agent/`).
+- TerminalPaneState carries `agentKind` + `createdAt`. TerminalTabSnapshot persists both plus `startupCommand` (decode-tolerant — legacy snapshots default to `.terminal` / nil / now).
+- `TabArea.createAgentTab(kind:)` + `AppState.createAgentTab(_:projectID:)` route the preset command into the active worktree path (cwd resolved automatically because `TabArea.projectPath` already stores the worktree path).
+- Menu entries: New Claude Code / Codex / Gemini CLI / OpenCode Tab. ShortcutAction cases shipped with no default key bindings; users bind via Settings.
+- `requiresDedicatedWorkspace` flag exists on `AgentPreset` but is **not enforced** (all built-ins default `false`); enforcement → Phase 4 sidebar work.
+- "Last known state" lifecycle (running / idle / exited / errored) **deferred** to Phase 4 status badges.
+- User-configurable presets / `.roost/config.json` integration → Phase 7.
+
 ## Phase 4: Roost Sidebar
 
 Goal: move from Muxy's Project -> Worktree UI toward Roost's Project -> jj Workspace -> Session UI.

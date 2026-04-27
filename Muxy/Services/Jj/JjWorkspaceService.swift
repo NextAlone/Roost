@@ -18,7 +18,7 @@ struct JjWorkspaceService: Sendable {
     }
 
     func list(repoPath: String) async throws -> [JjWorkspaceEntry] {
-        let result = try await runner(repoPath, ["workspace", "list"], .ignore, nil)
+        let result = try await runner(repoPath, ["workspace", "list", "-T", JjWorkspaceParser.template], .ignore, nil)
         guard result.status == 0 else {
             throw JjProcessError.nonZeroExit(status: result.status, stderr: result.stderr)
         }

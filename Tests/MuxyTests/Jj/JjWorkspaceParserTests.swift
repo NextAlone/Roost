@@ -6,17 +6,31 @@ import MuxyShared
 
 @Suite("JjWorkspaceParser")
 struct JjWorkspaceParserTests {
-    @Test("parses two workspaces")
-    func two() throws {
+    @Test("parses tab-separated template output")
+    func tabSeparated() throws {
         let raw = """
-        default: abcdef12 (no description set)
-        my-feature: 12345678 feat: x
+        default\tlknkwurrssvusyunltqlwqmskokmkssk
+        feat-m6\tqsoqlvuqvlspztkqlkunsoynyzpxkqqp
         """
         let entries = try JjWorkspaceParser.parse(raw)
         #expect(entries.count == 2)
         #expect(entries[0].name == "default")
-        #expect(entries[0].workingCopy.prefix == "abcdef12")
-        #expect(entries[1].name == "my-feature")
-        #expect(entries[1].workingCopy.prefix == "12345678")
+        #expect(entries[0].workingCopy.full == "lknkwurrssvusyunltqlwqmskokmkssk")
+        #expect(entries[1].name == "feat-m6")
+        #expect(entries[1].workingCopy.full == "qsoqlvuqvlspztkqlkunsoynyzpxkqqp")
+    }
+
+    @Test("rejects malformed line (missing tab)")
+    func malformed() {
+        let raw = "no-tab-line\n"
+        #expect(throws: (any Error).self) {
+            _ = try JjWorkspaceParser.parse(raw)
+        }
+    }
+
+    @Test("empty input returns empty array")
+    func empty() throws {
+        let entries = try JjWorkspaceParser.parse("")
+        #expect(entries.isEmpty)
     }
 }

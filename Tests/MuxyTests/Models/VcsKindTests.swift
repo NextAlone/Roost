@@ -6,11 +6,6 @@ import Testing
 
 @Suite("VcsKind")
 struct VcsKindTests {
-    @Test("default is git")
-    func defaultGit() {
-        #expect(VcsKind.default == .git)
-    }
-
     @Test("Codable round-trips")
     func codable() throws {
         let original: [VcsKind] = [.git, .jj]

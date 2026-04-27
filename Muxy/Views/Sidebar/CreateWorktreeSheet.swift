@@ -26,7 +26,7 @@ struct CreateWorktreeSheet: View {
     @Environment(\.vcsWorktreeControllerResolver) private var vcsResolver
 
     private var projectVcsKind: VcsKind {
-        worktreeStore.primary(for: project.id)?.vcsKind ?? .default
+        worktreeStore.primary(for: project.id)?.vcsKind ?? .git
     }
 
     private var refTerm: String {
@@ -227,7 +227,7 @@ struct CreateWorktreeSheet: View {
             return
         }
 
-        let kind = await MainActor.run { worktreeStore.primary(for: project.id)?.vcsKind ?? .default }
+        let kind = await MainActor.run { worktreeStore.primary(for: project.id)?.vcsKind ?? .git }
         let controller = vcsResolver.controller(kind)
         do {
             try await controller.addWorktree(

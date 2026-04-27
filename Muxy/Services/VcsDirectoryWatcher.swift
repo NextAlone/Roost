@@ -10,7 +10,7 @@ final class VcsDirectoryWatcher: @unchecked Sendable {
     private let vcsKind: VcsKind
     private let metaPathCanonical: String
 
-    init?(directoryPath: String, vcsKind: VcsKind = .default, handler: @escaping @Sendable () -> Void) {
+    init?(directoryPath: String, vcsKind: VcsKind = .git, handler: @escaping @Sendable () -> Void) {
         let metaDir: String
         switch vcsKind {
         case .git:

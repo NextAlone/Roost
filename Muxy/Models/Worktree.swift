@@ -28,7 +28,7 @@ struct Worktree: Identifiable, Codable, Hashable {
         source: WorktreeSource = .muxy,
         isPrimary: Bool,
         createdAt: Date = Date(),
-        vcsKind: VcsKind = .default,
+        vcsKind: VcsKind = .git,
         currentChangeId: String? = nil,
         jjWorkspaceName: String? = nil
     ) {
@@ -77,7 +77,7 @@ struct Worktree: Identifiable, Codable, Hashable {
         source = try container.decodeIfPresent(WorktreeSource.self, forKey: .source) ?? .muxy
         isPrimary = try container.decode(Bool.self, forKey: .isPrimary)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
-        vcsKind = try container.decodeIfPresent(VcsKind.self, forKey: .vcsKind) ?? .default
+        vcsKind = try container.decodeIfPresent(VcsKind.self, forKey: .vcsKind) ?? .git
         currentChangeId = try container.decodeIfPresent(String.self, forKey: .currentChangeId)
         jjWorkspaceName = try container.decodeIfPresent(String.self, forKey: .jjWorkspaceName)
     }

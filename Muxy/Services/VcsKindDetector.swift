@@ -13,7 +13,7 @@ enum VcsKindDetector {
         if fm.fileExists(atPath: gitPath) {
             return .git
         }
-        return .default
+        return .git
     }
 
     static func isVcsRepository(at path: String) -> Bool {

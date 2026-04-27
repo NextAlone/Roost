@@ -286,6 +286,22 @@ Deferred (acknowledged debt, not blocking):
 - jj output CI matrix (jj 0.40 / 0.41 / 0.42) — needs GitHub Actions wiring; opening as a tracked task.
 - `VcsKind = .default` sentinel naming clarity.
 
+External code-review pass (2026-04-28, codex):
+
+- 🔴 `JjProcessQueue` keys on canonical repoPath (URL.standardizedFileURL.resolvingSymlinksInPath) so symlinks (/tmp ↔ /private/tmp), trailing slashes, and relative paths don't bypass per-repo serialization.
+- 🔴 `WorktreeStore.importExternalJjWorkspace(name:path:into:)` now throws `ImportExternalJjWorkspaceError` for: pathDoesNotExist, pathNotJjWorkspace (no `.jj/` marker), duplicateName, duplicatePath. Sidebar surfaces an NSAlert.
+- 🟡 `VcsDirectoryWatcher` resolves the metaPath canonically at init and uses prefix matching (not substring) — fixes the false-positive of nested user `.jj` dirs and the false-negative of jj internals outside the original 3-path filter (now: anything under `.jj/` is jj noise).
+- 🟡 `VcsWorktreeController` protocol gets doc-comment spelling out per-VCS semantics for `force` (git: required for dirty; jj: ignored) and `identifier` (git: ignored; jj: workspace name).
+
+Codex driven, but driven-back:
+- "Old persisted jj worktrees lacking jjWorkspaceName need migration" — false alarm. The leaf-name fallback IS the migration path for legacy records (Roost-managed pre-Phase-2.2c worktrees have name == directory leaf, which matches what jj produced).
+- "Shared queue self-deadlock" — audited; JjWorkspaceService / JjBookmarkService don't nest queued calls. No risk.
+
+Still acknowledged, not landed:
+- `identifier: String?` typed wrapper (per-call enum to make orphan-sweep nil-only path explicit) — refactor planned with the next protocol revision.
+- Per-name button (instead of first-untracked auto-pick) for the import hint — UX iteration.
+- `forget succeeds + removeItem fails` orphan-dir failure mode — currently throws; could log+continue if user reports issues.
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

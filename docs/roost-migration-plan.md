@@ -153,8 +153,9 @@ Source references:
 Foundation status (as of 2026-04-27):
 
 - Service-layer foundation landed via plan `docs/superpowers/plans/2026-04-27-jj-service-layer-foundation.md`. 11 commits add `JjProcessRunner` (env + args + subprocess), `JjProcessQueue` actor, `JjVersion`, parsers (`JjStatusParser`, `JjOpLogParser`, `JjConflictParser`, `JjWorkspaceParser`), and service shells (`JjRepositoryService`, `JjWorkspaceService`) plus a gated live-jj integration smoke. New Jj suite: 29 tests across 10 suites, all green.
-- Outstanding Phase 1 items not in foundation: bookmark service (`bookmark create/list/forget/set`), `jj show`, diff service (`jj diff --stat` / `--summary`).
-- Outstanding cleanup tracked separately (not blocking Phase 1):
+- Phase 1 services landed (2026-04-27): `JjBookmarkParser`/`Service`, `JjDiffParser`/`Service` (`--stat` + `--summary`), `JjRepositoryService.show`, `JjShowParser`. Refactor pass: `JjProcessQueue.run` is throwing-generic, `JjRunFn` lives in `JjProcessRunner.swift`, all service-layer types narrowed to internal. Plan: `docs/superpowers/plans/2026-04-27-jj-cleanup-and-bookmark-diff-services.md`. Jj suite: 57 tests across 16 suites, all green.
+- Outstanding before Phase 2 worktree adapter: data-migration plan for `projects.json`, Worktree field-mapping decisions (see Phase 2 spec).
+- Outstanding cleanup tracked separately (not blocking Phase 2):
   - `JjProcessRunner.resolveExecutable` only searches `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`, `/bin`. Nix-profile users (`/etc/profiles/...`) need an env-driven extension.
   - 5 `MuxyURLOpenTests` cases (`muxy://...` URL parsing) fail at runtime because `AppDelegate.resolveProjectPath` was rebranded to expect `roost://` but tests still use `muxy://`. Pre-existing legacy fallout from the upstream Muxy → Roost rename; orthogonal to jj work.
 

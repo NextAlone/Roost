@@ -221,6 +221,13 @@ Phase 2.2b status (2026-04-27):
 - `WorktreeStore.cleanupOnDisk` (both overloads) routes through the factory: per-worktree uses `worktree.vcsKind`, project-level orphan sweep uses primary's `vcsKind`.
 - Phase 2.2b2 remains: route `RemoteServerDelegate.vcsCreateWorktree`, `CreateWorktreeSheet`, and `VCSTabState.deleteBranch` through the controller (UI-layer DI work).
 
+Phase 2.2b2 status (2026-04-27):
+
+- `VcsWorktreeControllerResolver` value type added; default delegates to `VcsWorktreeControllerFactory`. SwiftUI exposes it via `EnvironmentValues.vcsWorktreeControllerResolver`. Plan: `docs/superpowers/plans/2026-04-27-phase2-2b2-resolver-injection.md`.
+- `RemoteServerDelegate.vcsCreateWorktree` looks up the project's primary `VcsKind` and routes through the resolver. Init takes the resolver with `.default` fallback; `MuxyApp` construction unchanged (default value).
+- `CreateWorktreeSheet` reads the resolver via `@Environment(\.vcsWorktreeControllerResolver)`, dispatches `addWorktree` by the project's primary `vcsKind`, and stamps that kind on the newly created `Worktree`.
+- Phase 2.2c remains: `VCSTabState.deleteBranch` and read-side probes (`isGitRepository`, `hasUncommittedChanges`) need a broader VCS abstraction; sidebar UI badges + `WorktreeDTO` IPC update also pending.
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

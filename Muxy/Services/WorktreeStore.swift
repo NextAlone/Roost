@@ -180,6 +180,17 @@ final class WorktreeStore {
         return sorted
     }
 
+    func refresh(project: Project) async throws -> [Worktree] {
+        ensurePrimary(for: project)
+        let kind = primary(for: project.id)?.vcsKind ?? .default
+        switch kind {
+        case .git:
+            return try await refreshFromGit(project: project)
+        case .jj:
+            return try await refreshJj(project: project)
+        }
+    }
+
     private static func canonicalPath(_ path: String) -> String {
         URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
     }

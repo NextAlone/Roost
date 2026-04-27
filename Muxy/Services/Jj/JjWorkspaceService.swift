@@ -36,26 +36,11 @@ public struct JjWorkspaceService: Sendable {
 
     private func runMutating(repoPath: String, command: [String]) async throws {
         let runner = self.runner
-        let errorBox = ErrorBox()
-        await queue.run(repoPath: repoPath, isMutating: true) {
-            do {
-                let result = try await runner(repoPath, command, .allow, nil)
-                if result.status != 0 {
-                    await errorBox.set(JjProcessError.nonZeroExit(status: result.status, stderr: result.stderr))
-                }
-            } catch {
-                await errorBox.set(error)
+        try await queue.run(repoPath: repoPath, isMutating: true) {
+            let result = try await runner(repoPath, command, .allow, nil)
+            if result.status != 0 {
+                throw JjProcessError.nonZeroExit(status: result.status, stderr: result.stderr)
             }
         }
-        if let thrown = await errorBox.error {
-            throw thrown
-        }
-    }
-}
-
-private actor ErrorBox {
-    var error: Error?
-    func set(_ error: Error) {
-        self.error = error
     }
 }

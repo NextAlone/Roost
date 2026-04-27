@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 @MainActor
 @Observable
@@ -10,6 +11,8 @@ final class TerminalPaneState: Identifiable {
     let startupCommand: String?
     let startupCommandInteractive: Bool
     let externalEditorFilePath: String?
+    let agentKind: AgentKind
+    let createdAt: Date
     let searchState = TerminalSearchState()
     @ObservationIgnored private var titleDebounceTask: Task<Void, Never>?
 
@@ -19,7 +22,9 @@ final class TerminalPaneState: Identifiable {
         initialWorkingDirectory: String? = nil,
         startupCommand: String? = nil,
         startupCommandInteractive: Bool = false,
-        externalEditorFilePath: String? = nil
+        externalEditorFilePath: String? = nil,
+        agentKind: AgentKind = .terminal,
+        createdAt: Date = Date()
     ) {
         self.projectPath = projectPath
         self.title = title
@@ -27,6 +32,8 @@ final class TerminalPaneState: Identifiable {
         self.startupCommand = startupCommand
         self.startupCommandInteractive = startupCommandInteractive
         self.externalEditorFilePath = externalEditorFilePath
+        self.agentKind = agentKind
+        self.createdAt = createdAt
     }
 
     func setTitle(_ newTitle: String) {

@@ -11,15 +11,22 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
     private let appState: AppState
     private let projectStore: ProjectStore
     private let worktreeStore: WorktreeStore
+    private let resolver: VcsWorktreeControllerResolver
     private let gitService = GitRepositoryService()
     weak var server: MuxyRemoteServer? {
         didSet { RemoteTerminalStreamer.shared.server = server }
     }
 
-    init(appState: AppState, projectStore: ProjectStore, worktreeStore: WorktreeStore) {
+    init(
+        appState: AppState,
+        projectStore: ProjectStore,
+        worktreeStore: WorktreeStore,
+        resolver: VcsWorktreeControllerResolver = .default
+    ) {
         self.appState = appState
         self.projectStore = projectStore
         self.worktreeStore = worktreeStore
+        self.resolver = resolver
         PaneOwnershipStore.shared.onOwnershipChanged = { [weak self] paneID, owner in
             TerminalViewRegistry.shared.existingView(for: paneID)?.remoteOwnershipDidChange()
             self?.broadcastOwnership(paneID: paneID, owner: owner)
@@ -452,11 +459,14 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
             throw RemoteVCSError.invalidInput("A worktree with this name already exists on disk.")
         }
 
-        try await GitWorktreeService.shared.addWorktree(
+        let kind = worktreeStore.primary(for: project.id)?.vcsKind ?? .default
+        let controller = resolver.controller(kind)
+        try await controller.addWorktree(
             repoPath: project.path,
+            name: trimmedName,
             path: worktreeDirectory,
-            branch: trimmedBranch,
-            createBranch: createBranch
+            ref: trimmedBranch,
+            createRef: createBranch
         )
 
         let worktree = Worktree(
@@ -464,7 +474,8 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
             path: worktreeDirectory,
             branch: trimmedBranch,
             ownsBranch: createBranch,
-            isPrimary: false
+            isPrimary: false,
+            vcsKind: kind
         )
         worktreeStore.add(worktree, to: project.id)
         return worktree.toDTO()

@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 @MainActor
 struct WorkspaceState {
@@ -90,6 +91,14 @@ enum WorkspaceReducer {
 
         case let .createVCSTab(projectID, areaID):
             TabReducer.createVCSTab(projectID: projectID, areaID: areaID, state: &state)
+
+        case let .createAgentTab(projectID, areaID, kind):
+            TabReducer.createAgentTab(
+                projectID: projectID,
+                areaID: areaID,
+                kind: kind,
+                state: &state
+            )
 
         case let .createEditorTab(projectID, areaID, filePath, suppressInitialFocus):
             TabReducer.createEditorTab(

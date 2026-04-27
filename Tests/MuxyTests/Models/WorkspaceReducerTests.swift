@@ -677,4 +677,30 @@ struct WorkspaceReducerTests {
         let area = focusedArea(in: state, projectID: projectID)!
         #expect(area.activeTabID == area.tabs[0].id)
     }
+
+    @Test("createAgentTab opens pane in active worktree path")
+    func createAgentTabRoutesCwd() {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        var state = makeState(
+            projectID: projectID,
+            worktreeID: worktreeID,
+            worktreePath: "/tmp/demo"
+        )
+        let countBefore = focusedArea(in: state, projectID: projectID)?.tabs.count ?? 0
+
+        let action = AppState.Action.createAgentTab(
+            projectID: projectID,
+            areaID: nil,
+            kind: .claudeCode
+        )
+        _ = WorkspaceReducer.reduce(action: action, state: &state)
+
+        let area = focusedArea(in: state, projectID: projectID)
+        #expect(area?.tabs.count == countBefore + 1)
+        let pane = area?.activeTab?.content.pane
+        #expect(pane?.agentKind == .claudeCode)
+        #expect(pane?.startupCommand == "claude")
+        #expect(pane?.projectPath == "/tmp/demo")
+    }
 }

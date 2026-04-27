@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 import os
 import SwiftUI
 
@@ -34,6 +35,7 @@ final class AppState {
         case createTabInDirectory(projectID: UUID, areaID: UUID?, directory: String)
         case createCommandTab(projectID: UUID, areaID: UUID?, name: String, command: String)
         case createVCSTab(projectID: UUID, areaID: UUID?)
+        case createAgentTab(projectID: UUID, areaID: UUID?, kind: AgentKind)
         case createEditorTab(projectID: UUID, areaID: UUID?, filePath: String, suppressInitialFocus: Bool)
         case createExternalEditorTab(projectID: UUID, areaID: UUID?, filePath: String, command: String)
         case createDiffViewerTab(projectID: UUID, areaID: UUID?, request: DiffViewerRequest)
@@ -218,6 +220,10 @@ final class AppState {
 
     func createVCSTab(projectID: UUID) {
         dispatch(.createVCSTab(projectID: projectID, areaID: nil))
+    }
+
+    func createAgentTab(_ kind: AgentKind, projectID: UUID) {
+        dispatch(.createAgentTab(projectID: projectID, areaID: nil, kind: kind))
     }
 
     func openFile(_ filePath: String, projectID: UUID, preserveFocus: Bool = false) {

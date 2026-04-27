@@ -33,9 +33,13 @@ struct VCSTabView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Rectangle().fill(MuxyTheme.border).frame(height: 1)
-            content
+            if state.vcsKind == .jj {
+                jjPlaceholder
+            } else {
+                header
+                Rectangle().fill(MuxyTheme.border).frame(height: 1)
+                content
+            }
         }
         .background(MuxyTheme.bg)
         .contentShape(Rectangle())
@@ -425,6 +429,25 @@ struct VCSTabView: View {
                 showInlinePRForm = false
             }
         )
+    }
+
+    private var jjPlaceholder: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "diamond")
+                .font(.system(size: 28))
+                .foregroundStyle(MuxyTheme.fgDim)
+            Text("jj Changes Panel coming soon")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(MuxyTheme.fgMuted)
+            Text("This project uses jj. The Changes panel for jj is planned for Phase 5; sidebar workspace operations work today.")
+                .font(.system(size: 11))
+                .foregroundStyle(MuxyTheme.fgDim)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var commitArea: some View {

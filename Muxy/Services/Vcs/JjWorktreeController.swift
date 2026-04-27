@@ -39,13 +39,14 @@ struct JjWorktreeController: VcsWorktreeController {
     func removeWorktree(
         repoPath: String,
         path: String,
-        identifier: String?,
+        target: VcsWorktreeRemovalTarget,
         force _: Bool
     ) async throws {
         let resolvedName: String?
-        if let identifier {
-            resolvedName = identifier
-        } else {
+        switch target {
+        case let .identified(name):
+            resolvedName = name
+        case .orphan:
             let entries = try await workspaceList(repoPath)
             let leaf = (path as NSString).lastPathComponent
             resolvedName = entries.first(where: { $0.name == leaf })?.name

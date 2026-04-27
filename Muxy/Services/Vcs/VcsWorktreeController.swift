@@ -1,15 +1,22 @@
 import Foundation
 import MuxyShared
 
+/// Removal target — encodes whether the caller knows the workspace identity
+/// or is sweeping an orphaned directory.
+enum VcsWorktreeRemovalTarget: Sendable {
+    /// Caller has the workspace identifier (e.g. jj workspace name).
+    case identified(String)
+    /// Orphan sweep — caller does not know the identifier; controller may
+    /// fall back to a leaf-name heuristic. For git this case is identical
+    /// to `.identified` (path is the identity).
+    case orphan
+}
+
 /// Worktree CRUD over the active VCS.
 ///
 /// `force` semantics on `removeWorktree`:
 /// - git: `git worktree remove --force` — required to remove worktrees with uncommitted changes
 /// - jj: ignored — `jj workspace forget` always cleans state regardless; no force concept
-///
-/// `identifier` semantics on `removeWorktree`:
-/// - git: ignored (path is the identity)
-/// - jj: workspace name; nil falls back to leaf-name match (orphan-sweep path)
 protocol VcsWorktreeController: Sendable {
     func addWorktree(
         repoPath: String,
@@ -22,7 +29,7 @@ protocol VcsWorktreeController: Sendable {
     func removeWorktree(
         repoPath: String,
         path: String,
-        identifier: String?,
+        target: VcsWorktreeRemovalTarget,
         force: Bool
     ) async throws
 

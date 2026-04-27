@@ -79,7 +79,7 @@ struct JjWorktreeControllerTests {
         try await controller.removeWorktree(
             repoPath: "/repo",
             path: tmp.path,
-            identifier: "feat-x",
+            target: .identified("feat-x"),
             force: true
         )
 
@@ -110,7 +110,7 @@ struct JjWorktreeControllerTests {
             bookmarkCreate: { _, _ in },
             bookmarkForget: { _, _ in }
         )
-        try await controller.removeWorktree(repoPath: "/repo", path: tmp.path, identifier: nil, force: true)
+        try await controller.removeWorktree(repoPath: "/repo", path: tmp.path, target: .orphan, force: true)
 
         let log = await calls.entries
         #expect(log == ["workspace.forget:\(leafName)"])

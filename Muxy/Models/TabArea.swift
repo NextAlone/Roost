@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 @MainActor
 @Observable
@@ -61,6 +62,17 @@ final class TabArea: Identifiable {
 
     func createTab(inDirectory directory: String) {
         insertTab(TerminalTab(pane: TerminalPaneState(projectPath: directory)))
+    }
+
+    func createAgentTab(kind: AgentKind) {
+        let preset = AgentPresetCatalog.preset(for: kind)
+        let pane = TerminalPaneState(
+            projectPath: projectPath,
+            title: preset.kind.displayName,
+            startupCommand: preset.defaultCommand,
+            agentKind: kind
+        )
+        insertTab(TerminalTab(pane: pane))
     }
 
     func createVCSTab() {

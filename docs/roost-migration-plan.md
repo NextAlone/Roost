@@ -234,6 +234,13 @@ Phase 2.2c1 status (2026-04-28):
 - `ExpandedProjectRow` + `WorktreePopover` route `hasUncommittedChanges` through the resolver, dispatching by `worktree.vcsKind`. Behavior unchanged for git worktrees; jj worktrees now get a real status probe (snapshot-isolated `jj status --ignore-working-copy`) instead of an always-stale git answer.
 - Phase 2.2c2/3 remains: `isGitRepository` callers, `VCSTabState.deleteBranch`, sidebar UI badges, `WorktreeDTO` IPC.
 
+Phase 2.2c2 status (2026-04-28):
+
+- `VcsKindDetector.isVcsRepository(at:)` synchronous disk probe added (returns true iff `.jj` or `.git` present). Plan: `docs/superpowers/plans/2026-04-28-phase2-2c2-vcs-repo-probe.md`.
+- `ExpandedProjectRow` and `ProjectRow` swap `await GitWorktreeService.shared.isGitRepository(...)` for the synchronous helper. The `isGitRepo` variable name kept (rename would cascade through `WorktreePopover` and `VCSTabState`); its semantic widens to "any recognized VCS repo".
+- Slight semantic divergence: a path with broken-but-present `.git` previously returned false (per `git rev-parse`); now returns true. Acceptable for sidebar UI gating; full repo-validity is checked when actually invoking VCS commands.
+- Phase 2.2c3 remains: `VCSTabState.deleteBranch` and the broader VCSTabState read-side abstraction.
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

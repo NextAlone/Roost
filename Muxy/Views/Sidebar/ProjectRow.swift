@@ -73,10 +73,10 @@ struct ProjectRow: View {
                 Button("Rename Project") { startRename() }
                 if isVcsRepo {
                     Divider()
-                    Button("Refresh Worktrees") { Task { await refreshWorktrees() } }
-                    Button("New Worktree…") { showCreateWorktreeSheet = true }
+                    Button("Refresh Workspaces") { Task { await refreshWorktrees() } }
+                    Button("New Workspace…") { showCreateWorktreeSheet = true }
                     if worktrees.count > 1 {
-                        Button("Switch Worktree…") { showWorktreePopover = true }
+                        Button("Switch Workspace…") { showWorktreePopover = true }
                     }
                 }
                 Divider()

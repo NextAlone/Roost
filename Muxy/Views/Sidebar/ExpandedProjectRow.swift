@@ -81,8 +81,8 @@ struct ExpandedProjectRow: View {
             Button("Rename Project") { startRename() }
             if isVcsRepo {
                 Divider()
-                Button("Refresh Worktrees") { Task { await refreshWorktrees() } }
-                Button("New Worktree…") { showCreateWorktreeSheet = true }
+                Button("Refresh Workspaces") { Task { await refreshWorktrees() } }
+                Button("New Workspace…") { showCreateWorktreeSheet = true }
             }
             Divider()
             Button("Remove Project", role: .destructive, action: onRemove)
@@ -196,7 +196,7 @@ struct ExpandedProjectRow: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(worktreesExpanded ? "Collapse Worktrees" : "Expand Worktrees")
+        .accessibilityLabel(worktreesExpanded ? "Collapse Workspaces" : "Expand Workspaces")
     }
 
     private var projectIcon: some View {
@@ -301,16 +301,16 @@ struct ExpandedProjectRow: View {
         case let .pathNotJjWorkspace(path):
             return "Selected directory has no .jj/ inside, so it is not a jj workspace: \(path)"
         case let .duplicateName(name):
-            return "A worktree named '\(name)' is already tracked for this project."
+            return "A workspace named '\(name)' is already tracked for this project."
         case let .duplicatePath(path):
-            return "A worktree at this path is already tracked: \(path)"
+            return "A workspace at this path is already tracked: \(path)"
         }
     }
 
     private var projectHeaderAccessibilityLabel: String {
         var label = project.name
         if isVcsRepo, let worktree = activeWorktree {
-            label += ", worktree: \(worktree.isPrimary ? "primary" : worktree.name)"
+            label += ", workspace: \(worktree.isPrimary ? "primary" : worktree.name)"
         }
         return label
     }
@@ -402,8 +402,8 @@ struct ExpandedProjectRow: View {
         else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Remove worktree \"\(worktree.name)\"?"
-        alert.informativeText = "This worktree has uncommitted changes. Removing it will permanently discard them."
+        alert.messageText = "Remove workspace \"\(worktree.name)\"?"
+        alert.informativeText = "This workspace has uncommitted changes. Removing it will permanently discard them."
         alert.alertStyle = .warning
         alert.icon = NSApp.applicationIconImage
         alert.addButton(withTitle: "Remove")
@@ -550,7 +550,7 @@ private struct ExpandedWorktreeRow: View {
         }
         .contextMenu {
             if worktree.isPrimary {
-                Text("Primary worktree").font(.system(size: 11))
+                Text("Primary workspace").font(.system(size: 11))
             } else if let onRemove {
                 Button("Rename") { startRename() }
                 Divider()
@@ -558,7 +558,7 @@ private struct ExpandedWorktreeRow: View {
             } else {
                 Button("Rename") { startRename() }
                 Divider()
-                Text("External worktree").font(.system(size: 11))
+                Text("External workspace").font(.system(size: 11))
             }
         }
         .accessibilityElement(children: .combine)
@@ -615,7 +615,7 @@ private struct ExpandedNewWorktreeButton: View {
                 Image(systemName: "plus")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(hovered ? MuxyTheme.accent : MuxyTheme.fgDim)
-                Text("New Worktree")
+                Text("New Workspace")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(hovered ? MuxyTheme.accent : MuxyTheme.fgDim)
                 Spacer()
@@ -625,7 +625,7 @@ private struct ExpandedNewWorktreeButton: View {
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
-        .accessibilityLabel("New Worktree")
+        .accessibilityLabel("New Workspace")
     }
 }
 

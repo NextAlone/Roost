@@ -65,6 +65,19 @@ actor GitWorktreeService: GitWorktreeListing {
         return !result.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    func statusPorcelainLines(at worktreePath: String) async throws -> [String] {
+        let result = try runGit(
+            repoPath: worktreePath,
+            arguments: ["status", "--porcelain=v1", "--untracked-files=all"]
+        )
+        guard result.status == 0 else {
+            throw GitWorktreeError.commandFailed(
+                result.stderr.isEmpty ? "git status failed" : result.stderr
+            )
+        }
+        return result.stdout.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+    }
+
     func listWorktrees(repoPath: String) async throws -> [GitWorktreeRecord] {
         let result = try runGit(repoPath: repoPath, arguments: ["worktree", "list", "--porcelain"])
         guard result.status == 0 else {

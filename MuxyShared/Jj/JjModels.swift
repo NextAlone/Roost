@@ -59,14 +59,14 @@ public struct JjStatusEntry: Hashable, Sendable, Codable {
 public struct JjStatus: Sendable, Codable {
     public let workingCopy: JjChangeId
     public let parent: JjChangeId?
-    public let description: String
+    public let workingCopySummary: String
     public let entries: [JjStatusEntry]
     public let hasConflicts: Bool
 
-    public init(workingCopy: JjChangeId, parent: JjChangeId?, description: String, entries: [JjStatusEntry], hasConflicts: Bool) {
+    public init(workingCopy: JjChangeId, parent: JjChangeId?, workingCopySummary: String, entries: [JjStatusEntry], hasConflicts: Bool) {
         self.workingCopy = workingCopy
         self.parent = parent
-        self.description = description
+        self.workingCopySummary = workingCopySummary
         self.entries = entries
         self.hasConflicts = hasConflicts
     }

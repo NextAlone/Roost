@@ -21,10 +21,14 @@ struct JjIntegrationTests {
         try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: tmp) }
 
-        let initResult = try await JjProcessRunner.run(
-            repoPath: tmp.path,
-            command: ["git", "init"],
-            snapshot: .allow
+        guard let exec = JjProcessRunner.resolveExecutable() else {
+            Issue.record("jj not found")
+            return
+        }
+        let initResult = try await JjProcessRunner.runRaw(
+            executable: exec,
+            arguments: ["git", "init"],
+            currentDirectory: tmp.path
         )
         #expect(initResult.status == 0, "jj git init failed: \(initResult.stderr)")
 

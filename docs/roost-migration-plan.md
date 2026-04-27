@@ -199,6 +199,13 @@ Exit criteria:
 - Persist and restore active workspace selection.
 - `projects.json` migration round-trips a representative pre-jj fixture.
 
+Phase 2.1 status (2026-04-27):
+
+- `VcsKind` enum (`.git` default) added. `Worktree` extended with `vcsKind: VcsKind` + `currentChangeId: String?`; tolerant `decodeIfPresent` keeps v1 payloads loading as `.git`. Plan: `docs/superpowers/plans/2026-04-27-phase2-1-vcskind-and-projects-migration.md`.
+- `projects.json` now wraps in `{ "schemaVersion": 2, "projects": [...] }`. Reader tolerates v1 bare arrays and unknown future versions; writer always emits v2. End-to-end round-trip integration test covers v1 fixture → v2 envelope.
+- `VcsKindDetector` probes `.jj` then `.git` on disk; `WorktreeStore.makePrimary` stamps the result on each project's primary `Worktree`.
+- Phase 2.2 (routing) remains: dispatch `WorktreeStore.refresh` and `RemoteServerDelegate.vcsCreateWorktree` by `vcsKind`, surface jj workspaces in the sidebar, and update `WorktreeDTO` IPC for mobile awareness.
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

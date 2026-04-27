@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 @MainActor
 @Observable
@@ -101,7 +102,13 @@ final class TerminalTab: Identifiable {
         isPinned = snapshot.isPinned
         switch snapshot.kind {
         case .terminal:
-            content = .terminal(TerminalPaneState(projectPath: snapshot.projectPath, title: snapshot.paneTitle))
+            content = .terminal(TerminalPaneState(
+                projectPath: snapshot.projectPath,
+                title: snapshot.paneTitle,
+                startupCommand: snapshot.startupCommand,
+                agentKind: snapshot.agentKind,
+                createdAt: snapshot.createdAt
+            ))
         case .vcs:
             content = .vcs(VCSTabState(projectPath: snapshot.projectPath))
         case .editor:
@@ -123,7 +130,10 @@ final class TerminalTab: Identifiable {
             isPinned: isPinned,
             projectPath: content.projectPath,
             paneTitle: content.pane?.title,
-            filePath: content.editorState?.filePath
+            filePath: content.editorState?.filePath,
+            agentKind: content.pane?.agentKind ?? .terminal,
+            startupCommand: content.pane?.startupCommand,
+            createdAt: content.pane?.createdAt ?? Date()
         )
     }
 }

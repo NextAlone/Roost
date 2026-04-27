@@ -22,7 +22,7 @@ struct CreateWorktreeSheet: View {
     @State private var errorMessage: String?
 
     private let gitRepository = GitRepositoryService()
-    private let gitWorktree = GitWorktreeService.shared
+    @Environment(\.vcsWorktreeControllerResolver) private var vcsResolver
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -214,12 +214,15 @@ struct CreateWorktreeSheet: View {
             return
         }
 
+        let kind = await MainActor.run { worktreeStore.primary(for: project.id)?.vcsKind ?? .default }
+        let controller = vcsResolver.controller(kind)
         do {
-            try await gitWorktree.addWorktree(
+            try await controller.addWorktree(
                 repoPath: project.path,
+                name: trimmedName,
                 path: worktreeDirectory,
-                branch: branch,
-                createBranch: createNewBranch
+                ref: branch,
+                createRef: createNewBranch
             )
         } catch {
             await MainActor.run {
@@ -234,7 +237,8 @@ struct CreateWorktreeSheet: View {
             path: worktreeDirectory,
             branch: branch,
             ownsBranch: createNewBranch,
-            isPrimary: false
+            isPrimary: false,
+            vcsKind: kind
         )
         await MainActor.run {
             worktreeStore.add(worktree, to: project.id)

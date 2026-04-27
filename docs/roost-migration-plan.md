@@ -241,6 +241,12 @@ Phase 2.2c2 status (2026-04-28):
 - Slight semantic divergence: a path with broken-but-present `.git` previously returned false (per `git rev-parse`); now returns true. Acceptable for sidebar UI gating; full repo-validity is checked when actually invoking VCS commands.
 - Phase 2.2c3 remains: `VCSTabState.deleteBranch` and the broader VCSTabState read-side abstraction.
 
+Phase 2.2c3 status (2026-04-28):
+
+- `VCSTabState.deleteLocalBranch` routes through `VcsWorktreeControllerResolver.default` after a `VcsKindDetector.detect` lookup on `projectPath`. The git path is unchanged; jj projects now route to `JjBookmarkService.forget` via the controller's `deleteRef`.
+- VCSTabState's read-side (branch listing, commit log, status, PR view, etc.) remains git-only. Full abstraction is deferred — VCSTabState is 1170+ lines of git-coupled state where extracting a `VcsRepositoryView` protocol is its own multi-task plan. UI labels will continue saying "branch" even for jj's bookmarks until that abstraction lands.
+- Phase 2.2d remains: `WorktreeDTO` mobile IPC carries `vcsKind`, sidebar gets visual jj badges, optional `branch` label refinement.
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

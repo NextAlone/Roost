@@ -62,6 +62,16 @@ enum JjStatusParser {
         )
     }
 
+    static func parseSummaryEntries(_ raw: String) throws -> [JjStatusEntry] {
+        var entries: [JjStatusEntry] = []
+        for line in raw.split(separator: "\n", omittingEmptySubsequences: true) {
+            if let entry = parseChangeLine(String(line)) {
+                entries.append(entry)
+            }
+        }
+        return entries
+    }
+
     private static func parseLabeledLine(_ s: String, label: String) throws -> ChangeLinePrefix? {
         guard s.hasPrefix(label) else { return nil }
         let rest = String(s.dropFirst(label.count))

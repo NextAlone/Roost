@@ -403,6 +403,15 @@ Exit criteria:
 - Sidebar shows colored dot badges next to workspace names (no badge for `.clean`/`.unknown`; orange for dirty, red for conflicted).
 - Phase 4c (session list under workspace) and Phase 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
 
+**Status (2026-04-28): Phase 4c (session list) landed.**
+
+- Sidebar workspace rows are now double-click expandable to reveal their sessions.
+- Each session shows an SF Symbol icon per `AgentKind` (`terminal`, `sparkles`, `brain`, `star.circle`, `hammer`) plus the tab title.
+- Clicking a session row activates that workspace and selects that tab via `appState.dispatch(.selectTab(...))`.
+- `AppState.allTabs(forKey:)` flattens a workspace's tabs across split panes.
+- Session lifecycle state (running / idle / exited / errored) **deferred** to a Phase 4c.5 follow-up (requires GhosttyTerminalNSView lifecycle hooks). Not blocking Phase 4d.
+- Phase 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
+
 ## Phase 5: jj Changes Panel
 
 Goal: replace Git-first VCS behavior with jj-first review behavior.

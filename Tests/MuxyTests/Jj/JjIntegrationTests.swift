@@ -21,12 +21,12 @@ struct JjIntegrationTests {
         #expect(initResult.status == 0, "jj git init failed: \(initResult.stderr)")
 
         let svc = JjRepositoryService()
-        #expect(try await svc.isJjRepo(path: tmp.path))
+        #expect(try await svc.isJjRepo(repoPath: tmp.path))
 
-        let v = try await svc.version(path: tmp.path)
+        let v = try await svc.version()
         #expect(v >= JjVersion.minimumSupported, "jj version \(v) below minimum")
 
-        let opId = try await svc.currentOpId(path: tmp.path)
+        let opId = try await svc.currentOpId(repoPath: tmp.path)
         #expect(!opId.isEmpty)
 
         let statusResult = try await JjProcessRunner.run(

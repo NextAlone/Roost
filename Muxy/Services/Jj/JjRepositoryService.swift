@@ -1,13 +1,6 @@
 import Foundation
 import MuxyShared
 
-public typealias JjRunFn = @Sendable (
-    _ repoPath: String,
-    _ command: [String],
-    _ snapshot: JjSnapshotPolicy,
-    _ atOp: String?
-) async throws -> JjProcessResult
-
 public struct JjRepositoryService: Sendable {
     private let runner: JjRunFn
 
@@ -22,13 +15,16 @@ public struct JjRepositoryService: Sendable {
         self.runner = runner
     }
 
-    public func isJjRepo(path: String) async throws -> Bool {
-        let result = try await runner(path, ["root"], .ignore, nil)
+    public func isJjRepo(repoPath: String) async throws -> Bool {
+        let result = try await runner(repoPath, ["root"], .ignore, nil)
         return result.status == 0
     }
 
-    public func version(path: String) async throws -> JjVersion {
-        let result = try await runner(path, ["--version"], .ignore, nil)
+    public func version() async throws -> JjVersion {
+        guard let exec = JjProcessRunner.resolveExecutable() else {
+            throw JjProcessError.launchFailed("jj not found on PATH")
+        }
+        let result = try await JjProcessRunner.runRaw(executable: exec, arguments: ["--version"])
         guard result.status == 0 else {
             throw JjProcessError.nonZeroExit(status: result.status, stderr: result.stderr)
         }
@@ -36,9 +32,9 @@ public struct JjRepositoryService: Sendable {
         return try JjVersion.parse(raw)
     }
 
-    public func currentOpId(path: String) async throws -> String {
+    public func currentOpId(repoPath: String) async throws -> String {
         let result = try await runner(
-            path,
+            repoPath,
             ["op", "log", "-n", "1", "--no-graph", "-T", JjOpLogParser.template],
             .ignore,
             nil

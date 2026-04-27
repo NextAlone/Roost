@@ -232,7 +232,7 @@ struct VCSTabView: View {
             .popover(isPresented: $showWorktreePopover, arrowEdge: .top) {
                 WorktreePopover(
                     project: project,
-                    isGitRepo: state.isGitRepo,
+                    isVcsRepo: state.isGitRepo,
                     onDismiss: { showWorktreePopover = false },
                     onRequestCreate: {
                         showWorktreePopover = false

@@ -1,12 +1,12 @@
 import Foundation
 import MuxyShared
 
-public enum JjWorkspaceParseError: Error, Sendable {
+enum JjWorkspaceParseError: Error, Sendable {
     case malformedLine(String)
 }
 
-public enum JjWorkspaceParser {
-    public static func parse(_ raw: String) throws -> [JjWorkspaceEntry] {
+enum JjWorkspaceParser {
+    static func parse(_ raw: String) throws -> [JjWorkspaceEntry] {
         var entries: [JjWorkspaceEntry] = []
         for line in raw.split(separator: "\n", omittingEmptySubsequences: true) {
             let s = String(line)

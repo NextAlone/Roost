@@ -1,27 +1,27 @@
 import Foundation
 
-public enum JjSnapshotPolicy: Sendable {
+enum JjSnapshotPolicy: Sendable {
     case ignore
     case allow
 }
 
-public struct JjProcessResult: Sendable {
-    public let status: Int32
-    public let stdout: Data
-    public let stderr: String
+struct JjProcessResult: Sendable {
+    let status: Int32
+    let stdout: Data
+    let stderr: String
 }
 
-public enum JjProcessError: Error, Sendable {
+enum JjProcessError: Error, Sendable {
     case launchFailed(String)
     case nonZeroExit(status: Int32, stderr: String)
 }
 
-public enum JjProcessRunner {
-    public static let allowedInheritedKeys: Set<String> = [
+enum JjProcessRunner {
+    static let allowedInheritedKeys: Set<String> = [
         "HOME", "PATH", "USER", "LOGNAME", "TMPDIR", "JJ_CONFIG",
     ]
 
-    public static func buildEnvironment(inherited: [String: String]) -> [String: String] {
+    static func buildEnvironment(inherited: [String: String]) -> [String: String] {
         var env: [String: String] = [:]
         for (key, value) in inherited where allowedInheritedKeys.contains(key) {
             env[key] = value
@@ -35,7 +35,7 @@ public enum JjProcessRunner {
         return env
     }
 
-    public static func buildArguments(
+    static func buildArguments(
         repoPath: String,
         command: [String],
         snapshot: JjSnapshotPolicy,
@@ -61,7 +61,7 @@ extension JjProcessRunner {
         "/bin",
     ]
 
-    public static func resolveExecutable() -> String? {
+    static func resolveExecutable() -> String? {
         for directory in searchPaths {
             let path = "\(directory)/jj"
             if FileManager.default.isExecutableFile(atPath: path) {
@@ -71,7 +71,7 @@ extension JjProcessRunner {
         return nil
     }
 
-    public static func run(
+    static func run(
         repoPath: String,
         command: [String],
         snapshot: JjSnapshotPolicy,
@@ -126,7 +126,7 @@ extension JjProcessRunner {
     }
 }
 
-public typealias JjRunFn = @Sendable (
+typealias JjRunFn = @Sendable (
     _ repoPath: String,
     _ command: [String],
     _ snapshot: JjSnapshotPolicy,
@@ -134,7 +134,7 @@ public typealias JjRunFn = @Sendable (
 ) async throws -> JjProcessResult
 
 extension JjProcessRunner {
-    public static func runRaw(
+    static func runRaw(
         executable: String,
         arguments: [String]
     ) async throws -> JjProcessResult {

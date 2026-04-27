@@ -1,10 +1,10 @@
 import Foundation
 import MuxyShared
 
-public struct JjRepositoryService: Sendable {
+struct JjRepositoryService: Sendable {
     private let runner: JjRunFn
 
-    public init(runner: @escaping JjRunFn = { repoPath, command, snapshot, atOp in
+    init(runner: @escaping JjRunFn = { repoPath, command, snapshot, atOp in
         try await JjProcessRunner.run(
             repoPath: repoPath,
             command: command,
@@ -15,12 +15,12 @@ public struct JjRepositoryService: Sendable {
         self.runner = runner
     }
 
-    public func isJjRepo(repoPath: String) async throws -> Bool {
+    func isJjRepo(repoPath: String) async throws -> Bool {
         let result = try await runner(repoPath, ["root"], .ignore, nil)
         return result.status == 0
     }
 
-    public func version() async throws -> JjVersion {
+    func version() async throws -> JjVersion {
         guard let exec = JjProcessRunner.resolveExecutable() else {
             throw JjProcessError.launchFailed("jj not found on PATH")
         }
@@ -32,7 +32,7 @@ public struct JjRepositoryService: Sendable {
         return try JjVersion.parse(raw)
     }
 
-    public func currentOpId(repoPath: String) async throws -> String {
+    func currentOpId(repoPath: String) async throws -> String {
         let result = try await runner(
             repoPath,
             ["op", "log", "-n", "1", "--no-graph", "-T", JjOpLogParser.template],

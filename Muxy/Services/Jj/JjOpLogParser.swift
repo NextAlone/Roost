@@ -1,14 +1,14 @@
 import Foundation
 import MuxyShared
 
-public enum JjOpLogParseError: Error, Sendable {
+enum JjOpLogParseError: Error, Sendable {
     case malformedLine(String)
 }
 
-public enum JjOpLogParser {
-    public static let template = #"self.id().short() ++ "\t" ++ self.time().end().format("%Y-%m-%dT%H:%M:%S%:z") ++ "\t" ++ self.description() ++ "\n""#
+enum JjOpLogParser {
+    static let template = #"self.id().short() ++ "\t" ++ self.time().end().format("%Y-%m-%dT%H:%M:%S%:z") ++ "\t" ++ self.description() ++ "\n""#
 
-    public static func parse(_ raw: String) throws -> [JjOperation] {
+    static func parse(_ raw: String) throws -> [JjOperation] {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withTimeZone]
         var ops: [JjOperation] = []

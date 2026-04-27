@@ -253,7 +253,7 @@ struct MuxyCommands: Commands {
 
             Divider()
 
-            Button("Switch Worktree...") {
+            Button("Switch Workspace...") {
                 guard isMainWindowFocused else { return }
                 performShortcutAction(.switchWorktree)
             }

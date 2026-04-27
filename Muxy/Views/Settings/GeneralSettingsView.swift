@@ -16,10 +16,10 @@ struct GeneralSettingsView: View {
         SettingsContainer {
             SettingsSection(
                 "Sidebar",
-                footer: "Automatically reveal worktrees when you switch to a project."
+                footer: "Automatically reveal workspaces when you switch to a project."
             ) {
                 SettingsToggleRow(
-                    label: "Auto-expand worktrees on project switch",
+                    label: "Auto-expand workspaces on project switch",
                     isOn: $autoExpandWorktrees
                 )
             }

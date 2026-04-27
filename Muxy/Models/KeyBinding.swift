@@ -157,7 +157,7 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
         case .newGeminiCliTab: ShortcutMetadata(displayName: "New Gemini CLI Tab", category: "Tabs", scope: .mainWindow)
         case .newOpenCodeTab: ShortcutMetadata(displayName: "New OpenCode Tab", category: "Tabs", scope: .mainWindow)
         case .quickOpen: ShortcutMetadata(displayName: "Quick Open", category: "App", scope: .mainWindow)
-        case .switchWorktree: ShortcutMetadata(displayName: "Switch Worktree", category: "Project Navigation", scope: .mainWindow)
+        case .switchWorktree: ShortcutMetadata(displayName: "Switch Workspace", category: "Project Navigation", scope: .mainWindow)
         case .saveFile: ShortcutMetadata(displayName: "Save File", category: "Editor", scope: .mainWindow)
         case .toggleSidebar: ShortcutMetadata(displayName: "Toggle Sidebar", category: "App", scope: .mainWindow)
         case .toggleFileTree: ShortcutMetadata(displayName: "Toggle File Tree", category: "App", scope: .mainWindow)

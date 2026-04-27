@@ -1,17 +1,27 @@
 import CoreServices
 import Foundation
+import MuxyShared
 
-final class GitDirectoryWatcher: @unchecked Sendable {
-    private let queue = DispatchQueue(label: "app.muxy.git-watcher", qos: .utility)
+final class VcsDirectoryWatcher: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "app.muxy.vcs-watcher", qos: .utility)
     private var stream: FSEventStreamRef?
     private var debounceWork: DispatchWorkItem?
     private var handler: (@Sendable () -> Void)?
+    private let vcsKind: VcsKind
 
-    init?(directoryPath: String, handler: @escaping @Sendable () -> Void) {
-        let gitPath = (directoryPath as NSString).appendingPathComponent(".git")
-        guard FileManager.default.fileExists(atPath: gitPath) else { return nil }
+    init?(directoryPath: String, vcsKind: VcsKind = .default, handler: @escaping @Sendable () -> Void) {
+        let metaDir: String
+        switch vcsKind {
+        case .git:
+            metaDir = ".git"
+        case .jj:
+            metaDir = ".jj"
+        }
+        let metaPath = (directoryPath as NSString).appendingPathComponent(metaDir)
+        guard FileManager.default.fileExists(atPath: metaPath) else { return nil }
 
         self.handler = handler
+        self.vcsKind = vcsKind
 
         var context = FSEventStreamContext()
         context.info = Unmanaged.passUnretained(self).toOpaque()
@@ -21,15 +31,13 @@ final class GitDirectoryWatcher: @unchecked Sendable {
             nil,
             { _, clientInfo, numEvents, eventPaths, eventFlags, _ in
                 guard let clientInfo, numEvents > 0 else { return }
-                let watcher = Unmanaged<GitDirectoryWatcher>.fromOpaque(clientInfo).takeUnretainedValue()
+                let watcher = Unmanaged<VcsDirectoryWatcher>.fromOpaque(clientInfo).takeUnretainedValue()
                 guard let paths = Unmanaged<CFArray>.fromOpaque(eventPaths).takeUnretainedValue() as? [String]
                 else { return }
                 let flags = Array(UnsafeBufferPointer(start: eventFlags, count: numEvents))
 
                 let dominated = zip(paths, flags).allSatisfy { path, flag in
-                    let isGitInternal = path.contains("/.git/")
-                    let isLockFile = path.hasSuffix(".lock")
-                    return isGitInternal && isLockFile || flag & UInt32(kFSEventStreamEventFlagItemIsDir) != 0 && isGitInternal
+                    watcher.isNoise(path: path, flag: flag)
                 }
                 guard !dominated else { return }
 
@@ -55,6 +63,21 @@ final class GitDirectoryWatcher: @unchecked Sendable {
         FSEventStreamStop(stream)
         FSEventStreamInvalidate(stream)
         FSEventStreamRelease(stream)
+    }
+
+    private func isNoise(path: String, flag: UInt32) -> Bool {
+        let isDir = flag & UInt32(kFSEventStreamEventFlagItemIsDir) != 0
+        switch vcsKind {
+        case .git:
+            let isGitInternal = path.contains("/.git/")
+            let isLockFile = path.hasSuffix(".lock")
+            return isGitInternal && (isLockFile || isDir)
+        case .jj:
+            let isWorkingCopyState = path.contains("/.jj/working_copy/")
+            let isOpStore = path.contains("/.jj/repo/op_store/")
+            let isIndexCache = path.contains("/.jj/repo/index/")
+            return isWorkingCopyState || isOpStore || isIndexCache
+        }
     }
 
     private func scheduleRefresh() {

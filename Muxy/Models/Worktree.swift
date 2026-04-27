@@ -17,6 +17,7 @@ struct Worktree: Identifiable, Codable, Hashable {
     var createdAt: Date
     var vcsKind: VcsKind
     var currentChangeId: String?
+    var jjWorkspaceName: String?
 
     init(
         id: UUID = UUID(),
@@ -28,7 +29,8 @@ struct Worktree: Identifiable, Codable, Hashable {
         isPrimary: Bool,
         createdAt: Date = Date(),
         vcsKind: VcsKind = .default,
-        currentChangeId: String? = nil
+        currentChangeId: String? = nil,
+        jjWorkspaceName: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -40,6 +42,7 @@ struct Worktree: Identifiable, Codable, Hashable {
         self.createdAt = createdAt
         self.vcsKind = vcsKind
         self.currentChangeId = currentChangeId
+        self.jjWorkspaceName = jjWorkspaceName
     }
 
     var isExternallyManaged: Bool {
@@ -61,6 +64,7 @@ struct Worktree: Identifiable, Codable, Hashable {
         case createdAt
         case vcsKind
         case currentChangeId
+        case jjWorkspaceName
     }
 
     init(from decoder: Decoder) throws {
@@ -75,5 +79,6 @@ struct Worktree: Identifiable, Codable, Hashable {
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         vcsKind = try container.decodeIfPresent(VcsKind.self, forKey: .vcsKind) ?? .default
         currentChangeId = try container.decodeIfPresent(String.self, forKey: .currentChangeId)
+        jjWorkspaceName = try container.decodeIfPresent(String.self, forKey: .jjWorkspaceName)
     }
 }

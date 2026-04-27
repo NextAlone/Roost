@@ -59,7 +59,36 @@ struct JjWorktreeControllerTests {
         ])
     }
 
-    @Test("removeWorktree calls workspace forget by inferred leaf name + deletes path")
+    @Test("removeWorktree with explicit identifier calls workspace forget by name + deletes path")
+    func removeByIdentifier() async throws {
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory.appendingPathComponent("jjctrl-id-\(UUID().uuidString)")
+        try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: tmp) }
+
+        let calls = JjControllerCallLog()
+        let controller = JjWorktreeController(
+            workspaceList: { _ in [] },
+            workspaceAdd: { _, _, _ in },
+            workspaceForget: { _, name in
+                await calls.append("workspace.forget:\(name)")
+            },
+            bookmarkCreate: { _, _ in },
+            bookmarkForget: { _, _ in }
+        )
+        try await controller.removeWorktree(
+            repoPath: "/repo",
+            path: tmp.path,
+            identifier: "feat-x",
+            force: true
+        )
+
+        let log = await calls.entries
+        #expect(log == ["workspace.forget:feat-x"])
+        #expect(fm.fileExists(atPath: tmp.path) == false)
+    }
+
+    @Test("removeWorktree without identifier falls back to leaf-name match")
     func removeByPath() async throws {
         let fm = FileManager.default
         let tmp = fm.temporaryDirectory.appendingPathComponent("jjctrl-\(UUID().uuidString)")
@@ -81,7 +110,7 @@ struct JjWorktreeControllerTests {
             bookmarkCreate: { _, _ in },
             bookmarkForget: { _, _ in }
         )
-        try await controller.removeWorktree(repoPath: "/repo", path: tmp.path, force: true)
+        try await controller.removeWorktree(repoPath: "/repo", path: tmp.path, identifier: nil, force: true)
 
         let log = await calls.entries
         #expect(log == ["workspace.forget:\(leafName)"])

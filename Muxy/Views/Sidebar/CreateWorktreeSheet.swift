@@ -251,7 +251,8 @@ struct CreateWorktreeSheet: View {
             branch: branch,
             ownsBranch: createNewBranch,
             isPrimary: false,
-            vcsKind: kind
+            vcsKind: kind,
+            jjWorkspaceName: kind == .jj ? trimmedName : nil
         )
         await MainActor.run {
             worktreeStore.add(worktree, to: project.id)

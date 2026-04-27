@@ -475,7 +475,8 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
             branch: trimmedBranch,
             ownsBranch: createBranch,
             isPrimary: false,
-            vcsKind: kind
+            vcsKind: kind,
+            jjWorkspaceName: kind == .jj ? trimmedName : nil
         )
         worktreeStore.add(worktree, to: project.id)
         return worktree.toDTO()

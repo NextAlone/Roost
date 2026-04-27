@@ -217,6 +217,7 @@ final class WorktreeStore {
             try await controller.removeWorktree(
                 repoPath: repoPath,
                 path: worktree.path,
+                identifier: worktree.jjWorkspaceName,
                 force: true
             )
         } catch {
@@ -255,6 +256,7 @@ final class WorktreeStore {
             try? await controller.removeWorktree(
                 repoPath: project.path,
                 path: childPath,
+                identifier: nil,
                 force: true
             )
             try? FileManager.default.removeItem(atPath: childPath)

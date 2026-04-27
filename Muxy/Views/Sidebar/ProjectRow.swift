@@ -58,7 +58,7 @@ struct ProjectRow: View {
                 onSelect()
             }
             .task(id: project.path) {
-                isGitRepo = await GitWorktreeService.shared.isGitRepository(project.path)
+                isGitRepo = VcsKindDetector.isVcsRepository(at: project.path)
             }
             .contextMenu {
                 Button("Set Logo...") { pickLogoImage() }

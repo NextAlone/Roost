@@ -57,7 +57,7 @@ struct ExpandedProjectRow: View {
             }
         }
         .task(id: project.path) {
-            isGitRepo = await GitWorktreeService.shared.isGitRepository(project.path)
+            isGitRepo = VcsKindDetector.isVcsRepository(at: project.path)
             if autoExpandWorktrees, isActive, isGitRepo {
                 worktreesExpanded = true
             }

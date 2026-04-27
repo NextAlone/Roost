@@ -412,6 +412,14 @@ Exit criteria:
 - Session lifecycle state (running / idle / exited / errored) **deferred** to a Phase 4c.5 follow-up (requires GhosttyTerminalNSView lifecycle hooks). Not blocking Phase 4d.
 - Phase 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
 
+**Status (2026-04-28): Phase 4d (`requiresDedicatedWorkspace` enforcement) landed.**
+
+- `ShortcutActionDispatcher.shouldRouteToWorkspaceCreation(kind:presetLookup:)` exposes the routing decision as a pure helper for testing.
+- When `AgentPreset.requiresDedicatedWorkspace == true`, `performAgentTab` posts `.requestCreateWorkspaceForAgent` (carrying `kind.rawValue` in userInfo) instead of creating the tab in the active workspace.
+- Sidebar rows (`ExpandedProjectRow`, `ProjectRow`) observe the notification, store `pendingAgentKind`, and present `CreateWorktreeSheet`. On successful workspace creation, the new workspace is activated and an agent tab of the pending kind is opened inside it.
+- All built-in presets remain `requiresDedicatedWorkspace = false` — Phase 4d adds the routing scaffold without changing default UX. User-configurable presets land in Phase 7.
+- **Phase 4 complete.** Phase 4c.5 (session lifecycle state badges) remains as an optional follow-up requiring GhosttyTerminalNSView lifecycle hooks.
+
 ## Phase 5: jj Changes Panel
 
 Goal: replace Git-first VCS behavior with jj-first review behavior.

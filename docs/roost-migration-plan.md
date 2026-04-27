@@ -206,6 +206,14 @@ Phase 2.1 status (2026-04-27):
 - `VcsKindDetector` probes `.jj` then `.git` on disk; `WorktreeStore.makePrimary` stamps the result on each project's primary `Worktree`.
 - Phase 2.2 (routing) remains: dispatch `WorktreeStore.refresh` and `RemoteServerDelegate.vcsCreateWorktree` by `vcsKind`, surface jj workspaces in the sidebar, and update `WorktreeDTO` IPC for mobile awareness.
 
+Phase 2.2a status (2026-04-27):
+
+- `WorktreeStore.refresh(project:)` dispatches by primary `Worktree.vcsKind`. Git path retains existing `refreshFromGit` behavior; new `refreshJj` updates tracked Worktrees' `currentChangeId` from `jj workspace list` and prunes stale `.muxy` entries by name. Plan: `docs/superpowers/plans/2026-04-27-phase2-2a-worktree-refresh-dispatch.md`.
+- `JjWorkspaceParser` now consumes a tab-separated template (`name\tchange_id`) — gives full 32-char change_id without bracket parsing.
+- `WorktreeRefreshHelper` (single existing caller) routed through the dispatcher; no UI behavior change.
+- External jj workspace path discovery deferred (Phase 2.2c).
+- Phase 2.2b remains: dispatch worktree create/remove via a `VcsWorktreeController` protocol; `RemoteServerDelegate.vcsCreateWorktree` and `CreateWorktreeSheet` consume the controller.
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

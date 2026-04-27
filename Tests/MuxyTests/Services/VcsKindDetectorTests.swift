@@ -58,4 +58,26 @@ struct VcsKindDetectorTests {
     func nonexistent() {
         #expect(VcsKindDetector.detect(at: "/this/path/should/not/exist/abc") == .git)
     }
+
+    @Test("WorktreeStore primary worktree picks up disk vcsKind on jj repo")
+    func primaryStampedJj() throws {
+        let dir = makeTempDir()
+        defer { try? fm.removeItem(at: dir) }
+        try fm.createDirectory(at: dir.appendingPathComponent(".jj"), withIntermediateDirectories: true)
+
+        let project = Project(name: "P", path: dir.path, sortOrder: 0)
+        let kind = VcsKindDetector.detect(at: project.path)
+        #expect(kind == .jj)
+    }
+
+    @Test("WorktreeStore primary worktree picks up disk vcsKind on git repo")
+    func primaryStampedGit() throws {
+        let dir = makeTempDir()
+        defer { try? fm.removeItem(at: dir) }
+        try fm.createDirectory(at: dir.appendingPathComponent(".git"), withIntermediateDirectories: true)
+
+        let project = Project(name: "P", path: dir.path, sortOrder: 0)
+        let kind = VcsKindDetector.detect(at: project.path)
+        #expect(kind == .git)
+    }
 }

@@ -261,7 +261,8 @@ final class WorktreeStore {
             path: project.path,
             branch: nil,
             source: .muxy,
-            isPrimary: true
+            isPrimary: true,
+            vcsKind: VcsKindDetector.detect(at: project.path)
         )
     }
 

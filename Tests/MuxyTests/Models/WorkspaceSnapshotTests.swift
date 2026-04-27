@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import MuxyShared
 
 @testable import Roost
 
@@ -343,5 +344,44 @@ struct WorkspaceSnapshotTests {
         #expect(restored.projectPath == area.projectPath)
         #expect(restored.tabs.count == area.tabs.count)
         #expect(restored.tabs[0].isPinned == true)
+    }
+
+    @Test("legacy snapshot without agentKind decodes as .terminal")
+    func legacyDecodes() throws {
+        let json = """
+        {
+          "kind": "terminal",
+          "customTitle": null,
+          "colorID": null,
+          "isPinned": false,
+          "projectPath": "/tmp/p",
+          "paneTitle": "Terminal",
+          "filePath": null
+        }
+        """
+        let snap = try JSONDecoder().decode(TerminalTabSnapshot.self, from: Data(json.utf8))
+        #expect(snap.agentKind == .terminal)
+        #expect(snap.startupCommand == nil)
+    }
+
+    @Test("agent snapshot round-trips agentKind + startupCommand")
+    func agentRoundTrips() throws {
+        let original = TerminalTabSnapshot(
+            kind: .terminal,
+            customTitle: nil,
+            colorID: nil,
+            isPinned: false,
+            projectPath: "/tmp/wt",
+            paneTitle: "Claude Code",
+            filePath: nil,
+            agentKind: .claudeCode,
+            startupCommand: "claude",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(TerminalTabSnapshot.self, from: data)
+        #expect(decoded.agentKind == .claudeCode)
+        #expect(decoded.startupCommand == "claude")
+        #expect(decoded.createdAt == original.createdAt)
     }
 }

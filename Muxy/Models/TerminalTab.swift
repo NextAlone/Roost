@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 @MainActor
 @Observable
@@ -104,7 +105,11 @@ final class TerminalTab: Identifiable {
             content = .terminal(TerminalPaneState(
                 projectPath: snapshot.projectPath,
                 title: snapshot.paneTitle,
-                initialWorkingDirectory: snapshot.currentWorkingDirectory
+                initialWorkingDirectory: snapshot.currentWorkingDirectory,
+                startupCommand: snapshot.startupCommand,
+                startupCommandInteractive: snapshot.startupCommand != nil,
+                agentKind: snapshot.agentKind,
+                createdAt: snapshot.createdAt
             ))
         case .vcs:
             content = .vcs(VCSTabState(projectPath: snapshot.projectPath))
@@ -128,7 +133,10 @@ final class TerminalTab: Identifiable {
             projectPath: content.projectPath,
             paneTitle: content.pane?.title,
             filePath: content.editorState?.filePath,
-            currentWorkingDirectory: content.pane?.currentWorkingDirectory
+            currentWorkingDirectory: content.pane?.currentWorkingDirectory,
+            agentKind: content.pane?.agentKind ?? .terminal,
+            startupCommand: content.pane?.startupCommand,
+            createdAt: content.pane?.createdAt ?? Date()
         )
     }
 }

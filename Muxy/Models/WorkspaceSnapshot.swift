@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 struct WorkspaceSnapshot: Codable {
     let projectID: UUID
@@ -106,6 +107,9 @@ struct TerminalTabSnapshot: Codable {
     let paneTitle: String
     let filePath: String?
     let currentWorkingDirectory: String?
+    let agentKind: AgentKind
+    let startupCommand: String?
+    let createdAt: Date
 
     init(
         kind: TerminalTab.Kind,
@@ -115,7 +119,10 @@ struct TerminalTabSnapshot: Codable {
         projectPath: String,
         paneTitle: String?,
         filePath: String? = nil,
-        currentWorkingDirectory: String? = nil
+        currentWorkingDirectory: String? = nil,
+        agentKind: AgentKind = .terminal,
+        startupCommand: String? = nil,
+        createdAt: Date = Date()
     ) {
         self.kind = kind
         self.customTitle = customTitle
@@ -125,6 +132,9 @@ struct TerminalTabSnapshot: Codable {
         self.paneTitle = paneTitle ?? "Terminal"
         self.filePath = filePath
         self.currentWorkingDirectory = currentWorkingDirectory
+        self.agentKind = agentKind
+        self.startupCommand = startupCommand
+        self.createdAt = createdAt
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -136,6 +146,9 @@ struct TerminalTabSnapshot: Codable {
         case paneTitle
         case filePath
         case currentWorkingDirectory
+        case agentKind
+        case startupCommand
+        case createdAt
     }
 
     init(from decoder: Decoder) throws {
@@ -148,6 +161,9 @@ struct TerminalTabSnapshot: Codable {
         paneTitle = try container.decodeIfPresent(String.self, forKey: .paneTitle) ?? "Terminal"
         filePath = try container.decodeIfPresent(String.self, forKey: .filePath)
         currentWorkingDirectory = try container.decodeIfPresent(String.self, forKey: .currentWorkingDirectory)
+        agentKind = try container.decodeIfPresent(AgentKind.self, forKey: .agentKind) ?? .terminal
+        startupCommand = try container.decodeIfPresent(String.self, forKey: .startupCommand)
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 }
 

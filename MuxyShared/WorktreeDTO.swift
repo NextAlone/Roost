@@ -8,6 +8,7 @@ public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
     public var isPrimary: Bool
     public var canBeRemoved: Bool
     public var createdAt: Date
+    public var vcsKind: VcsKind
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -17,6 +18,7 @@ public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
         case isPrimary
         case canBeRemoved
         case createdAt
+        case vcsKind
     }
 
     public init(
@@ -26,7 +28,8 @@ public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
         branch: String? = nil,
         isPrimary: Bool,
         canBeRemoved: Bool? = nil,
-        createdAt: Date
+        createdAt: Date,
+        vcsKind: VcsKind = .default
     ) {
         self.id = id
         self.name = name
@@ -35,6 +38,7 @@ public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
         self.isPrimary = isPrimary
         self.canBeRemoved = canBeRemoved ?? !isPrimary
         self.createdAt = createdAt
+        self.vcsKind = vcsKind
     }
 
     public init(from decoder: Decoder) throws {
@@ -46,5 +50,6 @@ public struct WorktreeDTO: Identifiable, Codable, Hashable, Sendable {
         isPrimary = try container.decode(Bool.self, forKey: .isPrimary)
         canBeRemoved = try container.decodeIfPresent(Bool.self, forKey: .canBeRemoved) ?? !isPrimary
         createdAt = try container.decode(Date.self, forKey: .createdAt)
+        vcsKind = try container.decodeIfPresent(VcsKind.self, forKey: .vcsKind) ?? .default
     }
 }

@@ -8,6 +8,7 @@ final class VcsDirectoryWatcher: @unchecked Sendable {
     private var debounceWork: DispatchWorkItem?
     private var handler: (@Sendable () -> Void)?
     private let vcsKind: VcsKind
+    private let metaPathCanonical: String
 
     init?(directoryPath: String, vcsKind: VcsKind = .default, handler: @escaping @Sendable () -> Void) {
         let metaDir: String
@@ -22,6 +23,10 @@ final class VcsDirectoryWatcher: @unchecked Sendable {
 
         self.handler = handler
         self.vcsKind = vcsKind
+        self.metaPathCanonical = URL(fileURLWithPath: metaPath)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
 
         var context = FSEventStreamContext()
         context.info = Unmanaged.passUnretained(self).toOpaque()
@@ -67,16 +72,19 @@ final class VcsDirectoryWatcher: @unchecked Sendable {
 
     private func isNoise(path: String, flag: UInt32) -> Bool {
         let isDir = flag & UInt32(kFSEventStreamEventFlagItemIsDir) != 0
+        let canonical = URL(fileURLWithPath: path)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
+        guard canonical.hasPrefix(metaPathCanonical + "/") || canonical == metaPathCanonical else {
+            return false
+        }
         switch vcsKind {
         case .git:
-            let isGitInternal = path.contains("/.git/")
             let isLockFile = path.hasSuffix(".lock")
-            return isGitInternal && (isLockFile || isDir)
+            return isLockFile || isDir
         case .jj:
-            let isWorkingCopyState = path.contains("/.jj/working_copy/")
-            let isOpStore = path.contains("/.jj/repo/op_store/")
-            let isIndexCache = path.contains("/.jj/repo/index/")
-            return isWorkingCopyState || isOpStore || isIndexCache
+            return true
         }
     }
 

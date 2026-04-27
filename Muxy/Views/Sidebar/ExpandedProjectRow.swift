@@ -276,11 +276,36 @@ struct ExpandedProjectRow: View {
         panel.allowsMultipleSelection = false
         panel.message = "Select the on-disk path for jj workspace '\(name)'"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        worktreeStore.importExternalJjWorkspace(
-            name: name,
-            path: url.path(percentEncoded: false),
-            into: project.id
-        )
+        do {
+            try worktreeStore.importExternalJjWorkspace(
+                name: name,
+                path: url.path(percentEncoded: false),
+                into: project.id
+            )
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Could not import jj workspace '\(name)'"
+            alert.informativeText = importErrorMessage(error)
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
+    }
+
+    private func importErrorMessage(_ error: Error) -> String {
+        guard let typed = error as? WorktreeStore.ImportExternalJjWorkspaceError else {
+            return error.localizedDescription
+        }
+        switch typed {
+        case let .pathDoesNotExist(path):
+            return "Path does not exist: \(path)"
+        case let .pathNotJjWorkspace(path):
+            return "Selected directory has no .jj/ inside, so it is not a jj workspace: \(path)"
+        case let .duplicateName(name):
+            return "A worktree named '\(name)' is already tracked for this project."
+        case let .duplicatePath(path):
+            return "A worktree at this path is already tracked: \(path)"
+        }
     }
 
     private var projectHeaderAccessibilityLabel: String {

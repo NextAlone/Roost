@@ -79,7 +79,33 @@ final class WorktreeStore {
             ?? list.first
     }
 
-    func importExternalJjWorkspace(name: String, path: String, into projectID: UUID) {
+    enum ImportExternalJjWorkspaceError: Error, Sendable {
+        case pathDoesNotExist(String)
+        case pathNotJjWorkspace(String)
+        case duplicateName(String)
+        case duplicatePath(String)
+    }
+
+    func importExternalJjWorkspace(
+        name: String,
+        path: String,
+        into projectID: UUID
+    ) throws {
+        guard FileManager.default.fileExists(atPath: path) else {
+            throw ImportExternalJjWorkspaceError.pathDoesNotExist(path)
+        }
+        let jjMarker = (path as NSString).appendingPathComponent(".jj")
+        guard FileManager.default.fileExists(atPath: jjMarker) else {
+            throw ImportExternalJjWorkspaceError.pathNotJjWorkspace(path)
+        }
+        let existing = list(for: projectID)
+        if existing.contains(where: { $0.name == name || $0.jjWorkspaceName == name }) {
+            throw ImportExternalJjWorkspaceError.duplicateName(name)
+        }
+        let canonical = Self.canonicalPath(path)
+        if existing.contains(where: { Self.canonicalPath($0.path) == canonical }) {
+            throw ImportExternalJjWorkspaceError.duplicatePath(path)
+        }
         let worktree = Worktree(
             name: name,
             path: path,

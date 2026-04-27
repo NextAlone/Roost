@@ -35,7 +35,7 @@ enum WorktreeRefreshHelper {
         else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Could Not Refresh Worktrees"
+        alert.messageText = "Could Not Refresh Workspaces"
         alert.informativeText = message
         alert.alertStyle = .warning
         alert.icon = NSApp.applicationIconImage

@@ -10,9 +10,9 @@ struct WorktreeSwitcherOverlay: View {
 
     var body: some View {
         PaletteOverlay<WorktreeSwitcherItem>(
-            placeholder: "Search worktrees by name, branch, or project...",
-            emptyLabel: "No worktrees",
-            noMatchLabel: "No matching worktrees",
+            placeholder: "Search workspaces by name, branch, or project...",
+            emptyLabel: "No workspaces",
+            noMatchLabel: "No matching workspaces",
             search: { query in filter(query: query) },
             onSelect: onSelect,
             onDismiss: onDismiss,

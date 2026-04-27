@@ -254,9 +254,17 @@ struct ExpandedProjectRow: View {
             ExpandedNewWorktreeButton {
                 showCreateWorktreeSheet = true
             }
+
+            if !untrackedJjWorkspaceNames.isEmpty {
+                UntrackedJjWorkspacesHint(names: untrackedJjWorkspaceNames)
+            }
         }
         .padding(.top, 2)
         .padding(.bottom, 4)
+    }
+
+    private var untrackedJjWorkspaceNames: [String] {
+        worktreeStore.untrackedJjWorkspaces(for: project.id)
     }
 
     private var projectHeaderAccessibilityLabel: String {
@@ -632,4 +640,29 @@ private struct ExpandedRenamePopover: View {
 private struct IdentifiableExpandedImage: Identifiable {
     let id = UUID()
     let image: NSImage
+}
+
+private struct UntrackedJjWorkspacesHint: View {
+    let names: [String]
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 9))
+                .foregroundStyle(MuxyTheme.fgDim)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(names.count) external jj workspace\(names.count == 1 ? "" : "s") detected")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(MuxyTheme.fgMuted)
+                Text(names.joined(separator: ", "))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(MuxyTheme.fgDim)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+    }
 }

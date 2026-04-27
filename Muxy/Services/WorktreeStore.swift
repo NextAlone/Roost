@@ -174,10 +174,23 @@ final class WorktreeStore {
             if worktree.source == .external { return true }
             return entriesByName[worktree.name] != nil
         }
+
+        let trackedNames = Set(list.map { $0.isPrimary ? "default" : $0.name })
+        let untracked = entries
+            .map(\.name)
+            .filter { !trackedNames.contains($0) }
+        untrackedJjWorkspaceNames[project.id] = untracked
+
         let sorted = sortPrimaryFirst(list)
         setWorktrees(sorted, for: project.id)
         save(projectID: project.id)
         return sorted
+    }
+
+    private(set) var untrackedJjWorkspaceNames: [UUID: [String]] = [:]
+
+    func untrackedJjWorkspaces(for projectID: UUID) -> [String] {
+        untrackedJjWorkspaceNames[projectID] ?? []
     }
 
     func refresh(project: Project) async throws -> [Worktree] {

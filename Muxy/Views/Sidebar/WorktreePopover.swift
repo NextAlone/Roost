@@ -10,6 +10,7 @@ struct WorktreePopover: View {
 
     @Environment(AppState.self) private var appState
     @Environment(WorktreeStore.self) private var worktreeStore
+    @Environment(\.vcsStatusProbeResolver) private var statusProbeResolver
 
     @State private var isRefreshing = false
 
@@ -88,7 +89,8 @@ struct WorktreePopover: View {
     }
 
     private func requestRemove(worktree: Worktree) async {
-        let hasChanges = await GitWorktreeService.shared.hasUncommittedChanges(worktreePath: worktree.path)
+        let probe = statusProbeResolver.probe(worktree.vcsKind)
+        let hasChanges = await probe.hasUncommittedChanges(at: worktree.path)
         if !hasChanges {
             performRemove(worktree: worktree)
             return

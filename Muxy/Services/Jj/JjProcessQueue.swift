@@ -15,7 +15,8 @@ actor JjProcessQueue {
         if !isMutating {
             return try await body()
         }
-        let previous = inflight[repoPath]
+        let key = Self.canonicalKey(for: repoPath)
+        let previous = inflight[key]
         let resultBox = ResultBox<T>()
         let task = Task {
             await previous?.value
@@ -26,12 +27,16 @@ actor JjProcessQueue {
                 await resultBox.set(.failure(error))
             }
         }
-        inflight[repoPath] = task
+        inflight[key] = task
         await task.value
-        if inflight[repoPath] == task {
-            inflight[repoPath] = nil
+        if inflight[key] == task {
+            inflight[key] = nil
         }
         return try await resultBox.value()
+    }
+
+    static func canonicalKey(for repoPath: String) -> String {
+        URL(fileURLWithPath: repoPath).standardizedFileURL.resolvingSymlinksInPath().path
     }
 }
 

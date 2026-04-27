@@ -3,7 +3,7 @@ import SwiftUI
 
 struct WorktreePopover: View {
     let project: Project
-    let isGitRepo: Bool
+    let isVcsRepo: Bool
     let onDismiss: () -> Void
     let onRequestCreate: () -> Void
     var fixedSize: Bool = true
@@ -63,7 +63,7 @@ struct WorktreePopover: View {
     }
 
     private var footerActions: [PopoverFooterAction] {
-        guard isGitRepo else { return [] }
+        guard isVcsRepo else { return [] }
         return [
             PopoverFooterAction(
                 title: "Refresh Worktrees",

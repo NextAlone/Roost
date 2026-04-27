@@ -56,32 +56,27 @@ struct JjWorktreeController: VcsWorktreeController {
     }
 
     private static let defaultWorkspaceList: @Sendable (String) async throws -> [JjWorkspaceEntry] = { repoPath in
-        let queue = JjProcessQueue()
-        let service = JjWorkspaceService(queue: queue)
+        let service = JjWorkspaceService(queue: JjProcessQueue.shared)
         return try await service.list(repoPath: repoPath)
     }
 
     private static let defaultWorkspaceAdd: @Sendable (String, String, String) async throws -> Void = { repoPath, name, path in
-        let queue = JjProcessQueue()
-        let service = JjWorkspaceService(queue: queue)
+        let service = JjWorkspaceService(queue: JjProcessQueue.shared)
         try await service.add(repoPath: repoPath, name: name, path: path)
     }
 
     private static let defaultWorkspaceForget: @Sendable (String, String) async throws -> Void = { repoPath, name in
-        let queue = JjProcessQueue()
-        let service = JjWorkspaceService(queue: queue)
+        let service = JjWorkspaceService(queue: JjProcessQueue.shared)
         try await service.forget(repoPath: repoPath, name: name)
     }
 
     private static let defaultBookmarkCreate: @Sendable (String, String) async throws -> Void = { repoPath, name in
-        let queue = JjProcessQueue()
-        let service = JjBookmarkService(queue: queue)
+        let service = JjBookmarkService(queue: JjProcessQueue.shared)
         try await service.create(repoPath: repoPath, name: name, revset: nil)
     }
 
     private static let defaultBookmarkForget: @Sendable (String, String) async throws -> Void = { repoPath, name in
-        let queue = JjProcessQueue()
-        let service = JjBookmarkService(queue: queue)
+        let service = JjBookmarkService(queue: JjProcessQueue.shared)
         try await service.forget(repoPath: repoPath, name: name)
     }
 }

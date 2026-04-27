@@ -1,6 +1,8 @@
 import Foundation
 
 actor JjProcessQueue {
+    static let shared = JjProcessQueue()
+
     private var inflight: [String: Task<Void, Never>] = [:]
 
     init() {}

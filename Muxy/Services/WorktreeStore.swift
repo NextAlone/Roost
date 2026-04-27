@@ -19,8 +19,7 @@ final class WorktreeStore {
             try await GitWorktreeService.shared.listWorktrees(repoPath: $0)
         },
         listJjWorkspaces: @escaping @Sendable (String) async throws -> [JjWorkspaceEntry] = { repoPath in
-            let queue = JjProcessQueue()
-            let service = JjWorkspaceService(queue: queue)
+            let service = JjWorkspaceService(queue: JjProcessQueue.shared)
             return try await service.list(repoPath: repoPath)
         },
         projects: [Project] = []

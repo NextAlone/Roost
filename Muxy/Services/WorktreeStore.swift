@@ -79,6 +79,21 @@ final class WorktreeStore {
             ?? list.first
     }
 
+    func importExternalJjWorkspace(name: String, path: String, into projectID: UUID) {
+        let worktree = Worktree(
+            name: name,
+            path: path,
+            source: .external,
+            isPrimary: false,
+            vcsKind: .jj,
+            jjWorkspaceName: name
+        )
+        add(worktree, to: projectID)
+        var remaining = untrackedJjWorkspaceNames[projectID] ?? []
+        remaining.removeAll { $0 == name }
+        untrackedJjWorkspaceNames[projectID] = remaining
+    }
+
     func add(_ worktree: Worktree, to projectID: UUID) {
         var list = worktrees[projectID] ?? []
         list.append(worktree)

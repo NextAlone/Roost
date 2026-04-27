@@ -16,4 +16,14 @@ public enum AgentKind: String, Sendable, Codable, Hashable, CaseIterable {
         case .openCode: "OpenCode"
         }
     }
+
+    public var iconSystemName: String {
+        switch self {
+        case .terminal: "terminal"
+        case .claudeCode: "sparkles"
+        case .codex: "brain"
+        case .geminiCli: "star.circle"
+        case .openCode: "hammer"
+        }
+    }
 }

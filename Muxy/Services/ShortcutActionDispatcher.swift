@@ -182,8 +182,23 @@ struct ShortcutActionDispatcher {
         }
     }
 
+    nonisolated static func shouldRouteToWorkspaceCreation(
+        kind: AgentKind,
+        presetLookup: (AgentKind) -> AgentPreset = AgentPresetCatalog.preset(for:)
+    ) -> Bool {
+        presetLookup(kind).requiresDedicatedWorkspace
+    }
+
     private func performAgentTab(_ kind: AgentKind) -> Bool {
         guard let projectID = appState.activeProjectID else { return false }
+        if Self.shouldRouteToWorkspaceCreation(kind: kind) {
+            notificationCenter.post(
+                name: .requestCreateWorkspaceForAgent,
+                object: nil,
+                userInfo: ["kind": kind.rawValue]
+            )
+            return true
+        }
         if appState.workspaceRoot(for: projectID) == nil {
             guard let worktree = resolveActiveWorktree(for: projectID) else { return false }
             appState.selectWorktree(projectID: projectID, worktree: worktree)

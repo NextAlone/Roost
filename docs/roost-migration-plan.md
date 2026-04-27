@@ -298,9 +298,15 @@ Codex driven, but driven-back:
 - "Shared queue self-deadlock" — audited; JjWorkspaceService / JjBookmarkService don't nest queued calls. No risk.
 
 Still acknowledged, not landed:
-- `identifier: String?` typed wrapper (per-call enum to make orphan-sweep nil-only path explicit) — refactor planned with the next protocol revision.
 - Per-name button (instead of first-untracked auto-pick) for the import hint — UX iteration.
 - `forget succeeds + removeItem fails` orphan-dir failure mode — currently throws; could log+continue if user reports issues.
+
+Order-driven follow-up (2026-04-28):
+
+- DECISION (#8): Phase 3 cardinality locked at N sessions : 1 workspace default; per-preset `requiresDedicatedWorkspace` for agents that need isolation. Forward-only; future migration would need data conversion.
+- DECISION (#9): Phase 6 hostd implemented as Swift XPC service. Embedded Rust shelved (Hardened Runtime / notarization friction not worth reuse; the unique value-add is persistent PTYs which is new code regardless). Old `roost-hostd` Rust code (~5k LoC) kept as reference branch.
+- CI: `.github/workflows/jj-integration.yml` runs gated integration smoke + parser-fixture tests against a pinned jj release (currently 0.40.0; matrix structure ready for 0.41/0.42/latest as they ship). Weekly cron catches output-format drift even without code changes.
+- `VcsWorktreeRemovalTarget` enum (`.identified(String)` / `.orphan`) replaces `identifier: String?` — kills the codex-flagged footgun where `nil` was only safe for orphan-sweep callers. WorktreeStore call sites map `worktree.jjWorkspaceName` into the enum at call time.
 
 ## Phase 3: Agent Session Model
 

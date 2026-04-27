@@ -3,9 +3,15 @@ import MuxyShared
 
 public enum JjStatusParseError: Error, Sendable {
     case missingWorkingCopy
+    case malformedChangeId(String)
 }
 
 public enum JjStatusParser {
+    static let workingCopyLabel = "Working copy  (@) : "
+    static let parentCommitLabel = "Parent commit (@-): "
+    static let cleanMessage = "The working copy has no changes."
+    static let conflictHeaderPrefix = "There are unresolved conflicts"
+
     public static func parse(_ raw: String) throws -> JjStatus {
         var entries: [JjStatusEntry] = []
         var workingCopy: JjChangeId?
@@ -16,23 +22,23 @@ public enum JjStatusParser {
 
         for line in raw.split(separator: "\n", omittingEmptySubsequences: false) {
             let s = String(line)
-            if s.hasPrefix("Working copy changes:") || s == "The working copy is clean" {
+            if s.hasPrefix("Working copy changes:") || s == cleanMessage {
                 inConflictBlock = false
                 continue
             }
-            if s.hasPrefix("There are unresolved conflicts") {
+            if s.hasPrefix(conflictHeaderPrefix) {
                 hasConflicts = true
                 inConflictBlock = true
                 continue
             }
-            if let prefix = s.prefixIfWorkingCopyLine() {
-                workingCopy = prefix.changeId
-                description = prefix.trailingDescription
+            if let parsed = try parseLabeledLine(s, label: workingCopyLabel) {
+                workingCopy = parsed.changeId
+                description = parsed.trailingDescription
                 inConflictBlock = false
                 continue
             }
-            if let prefix = s.prefixIfParentLine() {
-                parent = prefix.changeId
+            if let parsed = try parseLabeledLine(s, label: parentCommitLabel) {
+                parent = parsed.changeId
                 inConflictBlock = false
                 continue
             }
@@ -56,6 +62,32 @@ public enum JjStatusParser {
         )
     }
 
+    private static func parseLabeledLine(_ s: String, label: String) throws -> ChangeLinePrefix? {
+        guard s.hasPrefix(label) else { return nil }
+        let rest = String(s.dropFirst(label.count))
+        let parts = rest.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let token = parts.first else {
+            throw JjStatusParseError.malformedChangeId(s)
+        }
+        let changeId = try parseChangeId(String(token))
+        let trailing = parts.count > 1 ? String(parts[1]) : ""
+        return ChangeLinePrefix(changeId: changeId, trailingDescription: trailing)
+    }
+
+    static func parseChangeId(_ token: String) throws -> JjChangeId {
+        guard let openBracket = token.firstIndex(of: "[") else {
+            return JjChangeId(prefix: token, full: token)
+        }
+        guard token.last == "]" else {
+            throw JjStatusParseError.malformedChangeId(token)
+        }
+        let prefix = String(token[..<openBracket])
+        let suffixStart = token.index(after: openBracket)
+        let suffixEnd = token.index(before: token.endIndex)
+        let suffix = String(token[suffixStart..<suffixEnd])
+        return JjChangeId(prefix: prefix, full: prefix + suffix)
+    }
+
     private static func parseChangeLine(_ s: String) -> JjStatusEntry? {
         guard s.count > 2, s[s.index(s.startIndex, offsetBy: 1)] == " " else { return nil }
         let code = String(s.first!)
@@ -76,24 +108,4 @@ public enum JjStatusParser {
 private struct ChangeLinePrefix {
     let changeId: JjChangeId
     let trailingDescription: String
-}
-
-private extension String {
-    func prefixIfWorkingCopyLine() -> ChangeLinePrefix? {
-        prefixIfMatchesLabel("Working copy : ")
-    }
-
-    func prefixIfParentLine() -> ChangeLinePrefix? {
-        prefixIfMatchesLabel("Parent commit: ")
-    }
-
-    private func prefixIfMatchesLabel(_ label: String) -> ChangeLinePrefix? {
-        guard hasPrefix(label) else { return nil }
-        let rest = String(dropFirst(label.count))
-        let parts = rest.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false)
-        guard let first = parts.first else { return nil }
-        let id = JjChangeId(prefix: String(first), full: String(first))
-        let trailing = parts.count > 1 ? String(parts[1]) : ""
-        return ChangeLinePrefix(changeId: id, trailingDescription: trailing)
-    }
 }

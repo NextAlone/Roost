@@ -11,13 +11,14 @@ struct JjWorkspaceServiceTests {
         let svc = JjWorkspaceService(queue: JjProcessQueue()) { _, _, _, _ in
             JjProcessResult(
                 status: 0,
-                stdout: Data("default: abcdef12 (no description set)\n".utf8),
+                stdout: Data("default\tabcdef0123456789abcdef0123456789\n".utf8),
                 stderr: ""
             )
         }
         let entries = try await svc.list(repoPath: "/repo")
         #expect(entries.count == 1)
         #expect(entries[0].name == "default")
+        #expect(entries[0].workingCopy.full == "abcdef0123456789abcdef0123456789")
     }
 
     @Test("add invokes workspace add")

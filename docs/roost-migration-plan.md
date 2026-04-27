@@ -392,6 +392,17 @@ Exit criteria:
 - ShortcutAction enum case `.switchWorktree` kept (stable keybinding identifier); only its `displayName` changed.
 - Phase 4b (op_heads watcher + dirty/conflict badges), 4c (session list under workspace), 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
 
+**Status (2026-04-28): Phase 4b (status watcher + badges) landed.**
+
+- `WorkspaceStatus` enum (clean / dirty / conflicted / unknown) lives in `MuxyShared/Vcs/`.
+- `VcsStatusProbe.status(at:)` extends the existing protocol; default implementation maps the legacy `hasUncommittedChanges` Bool to `.dirty`/`.clean`. Concrete probes override:
+  - `JjStatusProbe.status` parses `jj status` (with `snapshot: .ignore`) for entries + `hasConflicts`. Conflicts dominate dirty.
+  - `GitStatusProbe.status` parses `git status --porcelain=v1`; lines starting with `UU/AA/DD/AU/UA/UD/DU` mark conflicts.
+- `WorkspaceStatusWatcher` is a new FSEventStream wrapper that does NOT filter `.jj/` events (purpose-built for status reactivity, separate from `VcsDirectoryWatcher` used by the diff panel).
+- `WorkspaceStatusStore` (@Observable @MainActor) owns per-worktree watchers and `[UUID: WorkspaceStatus]`. Sidebar rows query via environment; `MainWindow.onChange(of: worktreeStore.worktrees, initial: true)` reconciles.
+- Sidebar shows colored dot badges next to workspace names (no badge for `.clean`/`.unknown`; orange for dirty, red for conflicted).
+- Phase 4c (session list under workspace) and Phase 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
+
 ## Phase 5: jj Changes Panel
 
 Goal: replace Git-first VCS behavior with jj-first review behavior.

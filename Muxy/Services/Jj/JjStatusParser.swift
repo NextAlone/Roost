@@ -16,7 +16,7 @@ enum JjStatusParser {
         var entries: [JjStatusEntry] = []
         var workingCopy: JjChangeId?
         var parent: JjChangeId?
-        var description = ""
+        var workingCopySummary = ""
         var hasConflicts = false
         var inConflictBlock = false
 
@@ -33,7 +33,7 @@ enum JjStatusParser {
             }
             if let parsed = try parseLabeledLine(s, label: workingCopyLabel) {
                 workingCopy = parsed.changeId
-                description = parsed.trailingDescription
+                workingCopySummary = parsed.trailingDescription
                 inConflictBlock = false
                 continue
             }
@@ -56,7 +56,7 @@ enum JjStatusParser {
         return JjStatus(
             workingCopy: workingCopy,
             parent: parent,
-            description: description,
+            workingCopySummary: workingCopySummary,
             entries: entries,
             hasConflicts: hasConflicts
         )

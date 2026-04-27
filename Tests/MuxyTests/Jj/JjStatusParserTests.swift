@@ -19,7 +19,7 @@ struct JjStatusParserTests {
         #expect(status.workingCopy.full == "vkrwwqlnruos")
         #expect(status.parent?.prefix == "kx")
         #expect(status.parent?.full == "kxmxrlmsyvvv")
-        #expect(status.description == "default@ (empty) (no description set)")
+        #expect(status.workingCopySummary == "default@ (empty) (no description set)")
         #expect(status.hasConflicts == false)
     }
 

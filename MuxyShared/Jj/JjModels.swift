@@ -131,3 +131,17 @@ public struct JjDiffStat: Sendable, Codable {
         self.totalDeletions = totalDeletions
     }
 }
+
+public struct JjShowOutput: Sendable, Codable {
+    public let change: JjChangeId
+    public let parents: [JjChangeId]
+    public let description: String
+    public let diffStat: JjDiffStat?
+
+    public init(change: JjChangeId, parents: [JjChangeId], description: String, diffStat: JjDiffStat?) {
+        self.change = change
+        self.parents = parents
+        self.description = description
+        self.diffStat = diffStat
+    }
+}

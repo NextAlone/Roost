@@ -200,14 +200,15 @@ final class WorktreeStore {
         repoPath: String
     ) async {
         guard worktree.canBeRemoved else { return }
+        let controller = VcsWorktreeControllerFactory.controller(for: worktree.vcsKind)
         do {
-            try await GitWorktreeService.shared.removeWorktree(
+            try await controller.removeWorktree(
                 repoPath: repoPath,
                 path: worktree.path,
                 force: true
             )
         } catch {
-            logger.error("Failed to remove git worktree at \(worktree.path): \(error)")
+            logger.error("Failed to remove worktree at \(worktree.path): \(error)")
         }
 
         if worktree.ownsBranch,
@@ -215,9 +216,9 @@ final class WorktreeStore {
            !branch.isEmpty
         {
             do {
-                try await GitWorktreeService.shared.deleteBranch(repoPath: repoPath, branch: branch)
+                try await controller.deleteRef(repoPath: repoPath, name: branch)
             } catch {
-                logger.error("Failed to delete branch \(branch) for worktree \(worktree.path): \(error)")
+                logger.error("Failed to delete ref \(branch) for worktree \(worktree.path): \(error)")
             }
         }
 
@@ -231,12 +232,15 @@ final class WorktreeStore {
             await cleanupOnDisk(worktree: worktree, repoPath: project.path)
         }
 
+        let primaryKind = knownWorktrees.first(where: \.isPrimary)?.vcsKind ?? .default
+        let controller = VcsWorktreeControllerFactory.controller(for: primaryKind)
+
         let root = MuxyFileStorage.worktreeRoot(forProjectID: project.id)
         guard FileManager.default.fileExists(atPath: root.path) else { return }
         let children = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
         for child in children {
             let childPath = root.appendingPathComponent(child).path
-            try? await GitWorktreeService.shared.removeWorktree(
+            try? await controller.removeWorktree(
                 repoPath: project.path,
                 path: childPath,
                 force: true

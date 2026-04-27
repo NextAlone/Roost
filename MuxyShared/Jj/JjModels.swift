@@ -107,3 +107,27 @@ public struct JjVersion: Hashable, Sendable, Codable, Comparable {
         return lhs.patch < rhs.patch
     }
 }
+
+public struct JjDiffFileStat: Hashable, Sendable, Codable {
+    public let path: String
+    public let additions: Int
+    public let deletions: Int
+
+    public init(path: String, additions: Int, deletions: Int) {
+        self.path = path
+        self.additions = additions
+        self.deletions = deletions
+    }
+}
+
+public struct JjDiffStat: Sendable, Codable {
+    public let files: [JjDiffFileStat]
+    public let totalAdditions: Int
+    public let totalDeletions: Int
+
+    public init(files: [JjDiffFileStat], totalAdditions: Int, totalDeletions: Int) {
+        self.files = files
+        self.totalAdditions = totalAdditions
+        self.totalDeletions = totalDeletions
+    }
+}

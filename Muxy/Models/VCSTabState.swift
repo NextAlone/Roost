@@ -530,6 +530,7 @@ final class VCSTabState {
     }
 
     func switchBranch(_ name: String) {
+        guard vcsKind == .git else { return }
         guard name != branchName else { return }
         isSwitchingBranch = true
         Task { [weak self] in
@@ -550,6 +551,7 @@ final class VCSTabState {
     }
 
     func createAndSwitchBranch(_ name: String) {
+        guard vcsKind == .git else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         isSwitchingBranch = true
@@ -642,6 +644,7 @@ final class VCSTabState {
     }
 
     func push() {
+        guard vcsKind == .git else { return }
         isPushing = true
         Task { [weak self] in
             guard let self else { return }
@@ -662,6 +665,7 @@ final class VCSTabState {
     }
 
     func pushSetUpstream() {
+        guard vcsKind == .git else { return }
         guard let branch = branchName else { return }
         isPushing = true
         Task { [weak self] in
@@ -680,6 +684,7 @@ final class VCSTabState {
     }
 
     func pull() {
+        guard vcsKind == .git else { return }
         isPulling = true
         Task { [weak self] in
             guard let self else { return }
@@ -739,6 +744,7 @@ final class VCSTabState {
     }
 
     func cherryPick(_ hash: String) {
+        guard vcsKind == .git else { return }
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -755,6 +761,7 @@ final class VCSTabState {
     }
 
     func revert(_ hash: String, subject: String) {
+        guard vcsKind == .git else { return }
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -771,6 +778,7 @@ final class VCSTabState {
     }
 
     func createBranch(name: String, from hash: String) {
+        guard vcsKind == .git else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         Task { [weak self] in
             guard let self else { return }
@@ -788,6 +796,7 @@ final class VCSTabState {
     }
 
     func createTag(name: String, at hash: String) {
+        guard vcsKind == .git else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         Task { [weak self] in
             guard let self else { return }
@@ -804,6 +813,7 @@ final class VCSTabState {
     }
 
     func checkoutDetached(_ hash: String) {
+        guard vcsKind == .git else { return }
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -820,6 +830,7 @@ final class VCSTabState {
     }
 
     private func performGitOperation(_ operation: @escaping () async throws -> Void) {
+        guard vcsKind == .git else { return }
         Task { [weak self] in
             guard let self else { return }
             do {

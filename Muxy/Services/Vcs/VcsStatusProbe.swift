@@ -4,6 +4,13 @@ import SwiftUI
 
 protocol VcsStatusProbe: Sendable {
     func hasUncommittedChanges(at worktreePath: String) async -> Bool
+    func status(at worktreePath: String) async -> WorkspaceStatus
+}
+
+extension VcsStatusProbe {
+    func status(at worktreePath: String) async -> WorkspaceStatus {
+        await hasUncommittedChanges(at: worktreePath) ? .dirty : .clean
+    }
 }
 
 enum VcsStatusProbeFactory {

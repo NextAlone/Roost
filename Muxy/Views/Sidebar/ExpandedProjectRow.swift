@@ -14,6 +14,7 @@ struct ExpandedProjectRow: View {
 
     @Environment(AppState.self) private var appState
     @Environment(WorktreeStore.self) private var worktreeStore
+    @Environment(\.vcsStatusProbeResolver) private var statusProbeResolver
 
     @AppStorage(GeneralSettingsKeys.autoExpandWorktreesOnProjectSwitch)
     private var autoExpandWorktrees = false
@@ -338,7 +339,8 @@ struct ExpandedProjectRow: View {
     }
 
     private func requestRemove(worktree: Worktree) async {
-        let hasChanges = await GitWorktreeService.shared.hasUncommittedChanges(worktreePath: worktree.path)
+        let probe = statusProbeResolver.probe(worktree.vcsKind)
+        let hasChanges = await probe.hasUncommittedChanges(at: worktree.path)
         if !hasChanges {
             performRemove(worktree: worktree)
             return

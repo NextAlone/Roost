@@ -28,6 +28,7 @@ struct ExpandedProjectRow: View {
     @State private var worktreesExpanded = false
     @State private var isRefreshingWorktrees = false
     @State private var showColorPicker = false
+    @State private var expandedWorktreeIDs: Set<UUID> = []
 
     private var isActive: Bool {
         appState.activeProjectID == project.id
@@ -231,24 +232,33 @@ struct ExpandedProjectRow: View {
     private var worktreeList: some View {
         VStack(spacing: 1) {
             ForEach(worktrees) { worktree in
-                ExpandedWorktreeRow(
-                    projectID: project.id,
-                    worktree: worktree,
-                    selected: worktree.id == activeWorktreeID,
-                    onSelect: {
-                        appState.selectWorktree(projectID: project.id, worktree: worktree)
-                    },
-                    onRename: { newName in
-                        worktreeStore.rename(
-                            worktreeID: worktree.id,
-                            in: project.id,
-                            to: newName
-                        )
-                    },
-                    onRemove: worktree.canBeRemoved ? {
-                        Task { await requestRemove(worktree: worktree) }
-                    } : nil
-                )
+                VStack(alignment: .leading, spacing: 0) {
+                    ExpandedWorktreeRow(
+                        projectID: project.id,
+                        worktree: worktree,
+                        selected: worktree.id == activeWorktreeID,
+                        onSelect: {
+                            appState.selectWorktree(projectID: project.id, worktree: worktree)
+                        },
+                        onRename: { newName in
+                            worktreeStore.rename(
+                                worktreeID: worktree.id,
+                                in: project.id,
+                                to: newName
+                            )
+                        },
+                        onRemove: worktree.canBeRemoved ? {
+                            Task { await requestRemove(worktree: worktree) }
+                        } : nil
+                    )
+                    .onTapGesture(count: 2) {
+                        toggleWorktreeExpansion(worktree.id)
+                    }
+
+                    if expandedWorktreeIDs.contains(worktree.id) {
+                        sessionList(for: worktree)
+                    }
+                }
             }
 
             ExpandedNewWorktreeButton {
@@ -462,6 +472,55 @@ struct ExpandedProjectRow: View {
             worktreeStore: worktreeStore,
             isRefreshing: $isRefreshingWorktrees
         )
+    }
+
+    private func toggleWorktreeExpansion(_ id: UUID) {
+        if expandedWorktreeIDs.contains(id) {
+            expandedWorktreeIDs.remove(id)
+        } else {
+            expandedWorktreeIDs.insert(id)
+        }
+    }
+
+    @ViewBuilder
+    private func sessionList(for worktree: Worktree) -> some View {
+        let key = WorktreeKey(projectID: project.id, worktreeID: worktree.id)
+        let tabs = appState.allTabs(forKey: key)
+        if tabs.isEmpty {
+            Text("No sessions")
+                .font(.system(size: 10))
+                .foregroundStyle(MuxyTheme.fgDim)
+                .padding(.leading, 24)
+                .padding(.vertical, 4)
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(tabs) { tab in
+                    SessionRow(
+                        tab: tab,
+                        isActive: isSessionActive(tab: tab, key: key),
+                        onSelect: { selectSession(tab: tab, worktree: worktree, key: key) }
+                    )
+                    .padding(.leading, 16)
+                }
+            }
+        }
+    }
+
+    private func isSessionActive(tab: TerminalTab, key: WorktreeKey) -> Bool {
+        guard let activeWorktreeID = appState.activeWorktreeID[project.id] else { return false }
+        let activeKey = WorktreeKey(projectID: project.id, worktreeID: activeWorktreeID)
+        guard activeKey == key else { return false }
+        return appState.focusedArea(for: project.id)?.activeTabID == tab.id
+    }
+
+    private func selectSession(tab: TerminalTab, worktree: Worktree, key: WorktreeKey) {
+        if appState.activeWorktreeID[project.id] != worktree.id {
+            appState.selectWorktree(projectID: project.id, worktree: worktree)
+        }
+        guard let area = appState.workspaceRoots[key]?.allAreas().first(where: {
+            $0.tabs.contains(where: { $0.id == tab.id })
+        }) else { return }
+        appState.dispatch(.selectTab(projectID: project.id, areaID: area.id, tabID: tab.id))
     }
 }
 

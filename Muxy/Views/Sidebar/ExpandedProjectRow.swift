@@ -465,6 +465,9 @@ private struct ExpandedWorktreeRow: View {
                         if worktree.isPrimary {
                             PrimaryBadge()
                         }
+                        if worktree.vcsKind == .jj {
+                            JjBadge()
+                        }
                     }
 
                     if let branch = branchLabel {
@@ -586,6 +589,18 @@ private struct PrimaryBadge: View {
             .padding(.horizontal, 4)
             .padding(.vertical, 1)
             .background(MuxyTheme.surface, in: Capsule())
+    }
+}
+
+private struct JjBadge: View {
+    var body: some View {
+        Text("JJ")
+            .font(.system(size: 8, weight: .bold))
+            .tracking(0.4)
+            .foregroundStyle(MuxyTheme.accent)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(MuxyTheme.accent.opacity(0.15), in: Capsule())
     }
 }
 

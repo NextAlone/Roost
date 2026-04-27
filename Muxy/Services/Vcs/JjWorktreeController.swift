@@ -56,7 +56,13 @@ struct JjWorktreeController: VcsWorktreeController {
         } else {
             throw JjWorktreeControllerError.workspaceNameNotFound(path: path)
         }
-        try FileManager.default.removeItem(atPath: path)
+        do {
+            try FileManager.default.removeItem(atPath: path)
+        } catch let error as NSError where error.domain == NSCocoaErrorDomain
+            && error.code == NSFileNoSuchFileError
+        {
+            return
+        }
     }
 
     func deleteRef(repoPath: String, name: String) async throws {

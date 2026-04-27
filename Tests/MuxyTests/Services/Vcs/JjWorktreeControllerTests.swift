@@ -117,6 +117,31 @@ struct JjWorktreeControllerTests {
         #expect(fm.fileExists(atPath: tmp.path) == false)
     }
 
+    @Test("removeWorktree tolerates already-deleted path after forget")
+    func removeAlreadyMissingPath() async throws {
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory.appendingPathComponent("jjctrl-missing-\(UUID().uuidString)")
+        let calls = JjControllerCallLog()
+        let controller = JjWorktreeController(
+            workspaceList: { _ in [] },
+            workspaceAdd: { _, _, _ in },
+            workspaceForget: { _, name in
+                await calls.append("workspace.forget:\(name)")
+            },
+            bookmarkCreate: { _, _ in },
+            bookmarkForget: { _, _ in }
+        )
+        try await controller.removeWorktree(
+            repoPath: "/repo",
+            path: tmp.path,
+            target: .identified("feat-x"),
+            force: true
+        )
+        let log = await calls.entries
+        #expect(log == ["workspace.forget:feat-x"])
+        #expect(fm.fileExists(atPath: tmp.path) == false)
+    }
+
     @Test("deleteRef calls bookmark forget")
     func deleteRefCallsBookmarkForget() async throws {
         let calls = JjControllerCallLog()

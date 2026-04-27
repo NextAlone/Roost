@@ -49,4 +49,18 @@ struct JjRepositoryService: Sendable {
         }
         return first.id
     }
+
+    func show(repoPath: String, revset: String) async throws -> JjShowOutput {
+        let result = try await runner(
+            repoPath,
+            ["show", "-r", revset, "-T", JjShowParser.template, "--stat"],
+            .ignore,
+            nil
+        )
+        guard result.status == 0 else {
+            throw JjProcessError.nonZeroExit(status: result.status, stderr: result.stderr)
+        }
+        let raw = String(data: result.stdout, encoding: .utf8) ?? ""
+        return try JjShowParser.parse(raw)
+    }
 }

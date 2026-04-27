@@ -317,7 +317,10 @@ Add agent kinds:
 Initial behavior:
 
 - Agent sessions are terminal tabs with a preset command and workspace cwd.
-- Cardinality is **N sessions : 1 workspace** (default). Multiple terminals can share one jj workspace; opening a coding-agent preset *suggests* a new workspace but does not force one. 1:1 is selectable per agent preset. Cardinality decisions are baked into Phase 3 data model and cannot be reversed without migration, so this default is fixed before code lands.
+- **DECISION (2026-04-28): Cardinality is N sessions : 1 workspace** (default). Multiple terminals can share one jj workspace; opening a coding-agent preset *suggests* a new workspace but does not force one. 1:1 is selectable per agent preset (e.g., Claude Code preset can default `cardinality: dedicated`).
+  - Rationale: matches user mental model of "open another shell in the same project" while leaving room for agents that need isolation. Forced 1:1 would mean `jj workspace add` per shell — costs disk + cognitive overhead.
+  - Implementation: `Session` model keys `(workspaceID, sessionID)`. Multiple sessions can share workspaceID. Per-preset boolean `requiresDedicatedWorkspace` triggers `jj workspace add` at session creation; otherwise reuse active workspace.
+  - Data model is forward-only: future move to 1:1-default would require migration. Locked.
 - Session metadata should include agent kind, workspace id/path, command, created time, and last known state.
 - Existing Muxy notification hooks can remain, but Roost should expose agent status in its own model.
 
@@ -405,13 +408,29 @@ Old Roost `feat-m6` provides:
 - shutdown release/stop modes
 - live session restore
 
-Implementation stack — must be selected before Phase 6 begins (these three paths have incompatible packaging, signing, and sandbox stories):
+Implementation stack candidates:
 
 1. **Swift rewrite + XPC service** — best macOS sandbox + entitlement story; loses old Rust code.
 2. **Embed `roost-hostd` Rust binary + Unix socket** — reuses old code; needs group container entitlement and complicates notarization.
 3. **Hybrid** — Swift wrapper, Rust core via FFI; highest implementation cost.
 
-Until selection lands, do not start Phase 6 work. The decision affects entitlements, app bundle layout, and the Sparkle update channel.
+**DECISION (2026-04-28): Option 1 — Swift rewrite + XPC service.**
+
+Rationale:
+- Roost is macOS-native; XPC services + LaunchAgent + Apple sandbox model is the local idiom. Embedded Rust binaries fight Hardened Runtime and notarization.
+- The reusable parts of `roost-hostd` (Unix socket JSON-RPC, SQLite history) are commodity reimplementation in Swift; the unique value is **persistent agent PTYs surviving app quit**, which is new behavior regardless of language.
+- jj subprocess management is already in Swift (`JjProcessRunner`); duplicating subprocess control across two languages adds no leverage.
+- XPC services get free `com.apple.security.app-sandbox` posture, codesign + notarize via standard archive flow, no separate ABI surface.
+- Trade-off accepted: old `roost-hostd` Rust code (~5k LoC) is shelved as reference.
+
+Implementation outline:
+- `RoostHostdXPCService` — XPC service target in the app bundle (`Roost.app/Contents/XPCServices/RoostHostdXPCService.xpc`)
+- Protocol: `@objc protocol RoostHostdProtocol` exposing `createSession`, `attachSession`, `listSessions`, `releaseSession`, `terminateSession`
+- Storage: `~/Library/Application Support/Roost/hostd/sessions.sqlite` (per-user, sandboxed via app's container)
+- PTY ownership: XPC service holds `posix_spawn`'d processes; client (main app) attaches via XPC handoff for stdout/stderr streams.
+- Lifecycle: macOS auto-launches the XPC service on demand. Service stays alive while sessions are active; main app quitting releases its connection but session processes persist (XPC service maintains `dispatch_source` per pid).
+
+Until Phase 6 starts, no hostd code; main app keeps direct PTY ownership.
 
 Migration order:
 

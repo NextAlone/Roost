@@ -247,6 +247,14 @@ Phase 2.2c3 status (2026-04-28):
 - VCSTabState's read-side (branch listing, commit log, status, PR view, etc.) remains git-only. Full abstraction is deferred — VCSTabState is 1170+ lines of git-coupled state where extracting a `VcsRepositoryView` protocol is its own multi-task plan. UI labels will continue saying "branch" even for jj's bookmarks until that abstraction lands.
 - Phase 2.2d remains: `WorktreeDTO` mobile IPC carries `vcsKind`, sidebar gets visual jj badges, optional `branch` label refinement.
 
+Phase 2.2d status (2026-04-28):
+
+- `VcsKind` relocated from `Muxy/Models/` to `MuxyShared/Vcs/` (now `public`); 6 Roost-target files added `import MuxyShared`. Plan: `docs/superpowers/plans/2026-04-28-phase2-2d-dto-vcskind-and-badge.md`.
+- `WorktreeDTO` carries `vcsKind: VcsKind` with tolerant `decodeIfPresent` defaulting to `.git`; mobile clients on older builds still decode against newer payloads.
+- `Worktree.toDTO` passes through. 3 round-trip tests added (toDTO / legacy decode / full encode-decode).
+- `ExpandedProjectRow` worktree row shows a "JJ" capsule badge next to the name when `worktree.vcsKind == .jj` (mirrors the existing PRIMARY badge style).
+- Outstanding: UI label refinement ("branch" → "bookmark" for jj), broader VCSTabState read-side abstraction.
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

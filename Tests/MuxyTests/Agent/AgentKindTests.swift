@@ -42,4 +42,20 @@ struct AgentKindTests {
         #expect(AgentKind.geminiCli.rawValue == "geminiCli")
         #expect(AgentKind.openCode.rawValue == "openCode")
     }
+
+    @Test("iconSystemName is non-empty for all cases")
+    func iconNonEmpty() {
+        for kind in AgentKind.allCases {
+            #expect(!kind.iconSystemName.isEmpty)
+        }
+    }
+
+    @Test("icon mapping matches expected SF Symbols")
+    func iconMapping() {
+        #expect(AgentKind.terminal.iconSystemName == "terminal")
+        #expect(AgentKind.claudeCode.iconSystemName == "sparkles")
+        #expect(AgentKind.codex.iconSystemName == "brain")
+        #expect(AgentKind.geminiCli.iconSystemName == "star.circle")
+        #expect(AgentKind.openCode.iconSystemName == "hammer")
+    }
 }

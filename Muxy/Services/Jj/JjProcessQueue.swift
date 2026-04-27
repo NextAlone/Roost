@@ -1,11 +1,11 @@
 import Foundation
 
-public actor JjProcessQueue {
+actor JjProcessQueue {
     private var inflight: [String: Task<Void, Never>] = [:]
 
-    public init() {}
+    init() {}
 
-    public func run<T: Sendable>(
+    func run<T: Sendable>(
         repoPath: String,
         isMutating: Bool,
         body: @Sendable @escaping () async throws -> T
@@ -48,6 +48,6 @@ private actor ResultBox<T: Sendable> {
     }
 }
 
-public enum JjProcessQueueError: Error, Sendable {
+enum JjProcessQueueError: Error, Sendable {
     case bodyDidNotRun
 }

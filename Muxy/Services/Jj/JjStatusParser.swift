@@ -1,18 +1,18 @@
 import Foundation
 import MuxyShared
 
-public enum JjStatusParseError: Error, Sendable {
+enum JjStatusParseError: Error, Sendable {
     case missingWorkingCopy
     case malformedChangeId(String)
 }
 
-public enum JjStatusParser {
+enum JjStatusParser {
     static let workingCopyLabel = "Working copy  (@) : "
     static let parentCommitLabel = "Parent commit (@-): "
     static let cleanMessage = "The working copy has no changes."
     static let conflictHeaderPrefix = "There are unresolved conflicts"
 
-    public static func parse(_ raw: String) throws -> JjStatus {
+    static func parse(_ raw: String) throws -> JjStatus {
         var entries: [JjStatusEntry] = []
         var workingCopy: JjChangeId?
         var parent: JjChangeId?

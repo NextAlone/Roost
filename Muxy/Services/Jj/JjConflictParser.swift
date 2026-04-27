@@ -1,8 +1,8 @@
 import Foundation
 import MuxyShared
 
-public enum JjConflictParser {
-    public static func parse(_ raw: String) -> [JjConflict] {
+enum JjConflictParser {
+    static func parse(_ raw: String) -> [JjConflict] {
         raw.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line in
             let s = String(line)
             let columnSeparator = s.range(of: #"(\t|  +)"#, options: .regularExpression)

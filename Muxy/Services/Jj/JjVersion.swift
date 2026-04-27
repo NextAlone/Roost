@@ -1,11 +1,11 @@
 import Foundation
 import MuxyShared
 
-public enum JjVersionParseError: Error, Sendable {
+enum JjVersionParseError: Error, Sendable {
     case malformed(String)
 }
 
-public extension JjVersion {
+extension JjVersion {
     static let minimumSupported = JjVersion(major: 0, minor: 20, patch: 0)
 
     static func parse(_ raw: String) throws -> JjVersion {

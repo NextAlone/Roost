@@ -51,6 +51,33 @@ struct WorktreeStoreRefreshDispatchTests {
         #expect(refreshed.first(where: \.isPrimary)?.currentChangeId == "abcdefabcdef0123456789abcdef")
     }
 
+    @Test("refreshJj surfaces untracked workspace names")
+    func untrackedDetection() async throws {
+        let dir = makeTempDir()
+        defer { try? fm.removeItem(at: dir) }
+        try fm.createDirectory(at: dir.appendingPathComponent(".jj"), withIntermediateDirectories: true)
+
+        let persistence = RefreshDispatchTestPersistence()
+        let store = WorktreeStore(
+            persistence: persistence,
+            listGitWorktrees: { _ in [] },
+            listJjWorkspaces: { _ in
+                [
+                    JjWorkspaceEntry(name: "default", workingCopy: JjChangeId(prefix: "aa", full: "aa")),
+                    JjWorkspaceEntry(name: "feat-x", workingCopy: JjChangeId(prefix: "bb", full: "bb")),
+                    JjWorkspaceEntry(name: "feat-y", workingCopy: JjChangeId(prefix: "cc", full: "cc"))
+                ]
+            }
+        )
+
+        let project = Project(name: "P", path: dir.path, sortOrder: 0)
+        store.ensurePrimary(for: project)
+        _ = try await store.refresh(project: project)
+
+        let untracked = store.untrackedJjWorkspaces(for: project.id)
+        #expect(untracked == ["feat-x", "feat-y"])
+    }
+
     @Test("primary .git routes through git listing")
     func dispatchesGit() async throws {
         let dir = makeTempDir()

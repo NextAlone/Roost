@@ -4,7 +4,15 @@ import MuxyShared
 
 @testable import Roost
 
-@Suite("Jj live integration", .enabled(if: JjProcessRunner.resolveExecutable() != nil))
+private let jjIntegrationGitAvailable: Bool = {
+    let candidates = ["/opt/homebrew/bin/git", "/usr/local/bin/git", "/usr/bin/git", "/bin/git"]
+    return candidates.contains { FileManager.default.isExecutableFile(atPath: $0) }
+}()
+
+@Suite(
+    "Jj live integration",
+    .enabled(if: JjProcessRunner.resolveExecutable() != nil && jjIntegrationGitAvailable)
+)
 struct JjIntegrationTests {
     @Test("create temp jj repo, query root + version + status + op")
     func smoke() async throws {

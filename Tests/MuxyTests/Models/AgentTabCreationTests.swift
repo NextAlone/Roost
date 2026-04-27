@@ -36,4 +36,20 @@ struct AgentTabCreationTests {
         #expect(pane?.projectPath == "/Users/me/repo/wt-feature-x")
         #expect(pane?.startupCommand == "codex")
     }
+
+    @Test("Claude Code tab default title shows agent name")
+    func claudeTabTitle() {
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .claudeCode)
+        #expect(area.activeTab?.title == "Claude Code")
+    }
+
+    @Test("custom title overrides agent display name")
+    func customTitleWins() {
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let tab = area.activeTab
+        tab?.customTitle = "Codex (debug)"
+        #expect(tab?.title == "Codex (debug)")
+    }
 }

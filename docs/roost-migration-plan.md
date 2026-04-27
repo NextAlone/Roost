@@ -297,9 +297,10 @@ Codex driven, but driven-back:
 - "Old persisted jj worktrees lacking jjWorkspaceName need migration" — false alarm. The leaf-name fallback IS the migration path for legacy records (Roost-managed pre-Phase-2.2c worktrees have name == directory leaf, which matches what jj produced).
 - "Shared queue self-deadlock" — audited; JjWorkspaceService / JjBookmarkService don't nest queued calls. No risk.
 
-Still acknowledged, not landed:
-- Per-name button (instead of first-untracked auto-pick) for the import hint — UX iteration.
-- `forget succeeds + removeItem fails` orphan-dir failure mode — currently throws; could log+continue if user reports issues.
+All known follow-ups landed (2026-04-28):
+- Per-name "Bind…" button for each untracked jj workspace (codex UX iteration).
+- `removeWorktree` tolerates already-deleted on-disk path after successful `jj workspace forget` (NSFileNoSuchFileError swallowed; other errors still throw).
+- `VcsKind.default` static removed; all 9 callsites use `.git` explicitly. Future addition of `.unsupported` or third VCS won't silently piggyback the fallback.
 
 Order-driven follow-up (2026-04-28):
 

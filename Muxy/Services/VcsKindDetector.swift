@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 enum VcsKindDetector {
     static func detect(at path: String) -> VcsKind {

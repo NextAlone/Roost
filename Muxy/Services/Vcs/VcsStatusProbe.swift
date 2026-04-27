@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 import SwiftUI
 
 protocol VcsStatusProbe: Sendable {

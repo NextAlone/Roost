@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 import SwiftUI
 
 struct VcsWorktreeControllerResolver: Sendable {

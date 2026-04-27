@@ -41,7 +41,7 @@ final class FileTreeState {
     var cutPaths: Set<String> = []
     var dropHighlightPath: String?
 
-    @ObservationIgnored private var watcher: GitDirectoryWatcher?
+    @ObservationIgnored private var watcher: VcsDirectoryWatcher?
     @ObservationIgnored nonisolated(unsafe) private var remoteChangeObserver: NSObjectProtocol?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var statusTask: Task<Void, Never>?
@@ -268,7 +268,8 @@ final class FileTreeState {
     }
 
     private func installWatcher() {
-        watcher = GitDirectoryWatcher(directoryPath: rootPath) { [weak self] in
+        let kind = VcsKindDetector.detect(at: rootPath)
+        watcher = VcsDirectoryWatcher(directoryPath: rootPath, vcsKind: kind) { [weak self] in
             Task { @MainActor [weak self] in
                 self?.refresh()
             }

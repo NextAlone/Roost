@@ -148,7 +148,7 @@ final class VCSTabState {
     @ObservationIgnored private var commitLogTask: Task<Void, Never>?
     @ObservationIgnored private var prListTask: Task<Void, Never>?
     @ObservationIgnored private var prAutoSyncTask: Task<Void, Never>?
-    @ObservationIgnored private var watcher: GitDirectoryWatcher?
+    @ObservationIgnored private var watcher: VcsDirectoryWatcher?
     @ObservationIgnored nonisolated(unsafe) private var remoteChangeObserver: NSObjectProtocol?
     @ObservationIgnored private var isRefreshing = false
     @ObservationIgnored private var pendingRefresh = false
@@ -185,7 +185,7 @@ final class VCSTabState {
     }
 
     private func startWatching() {
-        watcher = GitDirectoryWatcher(directoryPath: projectPath) { [weak self] in
+        watcher = VcsDirectoryWatcher(directoryPath: projectPath, vcsKind: vcsKind) { [weak self] in
             Task { @MainActor [weak self] in
                 self?.watcherDidFire()
             }

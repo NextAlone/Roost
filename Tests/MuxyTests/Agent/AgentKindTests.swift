@@ -33,4 +33,13 @@ struct AgentKindTests {
             _ = try JSONDecoder().decode([AgentKind].self, from: Data(json.utf8))
         }
     }
+
+    @Test("raw values are stable for snapshot backward compatibility")
+    func rawValuesAreStable() {
+        #expect(AgentKind.terminal.rawValue == "terminal")
+        #expect(AgentKind.claudeCode.rawValue == "claudeCode")
+        #expect(AgentKind.codex.rawValue == "codex")
+        #expect(AgentKind.geminiCli.rawValue == "geminiCli")
+        #expect(AgentKind.openCode.rawValue == "openCode")
+    }
 }

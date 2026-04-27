@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 protocol VcsWorktreeController: Sendable {
     func addWorktree(

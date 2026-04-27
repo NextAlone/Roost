@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 enum WorktreeSource: String, Codable, Hashable {
     case muxy

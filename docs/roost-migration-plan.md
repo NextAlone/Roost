@@ -214,6 +214,13 @@ Phase 2.2a status (2026-04-27):
 - External jj workspace path discovery deferred (Phase 2.2c).
 - Phase 2.2b remains: dispatch worktree create/remove via a `VcsWorktreeController` protocol; `RemoteServerDelegate.vcsCreateWorktree` and `CreateWorktreeSheet` consume the controller.
 
+Phase 2.2b status (2026-04-27):
+
+- `VcsWorktreeController` protocol introduced (`addWorktree` / `removeWorktree` / `deleteRef`). `GitWorktreeController` adapts `GitWorktreeService.shared`; `JjWorktreeController` composes `JjWorkspaceService` + `JjBookmarkService` with closure-injected impls for unit testability. Plan: `docs/superpowers/plans/2026-04-27-phase2-2b-worktree-controller-cleanup.md`.
+- `VcsWorktreeControllerFactory.controller(for: VcsKind)` selects the implementation.
+- `WorktreeStore.cleanupOnDisk` (both overloads) routes through the factory: per-worktree uses `worktree.vcsKind`, project-level orphan sweep uses primary's `vcsKind`.
+- Phase 2.2b2 remains: route `RemoteServerDelegate.vcsCreateWorktree`, `CreateWorktreeSheet`, and `VCSTabState.deleteBranch` through the controller (UI-layer DI work).
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

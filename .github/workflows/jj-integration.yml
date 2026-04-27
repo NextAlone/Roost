@@ -1,0 +1,51 @@
+name: jj integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  jj-smoke:
+    name: jj integration smoke
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        jj-version:
+          - "0.40.0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jj ${{ matrix.jj-version }}
+        run: |
+          set -euo pipefail
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            arm64) TRIPLE="aarch64-apple-darwin" ;;
+            x86_64) TRIPLE="x86_64-apple-darwin" ;;
+            *) echo "unsupported arch $ARCH" >&2; exit 1 ;;
+          esac
+          curl -sL -o /tmp/jj.tar.gz \
+            "https://github.com/jj-vcs/jj/releases/download/v${{ matrix.jj-version }}/jj-v${{ matrix.jj-version }}-${TRIPLE}.tar.gz"
+          mkdir -p /tmp/jj && tar -xzf /tmp/jj.tar.gz -C /tmp/jj
+          sudo install -m 755 /tmp/jj/jj /usr/local/bin/jj
+          jj --version
+
+      - name: Setup GhosttyKit
+        run: scripts/setup.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Build tests
+        run: swift build --build-tests
+
+      - name: jj smoke tests
+        run: swift test --filter JjIntegrationTests
+
+      - name: jj parser tests against fixtures
+        run: swift test --filter "JjStatusParser|JjOpLogParser|JjBookmarkParser|JjConflictParser|JjWorkspaceParser|JjDiffParser|JjShowParser|JjVersion"

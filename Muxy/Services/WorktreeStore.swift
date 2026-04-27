@@ -255,10 +255,11 @@ final class WorktreeStore {
         guard worktree.canBeRemoved else { return }
         let controller = VcsWorktreeControllerFactory.controller(for: worktree.vcsKind)
         do {
+            let target: VcsWorktreeRemovalTarget = worktree.jjWorkspaceName.map { .identified($0) } ?? .orphan
             try await controller.removeWorktree(
                 repoPath: repoPath,
                 path: worktree.path,
-                identifier: worktree.jjWorkspaceName,
+                target: target,
                 force: true
             )
         } catch {
@@ -297,7 +298,7 @@ final class WorktreeStore {
             try? await controller.removeWorktree(
                 repoPath: project.path,
                 path: childPath,
-                identifier: nil,
+                target: .orphan,
                 force: true
             )
             try? FileManager.default.removeItem(atPath: childPath)

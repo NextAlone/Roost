@@ -32,6 +32,6 @@ struct VcsWorktreeControllerResolverTests {
 
 final class ResolverStubController: VcsWorktreeController, @unchecked Sendable {
     func addWorktree(repoPath: String, name: String, path: String, ref: String?, createRef: Bool) async throws {}
-    func removeWorktree(repoPath: String, path: String, identifier: String?, force: Bool) async throws {}
+    func removeWorktree(repoPath: String, path: String, target: VcsWorktreeRemovalTarget, force: Bool) async throws {}
     func deleteRef(repoPath: String, name: String) async throws {}
 }

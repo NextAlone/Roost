@@ -157,6 +157,29 @@ final class WorktreeStore {
         return sorted
     }
 
+    func refreshJj(project: Project) async throws -> [Worktree] {
+        ensurePrimary(for: project)
+        let entries = try await listJjWorkspaces(project.path)
+        let entriesByName = Dictionary(uniqueKeysWithValues: entries.map { ($0.name, $0) })
+
+        var list = worktrees[project.id] ?? []
+        for index in list.indices {
+            let name = list[index].isPrimary ? "default" : list[index].name
+            if let entry = entriesByName[name] {
+                list[index].currentChangeId = entry.workingCopy.full
+            }
+        }
+        list = list.filter { worktree in
+            if worktree.isPrimary { return true }
+            if worktree.source == .external { return true }
+            return entriesByName[worktree.name] != nil
+        }
+        let sorted = sortPrimaryFirst(list)
+        setWorktrees(sorted, for: project.id)
+        save(projectID: project.id)
+        return sorted
+    }
+
     private static func canonicalPath(_ path: String) -> String {
         URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
     }

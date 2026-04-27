@@ -125,3 +125,22 @@ extension JjProcessRunner {
         )
     }
 }
+
+public typealias JjRunFn = @Sendable (
+    _ repoPath: String,
+    _ command: [String],
+    _ snapshot: JjSnapshotPolicy,
+    _ atOp: String?
+) async throws -> JjProcessResult
+
+extension JjProcessRunner {
+    public static func runRaw(
+        executable: String,
+        arguments: [String]
+    ) async throws -> JjProcessResult {
+        let env = buildEnvironment(inherited: ProcessInfo.processInfo.environment)
+        return try await Task.detached(priority: .userInitiated) {
+            try runProcess(executable: executable, arguments: arguments, environment: env)
+        }.value
+    }
+}

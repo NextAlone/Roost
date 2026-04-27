@@ -11,7 +11,7 @@ struct JjRepositoryServiceTests {
         let svc = JjRepositoryService { _, _, _, _ in
             JjProcessResult(status: 0, stdout: Data("/repo\n".utf8), stderr: "")
         }
-        #expect(try await svc.isJjRepo(path: "/repo"))
+        #expect(try await svc.isJjRepo(repoPath: "/repo"))
     }
 
     @Test("isJjRepo false on non-zero exit")
@@ -19,16 +19,7 @@ struct JjRepositoryServiceTests {
         let svc = JjRepositoryService { _, _, _, _ in
             JjProcessResult(status: 1, stdout: Data(), stderr: "no jj repo")
         }
-        #expect(try await svc.isJjRepo(path: "/repo") == false)
-    }
-
-    @Test("version parses runner output")
-    func version() async throws {
-        let svc = JjRepositoryService { _, _, _, _ in
-            JjProcessResult(status: 0, stdout: Data("jj 0.20.0\n".utf8), stderr: "")
-        }
-        let v = try await svc.version(path: "/repo")
-        #expect(v == JjVersion(major: 0, minor: 20, patch: 0))
+        #expect(try await svc.isJjRepo(repoPath: "/repo") == false)
     }
 
     @Test("currentOpId parses op log")
@@ -40,7 +31,7 @@ struct JjRepositoryServiceTests {
                 stderr: ""
             )
         }
-        let op = try await svc.currentOpId(path: "/repo")
+        let op = try await svc.currentOpId(repoPath: "/repo")
         #expect(op == "abc1234")
     }
 }

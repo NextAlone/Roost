@@ -18,12 +18,12 @@ struct AgentPresetTests {
         #expect(preset.requiresDedicatedWorkspace == false)
     }
 
-    @Test("non-terminal presets have a default command")
-    func agentsHaveCommand() {
-        for kind in AgentKind.allCases where kind != .terminal {
-            let preset = AgentPresetCatalog.preset(for: kind)
-            #expect(preset.defaultCommand?.isEmpty == false)
-        }
+    @Test("command strings match expected CLI entry points")
+    func commandValues() {
+        #expect(AgentPresetCatalog.preset(for: .claudeCode).defaultCommand == "claude")
+        #expect(AgentPresetCatalog.preset(for: .codex).defaultCommand == "codex")
+        #expect(AgentPresetCatalog.preset(for: .geminiCli).defaultCommand == "gemini")
+        #expect(AgentPresetCatalog.preset(for: .openCode).defaultCommand == "opencode")
     }
 
     @Test("requiresDedicatedWorkspace defaults to false for all built-ins")

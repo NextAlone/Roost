@@ -272,6 +272,20 @@ Phase 2 cleanup batch (2026-04-28):
 - `CreateWorktreeSheet` labels switch between "Branch" / "Bookmark" based on the project's primary `VcsKind`.
 - `WorktreeStore.refreshJj` now detects untracked external jj workspaces (names from `jj workspace list` not in tracked Worktree set) and surfaces via `untrackedJjWorkspaces(for:)`. `ExpandedProjectRow` shows an "N external jj workspaces detected" hint listing names. Path-based import binding deferred (jj's `WorkspaceRef` doesn't expose path).
 
+Reviewer-driven cleanup (2026-04-28):
+
+- 🔴 `JjProcessQueue.shared` singleton — fixes silent-broken per-repo serialization (default closures were each constructing fresh queues, so concurrent ops on same repo did not see each other's inflight task).
+- 🔴 `Worktree.jjWorkspaceName: String?` field + `VcsWorktreeController.removeWorktree` gains explicit `identifier:` parameter. JjWorktreeController uses identifier when present; falls back to leaf-name heuristic only for orphan-sweep paths. Throws `JjWorktreeControllerError.workspaceNameNotFound` on miss instead of silent leak.
+- 🔴 `GitDirectoryWatcher` renamed `VcsDirectoryWatcher`, supports `.jj` (watches `.jj/`, treats `/.jj/working_copy/`, `/.jj/repo/op_store/`, `/.jj/repo/index/` as noise). VCSTabState passes its kind; FileTreeState detects via VcsKindDetector. jj users now get FS-driven file-tree refresh.
+- 🟡 `isGitRepo` renamed to `isVcsRepo` in 3 sidebar files (ExpandedProjectRow, ProjectRow, WorktreePopover param). VCSTabState retains git-only `isGitRepo` (truly git semantics).
+- 🟡 `VCSTabView` shows "jj Changes Panel coming soon" placeholder when `state.vcsKind == .jj` instead of an empty broken-looking panel.
+- 🟡 Untracked jj workspace hint becomes a Button: tap opens NSOpenPanel to bind a path; `WorktreeStore.importExternalJjWorkspace(name:path:into:)` creates the `Worktree(.external, vcsKind: .jj, jjWorkspaceName:)` record.
+
+Deferred (acknowledged debt, not blocking):
+- Full VCSTabState split (1170+ lines) and resolver consolidation (`VcsAdapter` aggregating controller + status probe + detector) — Phase 5 will replace VCSTabState's read-side, so deeper refactor here is wasted effort.
+- jj output CI matrix (jj 0.40 / 0.41 / 0.42) — needs GitHub Actions wiring; opening as a tracked task.
+- `VcsKind = .default` sentinel naming clarity.
+
 ## Phase 3: Agent Session Model
 
 Goal: make terminal tabs agent-aware.

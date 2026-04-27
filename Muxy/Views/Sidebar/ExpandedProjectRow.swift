@@ -256,8 +256,8 @@ struct ExpandedProjectRow: View {
             }
 
             if !untrackedJjWorkspaceNames.isEmpty {
-                UntrackedJjWorkspacesHint(names: untrackedJjWorkspaceNames) {
-                    importFirstUntrackedJjWorkspace()
+                UntrackedJjWorkspacesHint(names: untrackedJjWorkspaceNames) { name in
+                    importUntrackedJjWorkspace(name: name)
                 }
             }
         }
@@ -269,8 +269,7 @@ struct ExpandedProjectRow: View {
         worktreeStore.untrackedJjWorkspaces(for: project.id)
     }
 
-    private func importFirstUntrackedJjWorkspace() {
-        guard let name = untrackedJjWorkspaceNames.first else { return }
+    private func importUntrackedJjWorkspace(name: String) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -686,35 +685,36 @@ private struct IdentifiableExpandedImage: Identifiable {
 
 private struct UntrackedJjWorkspacesHint: View {
     let names: [String]
-    let onImportFirst: () -> Void
+    let onImport: (String) -> Void
 
     var body: some View {
-        Button(action: onImportFirst) {
-            HStack(alignment: .top, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
                 Image(systemName: "info.circle")
                     .font(.system(size: 9))
                     .foregroundStyle(MuxyTheme.fgDim)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(names.count) external jj workspace\(names.count == 1 ? "" : "s") detected")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(MuxyTheme.fgMuted)
-                    Text(names.joined(separator: ", "))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(MuxyTheme.fgDim)
-                        .lineLimit(2)
-                        .truncationMode(.tail)
-                    if let first = names.first {
-                        Text("Click to bind '\(first)' to a path")
+                Text("\(names.count) external jj workspace\(names.count == 1 ? "" : "s") detected")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(MuxyTheme.fgMuted)
+            }
+            ForEach(names, id: \.self) { name in
+                Button(action: { onImport(name) }) {
+                    HStack(spacing: 4) {
+                        Text(name)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(MuxyTheme.fgDim)
+                        Spacer(minLength: 6)
+                        Text("Bind…")
                             .font(.system(size: 9))
                             .foregroundStyle(MuxyTheme.accent)
                     }
+                    .contentShape(Rectangle())
                 }
-                Spacer(minLength: 0)
+                .buttonStyle(.plain)
+                .padding(.leading, 14)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
     }
 }

@@ -28,7 +28,7 @@ struct WorktreePopover: View {
             filterKey: { worktree in
                 worktree.name + " " + (worktree.branch ?? "")
             },
-            searchPlaceholder: "Search worktrees…",
+            searchPlaceholder: "Search workspaces…",
             emptyLabel: "No matches",
             footerActions: footerActions,
             fixedSize: fixedSize,
@@ -66,7 +66,7 @@ struct WorktreePopover: View {
         guard isVcsRepo else { return [] }
         return [
             PopoverFooterAction(
-                title: "Refresh Worktrees",
+                title: "Refresh Workspaces",
                 icon: "arrow.clockwise",
                 isBusy: isRefreshing,
                 action: {
@@ -81,7 +81,7 @@ struct WorktreePopover: View {
                 }
             ),
             PopoverFooterAction(
-                title: "New Worktree…",
+                title: "New Workspace…",
                 icon: "plus.square.dashed",
                 action: onRequestCreate
             ),
@@ -104,8 +104,8 @@ struct WorktreePopover: View {
         else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Remove worktree \"\(worktree.name)\"?"
-        alert.informativeText = "This worktree has uncommitted changes. Removing it will permanently discard them."
+        alert.messageText = "Remove workspace \"\(worktree.name)\"?"
+        alert.informativeText = "This workspace has uncommitted changes. Removing it will permanently discard them."
         alert.alertStyle = .warning
         alert.icon = NSApp.applicationIconImage
         alert.addButton(withTitle: "Remove")
@@ -220,7 +220,7 @@ private struct WorktreePopoverRow: View {
         }
         .contextMenu {
             if worktree.isPrimary {
-                Text("Primary worktree").font(.system(size: 11))
+                Text("Primary workspace").font(.system(size: 11))
             } else if let onRemove {
                 Button("Rename") { startRename() }
                 Divider()
@@ -228,7 +228,7 @@ private struct WorktreePopoverRow: View {
             } else {
                 Button("Rename") { startRename() }
                 Divider()
-                Text("External worktree").font(.system(size: 11))
+                Text("External workspace").font(.system(size: 11))
             }
         }
     }

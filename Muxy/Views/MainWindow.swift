@@ -5,6 +5,7 @@ struct MainWindow: View {
     @Environment(AppState.self) private var appState
     @Environment(ProjectStore.self) private var projectStore
     @Environment(WorktreeStore.self) private var worktreeStore
+    @Environment(WorkspaceStatusStore.self) private var statusStore
     @Environment(GhosttyService.self) private var ghostty
     @Environment(\.openWindow) private var openWindow
     @State private var dragCoordinator = TabDragCoordinator()
@@ -289,6 +290,18 @@ struct MainWindow: View {
         .onChange(of: appState.pendingSaveErrorMessage != nil) { _, isPresented in
             guard isPresented, let message = appState.pendingSaveErrorMessage else { return }
             presentSaveErrorAlert(message: message)
+        }
+        .onChange(of: worktreeStore.worktrees, initial: true) { _, current in
+            let allWorktrees = current.values.flatMap { $0 }
+            let activeIDs = Set(allWorktrees.map(\.id))
+            statusStore.reconcile(activeIDs: activeIDs)
+            for worktree in allWorktrees {
+                statusStore.startWatching(
+                    worktreeID: worktree.id,
+                    path: worktree.path,
+                    kind: worktree.vcsKind
+                )
+            }
         }
     }
 

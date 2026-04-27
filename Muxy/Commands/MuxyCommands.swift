@@ -110,6 +110,32 @@ struct MuxyCommands: Commands {
             }
             .shortcut(for: .openVCSTab, store: keyBindings)
 
+            Divider()
+
+            Button("New Claude Code Tab") {
+                guard isMainWindowFocused else { return }
+                performShortcutAction(.newClaudeCodeTab)
+            }
+            .shortcut(for: .newClaudeCodeTab, store: keyBindings)
+
+            Button("New Codex Tab") {
+                guard isMainWindowFocused else { return }
+                performShortcutAction(.newCodexTab)
+            }
+            .shortcut(for: .newCodexTab, store: keyBindings)
+
+            Button("New Gemini CLI Tab") {
+                guard isMainWindowFocused else { return }
+                performShortcutAction(.newGeminiCliTab)
+            }
+            .shortcut(for: .newGeminiCliTab, store: keyBindings)
+
+            Button("New OpenCode Tab") {
+                guard isMainWindowFocused else { return }
+                performShortcutAction(.newOpenCodeTab)
+            }
+            .shortcut(for: .newOpenCodeTab, store: keyBindings)
+
             Button("Quick Open") {
                 guard isMainWindowFocused else { return }
                 performShortcutAction(.quickOpen)

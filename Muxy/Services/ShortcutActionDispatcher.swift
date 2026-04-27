@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 
 @MainActor
 struct ShortcutActionDispatcher {
@@ -44,6 +45,14 @@ struct ShortcutActionDispatcher {
             }
             appState.createTab(projectID: projectID)
             return true
+        case .newClaudeCodeTab:
+            return performAgentTab(.claudeCode)
+        case .newCodexTab:
+            return performAgentTab(.codex)
+        case .newGeminiCliTab:
+            return performAgentTab(.geminiCli)
+        case .newOpenCodeTab:
+            return performAgentTab(.openCode)
         case .closeTab:
             guard let projectID = appState.activeProjectID,
                   let area = appState.focusedArea(for: projectID),
@@ -171,6 +180,16 @@ struct ShortcutActionDispatcher {
              .selectProject9:
             return false
         }
+    }
+
+    private func performAgentTab(_ kind: AgentKind) -> Bool {
+        guard let projectID = appState.activeProjectID else { return false }
+        if appState.workspaceRoot(for: projectID) == nil {
+            guard let worktree = resolveActiveWorktree(for: projectID) else { return false }
+            appState.selectWorktree(projectID: projectID, worktree: worktree)
+        }
+        appState.createAgentTab(kind, projectID: projectID)
+        return true
     }
 
     private func resolveActiveWorktree(for projectID: UUID) -> Worktree? {

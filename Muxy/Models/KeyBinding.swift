@@ -47,6 +47,10 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
     case selectProject9
     case findInTerminal
     case openVCSTab
+    case newClaudeCodeTab
+    case newCodexTab
+    case newGeminiCliTab
+    case newOpenCodeTab
     case quickOpen
     case switchWorktree
     case saveFile
@@ -95,6 +99,10 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
         .selectProject9,
         .findInTerminal,
         .openVCSTab,
+        .newClaudeCodeTab,
+        .newCodexTab,
+        .newGeminiCliTab,
+        .newOpenCodeTab,
         .quickOpen,
         .switchWorktree,
         .saveFile,
@@ -144,6 +152,10 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
         case .selectProject9: ShortcutMetadata(displayName: "Project 9", category: "Project Navigation", scope: .mainWindow)
         case .findInTerminal: ShortcutMetadata(displayName: "Find", category: "Terminal", scope: .mainWindow)
         case .openVCSTab: ShortcutMetadata(displayName: "Source Control", category: "App", scope: .mainWindow)
+        case .newClaudeCodeTab: ShortcutMetadata(displayName: "New Claude Code Tab", category: "Tabs", scope: .mainWindow)
+        case .newCodexTab: ShortcutMetadata(displayName: "New Codex Tab", category: "Tabs", scope: .mainWindow)
+        case .newGeminiCliTab: ShortcutMetadata(displayName: "New Gemini CLI Tab", category: "Tabs", scope: .mainWindow)
+        case .newOpenCodeTab: ShortcutMetadata(displayName: "New OpenCode Tab", category: "Tabs", scope: .mainWindow)
         case .quickOpen: ShortcutMetadata(displayName: "Quick Open", category: "App", scope: .mainWindow)
         case .switchWorktree: ShortcutMetadata(displayName: "Switch Worktree", category: "Project Navigation", scope: .mainWindow)
         case .saveFile: ShortcutMetadata(displayName: "Save File", category: "Editor", scope: .mainWindow)

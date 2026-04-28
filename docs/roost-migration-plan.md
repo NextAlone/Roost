@@ -613,6 +613,13 @@ Tasks:
 - README installation docs.
 - License notices for Muxy, GhosttyKit, Sparkle, SwiftTerm, and other dependencies.
 
+**Status (2026-04-28): Phase 8 (engineering subset) landed.**
+
+- `THIRD_PARTY_LICENSES.md` bundles license texts for Muxy, Sparkle, SwiftTerm, libghostty.
+- `README.md` adds Quickstart, Configuration, Architecture, Release, and Third-Party Licenses sections.
+- `RELEASE-CHECKLIST.md` enumerates the human-driven release items: signing, notarization, Sparkle feed, Homebrew cask, telemetry, crash reporting, permissions audit, XPC service (deferred), pre-release smoke.
+- **Phase 8 engineering work complete.** Distribution gates (Apple Developer Team ID, signing identity, notarization CI, app icon, Sparkle hosting, Homebrew cask submission) are tracked in `RELEASE-CHECKLIST.md` as human follow-up.
+
 ## Risk Register
 
 - **jj working-copy snapshot race (product-level data safety)**: jj's working copy is a commit; any `jj status`/`log` invocation that omits `--ignore-working-copy` triggers a snapshot. Multi-agent writes can be silently captured into a change. Phase 1 snapshot policy is the mitigation; assume violations cause real data corruption.

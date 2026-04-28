@@ -444,6 +444,14 @@ Later features:
 - `VCSTabState` lazy-owns `jjState: JjPanelState?` and dispatches `refresh()` by `vcsKind`.
 - `JjPanelView` renders the change card (id + description), file list, conflict banner, and refresh button. Replaces the old `jjPlaceholder` (kept as fallback).
 - Bookmarks (5b), conflicts detail (5b), and mutating actions (5c, 5d) → upcoming.
+
+**Status (2026-04-28): Phase 5b (bookmarks + conflicts) landed.**
+
+- `JjConflictsService` wraps `jj resolve --list` and uses existing `JjConflictParser`.
+- `JjPanelSnapshot` adds `bookmarks: [JjBookmark]` + `conflicts: [JjConflict]`.
+- `JjPanelLoader` lazily fetches conflicts only when `status.hasConflicts == true` (avoids extra subprocess in common case). Bookmarks always fetched.
+- `JjPanelView` renders bookmark list (with target prefix + remote markers) and conflict list. The old conflict banner is removed.
+- Mutating actions (5c, 5d) → upcoming.
 - Conflict content viewer.
 - Revset search.
 - Side-by-side diff improvements.

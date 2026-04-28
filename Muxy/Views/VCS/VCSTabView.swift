@@ -34,7 +34,11 @@ struct VCSTabView: View {
     var body: some View {
         VStack(spacing: 0) {
             if state.vcsKind == .jj {
-                jjPlaceholder
+                if let jjState = state.jjState {
+                    JjPanelView(state: jjState)
+                } else {
+                    jjPlaceholder
+                }
             } else {
                 header
                 Rectangle().fill(MuxyTheme.border).frame(height: 1)

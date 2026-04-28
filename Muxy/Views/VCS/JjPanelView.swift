@@ -8,6 +8,9 @@ struct JjPanelView: View {
     @State private var actionError: String?
 
     private let mutator = JjMutationService(queue: JjProcessQueue.shared)
+    private let bookmarkService = JjBookmarkService(queue: JjProcessQueue.shared)
+
+    @State private var showCreateBookmarkSheet = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -61,6 +64,21 @@ struct JjPanelView: View {
                     runMutation { try await mutator.commit(repoPath: state.repoPath, message: message) }
                 },
                 onCancel: { showCommitSheet = false }
+            )
+        }
+        .sheet(isPresented: $showCreateBookmarkSheet) {
+            JjBookmarkCreateSheet(
+                onConfirm: { name in
+                    showCreateBookmarkSheet = false
+                    runMutation {
+                        try await bookmarkService.create(
+                            repoPath: state.repoPath,
+                            name: name,
+                            revset: "@"
+                        )
+                    }
+                },
+                onCancel: { showCreateBookmarkSheet = false }
             )
         }
     }
@@ -155,6 +173,15 @@ struct JjPanelView: View {
                 Text("(\(bookmarks.count))")
                     .font(.system(size: 10))
                     .foregroundStyle(MuxyTheme.fgDim)
+                Spacer()
+                Button {
+                    showCreateBookmarkSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 10))
+                }
+                .buttonStyle(.borderless)
+                .help("New bookmark")
             }
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(bookmarks, id: \.name) { bookmark in
@@ -179,6 +206,26 @@ struct JjPanelView: View {
                                 .foregroundStyle(MuxyTheme.fgDim)
                         }
                         Spacer()
+                    }
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        Button("Move to current change") {
+                            runMutation {
+                                try await bookmarkService.setTarget(
+                                    repoPath: state.repoPath,
+                                    name: bookmark.name,
+                                    revset: "@"
+                                )
+                            }
+                        }
+                        Button("Delete", role: .destructive) {
+                            runMutation {
+                                try await bookmarkService.forget(
+                                    repoPath: state.repoPath,
+                                    name: bookmark.name
+                                )
+                            }
+                        }
                     }
                 }
             }

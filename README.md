@@ -27,6 +27,50 @@ swift build
 swift run Roost
 ```
 
+## Quickstart
+
+After `swift build`, launching Roost (`swift run Roost`) and opening a project gives you a sidebar with workspaces. Inside each project:
+
+- Add a workspace: sidebar context menu → "New Workspace…"
+- Open an agent tab: File → New Claude Code Tab / New Codex Tab / New Gemini CLI Tab / New OpenCode Tab
+- View jj changes: ⌘K (Source Control) — current change card, file list, bookmarks, conflicts, mutating actions (describe / new / commit / squash / abandon / duplicate / backout)
+- Session history: clock icon in sidebar footer
+
+A jj-tracked project unlocks the full jj-first behaviour. Git-tracked projects continue to work via the legacy panel.
+
+## Configuration
+
+Roost reads `<project>/.roost/config.json` for per-project settings. Schema version 1 supports:
+
+- `setup`: list of `{ name?, command }` to run after creating a workspace
+- `agentPresets`: list of `{ name, kind, command, cardinality }` overrides for built-in agents (`kind` ∈ `terminal`, `claudeCode`, `codex`, `geminiCli`, `openCode`; `cardinality` ∈ `shared`, `dedicated`)
+
+Example:
+
+```json
+{
+  "schemaVersion": 1,
+  "setup": [{ "name": "install", "command": "pnpm install" }],
+  "agentPresets": [
+    { "name": "Claude Opus", "kind": "claudeCode", "command": "claude --model opus", "cardinality": "dedicated" }
+  ]
+}
+```
+
+Legacy `.muxy/worktree.json` is still read as a fallback for `setup` only.
+
+## Architecture
+
+See [docs/architecture.md](docs/architecture.md) and [docs/roost-migration-plan.md](docs/roost-migration-plan.md) for the full architecture and migration plan.
+
+## Release
+
+See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for the manual handoff items (signing, notarization, telemetry, distribution).
+
+## Third-Party Licenses
+
+See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for attribution of dependencies.
+
 ## License
 
 Roost is currently based on Muxy, which is licensed under MIT. Keep upstream license and attribution intact while Roost-specific licensing is finalized.

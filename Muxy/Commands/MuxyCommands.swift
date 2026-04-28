@@ -12,6 +12,7 @@ struct MuxyCommands: Commands {
     let config: MuxyConfig
     let ghostty: GhosttyService
     let updateService: UpdateService
+    let hostd: RoostHostd?
 
     private var isMainWindowFocused: Bool {
         ShortcutContext.isMainWindow(NSApp.keyWindow)
@@ -50,7 +51,8 @@ struct MuxyCommands: Commands {
             appState: appState,
             projectStore: projectStore,
             worktreeStore: worktreeStore,
-            ghostty: ghostty
+            ghostty: ghostty,
+            hostd: hostd
         )
     }
 

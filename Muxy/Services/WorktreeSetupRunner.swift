@@ -23,7 +23,7 @@ enum WorktreeSetupRunner {
     nonisolated static func commandLine(sourceProjectPath: String) -> String? {
         guard let config = RoostConfigLoader.load(fromProjectPath: sourceProjectPath) else { return nil }
         let commands = setupEntries(config: config).map { command in
-            commandLine(command: command, globalEnv: config.env)
+            commandLine(command: command, globalEnv: config.env, globalKeychainEnv: config.keychainEnv)
         }
         guard !commands.isEmpty else { return nil }
         return commands.joined(separator: " && ")
@@ -35,16 +35,34 @@ enum WorktreeSetupRunner {
 
     nonisolated static func setupEntries(config: RoostConfig) -> [RoostConfigSetupCommand] {
         config.setup
-            .map { RoostConfigSetupCommand(
-                command: $0.command.trimmingCharacters(in: .whitespacesAndNewlines),
-                name: $0.name,
-                env: $0.env
-            ) }
+            .map {
+                RoostConfigSetupCommand(
+                    command: $0.command.trimmingCharacters(in: .whitespacesAndNewlines),
+                    name: $0.name,
+                    env: $0.env,
+                    keychainEnv: $0.keychainEnv
+                )
+            }
             .filter { !$0.command.isEmpty }
     }
 
-    nonisolated static func commandLine(command: RoostConfigSetupCommand, globalEnv: [String: String]) -> String {
-        let env = globalEnv.merging(command.env) { _, commandValue in commandValue }
+    nonisolated static func commandLine(
+        command: RoostConfigSetupCommand,
+        globalEnv: [String: String],
+        globalKeychainEnv: [String: RoostConfigKeychainEnv] = [:],
+        keychainReader: RoostConfigEnvResolver.KeychainReader = AIUsageTokenReader.fromKeychain
+    ) -> String {
+        let globalResolved = RoostConfigEnvResolver.resolve(
+            plain: globalEnv,
+            keychain: globalKeychainEnv,
+            keychainReader: keychainReader
+        )
+        let commandResolved = RoostConfigEnvResolver.resolve(
+            plain: command.env,
+            keychain: command.keychainEnv,
+            keychainReader: keychainReader
+        )
+        let env = globalResolved.merging(commandResolved) { _, commandValue in commandValue }
         guard !env.isEmpty else { return command.command.trimmingCharacters(in: .whitespacesAndNewlines) }
         let prefix = env
             .sorted { $0.key < $1.key }

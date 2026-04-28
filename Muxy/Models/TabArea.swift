@@ -66,10 +66,23 @@ final class TabArea: Identifiable {
 
     func createAgentTab(kind: AgentKind) {
         let config = RoostConfigLoader.load(fromProjectPath: projectPath)
+        let globalEnv = RoostConfigEnvResolver.resolve(
+            plain: config?.env ?? [:],
+            keychain: config?.keychainEnv ?? [:]
+        )
+        let configuredPresets = config?.agentPresets.map { preset in
+            RoostConfigAgentPreset(
+                name: preset.name,
+                kind: preset.kind,
+                command: preset.command,
+                env: RoostConfigEnvResolver.resolve(plain: preset.env, keychain: preset.keychainEnv),
+                cardinality: preset.cardinality
+            )
+        } ?? []
         let preset = AgentPresetCatalog.preset(
             for: kind,
-            env: config?.env ?? [:],
-            configuredPresets: config?.agentPresets ?? []
+            env: globalEnv,
+            configuredPresets: configuredPresets
         )
         let pane = TerminalPaneState(
             projectPath: projectPath,

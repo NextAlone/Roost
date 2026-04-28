@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 import Testing
 
 @testable import Roost
@@ -80,5 +81,35 @@ struct WorktreeSetupRunnerTests {
         """.utf8).write(to: roostDir.appendingPathComponent("config.json"))
 
         #expect(WorktreeSetupRunner.commandLine(sourceProjectPath: project.path) == "GLOBAL='one two' OVERRIDE=local pnpm install && GLOBAL='one two' OVERRIDE=global pnpm dev")
+    }
+
+    @Test("resolves keychain env for setup commands")
+    func setupKeychainEnv() {
+        let command = RoostConfigSetupCommand(
+            command: "pnpm install",
+            env: ["PLAIN": "local"],
+            keychainEnv: [
+                "LOCAL_SECRET": RoostConfigKeychainEnv(service: "local-token"),
+                "MISSING_SECRET": RoostConfigKeychainEnv(service: "missing-token")
+            ]
+        )
+
+        let line = WorktreeSetupRunner.commandLine(
+            command: command,
+            globalEnv: ["GLOBAL": "plain", "OVERRIDE": "global"],
+            globalKeychainEnv: [
+                "GLOBAL_SECRET": RoostConfigKeychainEnv(service: "global-token", account: "work"),
+                "OVERRIDE": RoostConfigKeychainEnv(service: "override-token")
+            ],
+            keychainReader: { service, account in
+                [
+                    "global-token:work": "global secret",
+                    "override-token:": "keychain global",
+                    "local-token:": "local secret"
+                ]["\(service):\(account ?? "")"]
+            }
+        )
+
+        #expect(line == "GLOBAL=plain GLOBAL_SECRET='global secret' LOCAL_SECRET='local secret' OVERRIDE='keychain global' PLAIN=local pnpm install")
     }
 }

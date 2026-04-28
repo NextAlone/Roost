@@ -44,6 +44,7 @@ struct MuxyApp: App {
                 .environment(MuxyConfig.shared)
                 .environment(ThemeService.shared)
                 .preferredColorScheme(MuxyTheme.colorScheme)
+                .focusEffectDisabled()
                 .onAppear {
                     NotificationStore.shared.appState = appState
                     NotificationStore.shared.worktreeStore = worktreeStore
@@ -116,12 +117,14 @@ struct MuxyApp: App {
                 .environment(statusStore)
                 .environment(GhosttyService.shared)
                 .preferredColorScheme(MuxyTheme.colorScheme)
+                .focusEffectDisabled()
         }
         .defaultSize(width: 700, height: 600)
 
         Settings {
             SettingsView()
                 .preferredColorScheme(MuxyTheme.colorScheme)
+                .focusEffectDisabled()
         }
     }
 }

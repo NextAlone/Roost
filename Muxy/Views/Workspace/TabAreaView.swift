@@ -18,6 +18,7 @@ struct TabAreaView: View {
     let onDropAction: (TabDragCoordinator.DropResult) -> Void
     @Environment(TabDragCoordinator.self) private var dragCoordinator
     @Environment(AppState.self) private var appState
+    @Environment(\.roostHostd) private var hostd
 
     var body: some View {
         VStack(spacing: 0) {
@@ -66,6 +67,12 @@ struct TabAreaView: View {
                         onProcessExit: {
                             if let pane = tab.content.pane {
                                 pane.lastState = .exited
+                                let paneID = pane.id
+                                if let hostd {
+                                    Task { [hostd] in
+                                        try? await hostd.markExited(sessionID: paneID)
+                                    }
+                                }
                                 if pane.agentKind == .terminal {
                                     onForceCloseTab(tab.id)
                                 }

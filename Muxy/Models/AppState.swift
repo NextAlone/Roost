@@ -217,8 +217,28 @@ final class AppState {
         dispatch(.createVCSTab(projectID: projectID, areaID: nil))
     }
 
-    func createAgentTab(_ kind: AgentKind, projectID: UUID) {
+    func createAgentTab(_ kind: AgentKind, projectID: UUID, hostd: RoostHostd? = nil) {
         dispatch(.createAgentTab(projectID: projectID, areaID: nil, kind: kind))
+        guard let hostd,
+              let area = focusedArea(for: projectID),
+              let tab = area.activeTab,
+              let pane = tab.content.pane,
+              let worktreeID = activeWorktreeID[projectID]
+        else { return }
+        let paneID = pane.id
+        let workspacePath = pane.projectPath
+        let agentKind = pane.agentKind
+        let command = pane.startupCommand
+        Task { [hostd] in
+            try? await hostd.createSession(
+                id: paneID,
+                projectID: projectID,
+                worktreeID: worktreeID,
+                workspacePath: workspacePath,
+                agentKind: agentKind,
+                command: command
+            )
+        }
     }
 
     func openFile(_ filePath: String, projectID: UUID) {

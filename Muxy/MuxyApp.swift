@@ -111,7 +111,8 @@ struct MuxyApp: App {
                 keyBindings: .shared,
                 config: .shared,
                 ghostty: .shared,
-                updateService: .shared
+                updateService: .shared,
+                hostd: hostd
             )
         }
 

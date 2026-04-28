@@ -204,6 +204,7 @@ Muxy/
       MobileSettingsView.swift  Mobile server and approved devices tab
       ShortcutRecorderView.swift  Shortcut capture field
       ShortcutBadge.swift     Shortcut label display
+      RoostConfigSettingsView.swift Project .roost/config.json editor and permission repair UI
 ```
 
 ## Hierarchy

@@ -604,7 +604,7 @@ Rules:
 - `RoostConfig` decodes top-level `env`, per-setup `env`, and per-agent preset `env` plain string maps. Object values such as `{ "fromKeychain": "..." }` are tolerated but ignored until Keychain resolution lands.
 - Setup execution merges top-level env with per-command env and prefixes each command with shell-escaped assignments.
 - Agent tabs merge top-level env with per-preset env and pass the result to Ghostty when creating the terminal surface. Roost's own `MUXY_*` env vars still win.
-- Still deferred: settings UI.
+- Still deferred: none.
 
 **Follow-up status (2026-04-29): default workspace location landed.**
 
@@ -639,6 +639,12 @@ Rules:
 - Writes create `.roost/` with `0700` permissions and `config.json` with `0600` permissions.
 - `fileSecurity` detects missing, secure, overly permissive, and unknown config permission states; `enforceSecurePermissions` fixes existing config files.
 - Still deferred: settings UI.
+
+**Follow-up status (2026-04-29): settings UI landed.**
+
+- Settings has a Roost Config tab with project selection, config file status, open/create, permission repair, default workspace location, and notification override controls.
+- Saving preserves existing env, setup, teardown, and agent preset config while updating the currently exposed fields.
+- Phase 7 implementation work is complete.
 
 ## Phase 8: Release Readiness
 

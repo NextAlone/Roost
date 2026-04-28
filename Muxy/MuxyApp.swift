@@ -135,6 +135,7 @@ struct MuxyApp: App {
 
         Settings {
             SettingsView()
+                .environment(projectStore)
                 .preferredColorScheme(MuxyTheme.colorScheme)
                 .focusEffectDisabled()
         }

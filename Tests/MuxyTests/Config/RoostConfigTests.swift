@@ -20,6 +20,7 @@ struct RoostConfigTests {
         let json = """
         {
           "schemaVersion": 1,
+          "defaultWorkspaceLocation": ".roost/workspaces",
           "env": { "GLOBAL": "1" },
           "setup": [
             { "name": "install", "command": "pnpm install", "env": { "LOCAL": "2" } },
@@ -29,6 +30,7 @@ struct RoostConfigTests {
         """
         let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
         #expect(config.setup.count == 2)
+        #expect(config.defaultWorkspaceLocation == ".roost/workspaces")
         #expect(config.setup[0].name == "install")
         #expect(config.env["GLOBAL"] == "1")
         #expect(config.setup[0].env["LOCAL"] == "2")
@@ -125,5 +127,6 @@ struct RoostConfigTests {
         #expect(config.schemaVersion == 1)
         #expect(config.setup.isEmpty)
         #expect(config.env["FOO"] == "bar")
+        #expect(config.defaultWorkspaceLocation == "/tmp/wt")
     }
 }

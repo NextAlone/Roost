@@ -215,8 +215,8 @@ struct CreateWorktreeSheet: View {
             : selectedExistingBranch
 
         let slug = Self.slug(from: trimmedName)
-        let worktreeDirectory = MuxyFileStorage
-            .worktreeDirectory(forProjectID: project.id, name: slug)
+        let worktreeDirectory = WorkspaceLocationResolver
+            .directory(projectID: project.id, projectPath: project.path, name: slug)
             .path(percentEncoded: false)
 
         if FileManager.default.fileExists(atPath: worktreeDirectory) {

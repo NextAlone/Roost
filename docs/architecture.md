@@ -65,7 +65,7 @@ Muxy/
     Project.swift             Project folder metadata
     Worktree.swift            Per-project worktree slot (primary or git worktree)
     WorktreeKey.swift         Hashable (projectID, worktreeID) key for workspace maps
-    WorktreeConfig.swift      Decoder for .muxy/worktree.json setup commands
+    WorktreeConfig.swift      Legacy decoder for .muxy/worktree.json setup commands
     TerminalPaneState.swift   Per-pane terminal state, including startup commands for terminal editors
     TerminalSearchState.swift Terminal find-in-page state
     TerminalQuickSelectState.swift Keyboard quick-select match state and label generation
@@ -115,7 +115,10 @@ Muxy/
     WorktreeStore.swift       @Observable store for per-project worktrees
     WorktreePersistence.swift JSON persistence for worktrees (one file per project)
     ProjectOpenService.swift  Shared open-project flow used by commands and sidebar
-    WorktreeSetupRunner.swift Dispatches .muxy/worktree.json setup commands to a new tab
+    Config/
+      RoostConfigLoader.swift       Loads .roost/config.json with .muxy/worktree.json fallback
+      WorkspaceLocationResolver.swift Resolves configured workspace checkout roots
+    WorktreeSetupRunner.swift Dispatches .roost/config.json setup commands to a new tab
     WorkspacePersistence.swift JSON persistence for workspaces
     JSONFilePersistence.swift Shared App Support directory helper
     ModifierKeyMonitor.swift  Global modifier key state tracking
@@ -244,7 +247,7 @@ User action → AppState.dispatch() → WorkspaceReducer.reduce()
   Ghostty palette — themes Just Work. Edits invalidate the cache from the earliest affected
   line; search highlights (temporary attributes) layer on top without losing syntax colors.
 - **GhosttyKit**: C module wrapping `ghostty.h`. Precompiled xcframework from `muxy-app/ghostty` fork. Surfaces created/destroyed via `TerminalViewRegistry`.
-- **Persistence**: All files in `~/Library/Application Support/Muxy/`. Shared directory helper: `MuxyFileStorage`. Worktrees are persisted per-project at `worktrees/{projectID}.json`, including whether a secondary worktree is Muxy-managed or externally discovered. Git projects can manually refresh this list from `git worktree list --porcelain` to import existing worktrees without deleting absent entries; paths are matched after symlink resolution so a repo opened via a symlinked path still collapses onto a single primary entry. Externally discovered worktrees are never touched by Muxy's `cleanupOnDisk` paths (project removal, post-merge cleanup, manual removal) — they can only be unregistered by the user in the underlying repo. Worktree setup commands live in-repo at `{Project.path}/.muxy/worktree.json`.
+- **Persistence**: All files in `~/Library/Application Support/Muxy/`. Shared directory helper: `MuxyFileStorage`. Worktrees are persisted per-project at `worktrees/{projectID}.json`, including whether a secondary worktree is Muxy-managed or externally discovered. Git projects can manually refresh this list from `git worktree list --porcelain` to import existing worktrees without deleting absent entries; paths are matched after symlink resolution so a repo opened via a symlinked path still collapses onto a single primary entry. Externally discovered worktrees are never touched by Muxy's `cleanupOnDisk` paths (project removal, post-merge cleanup, manual removal) — they can only be unregistered by the user in the underlying repo. Project config lives in-repo at `{Project.path}/.roost/config.json`; legacy setup commands still fall back to `{Project.path}/.muxy/worktree.json`. New Muxy-managed worktrees use `defaultWorkspaceLocation` from Roost config when present, resolving relative paths from the project root.
 - **Ghostty Config**: Managed by `MuxyConfig`, stored at `~/Library/Application Support/Muxy/ghostty.conf`. Seeded from `~/.config/ghostty/config` on first run.
 - **Updates**: Sparkle framework via `UpdateService`.
 - **Window Title**: `NSWindow.title` is hidden visually (`titleVisibility = .hidden`) but set

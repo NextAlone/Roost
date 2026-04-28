@@ -604,7 +604,14 @@ Rules:
 - `RoostConfig` decodes top-level `env`, per-setup `env`, and per-agent preset `env` plain string maps. Object values such as `{ "fromKeychain": "..." }` are tolerated but ignored until Keychain resolution lands.
 - Setup execution merges top-level env with per-command env and prefixes each command with shell-escaped assignments.
 - Agent tabs merge top-level env with per-preset env and pass the result to Ghostty when creating the terminal surface. Roost's own `MUXY_*` env vars still win.
-- Still deferred: Keychain-backed env values, config write path / chmod enforcement, teardown, default workspace location, notifications config, and settings UI.
+- Still deferred: Keychain-backed env values, config write path / chmod enforcement, teardown, notifications config, and settings UI.
+
+**Follow-up status (2026-04-29): default workspace location landed.**
+
+- `RoostConfig.defaultWorkspaceLocation` controls where newly created workspaces are checked out. Absolute paths are used directly; relative paths resolve against the project root.
+- `CreateWorktreeSheet` and remote `vcsAddWorktree` both use `WorkspaceLocationResolver`, so local and mobile/remote workspace creation share path semantics.
+- Empty / missing location keeps the original Application Support checkout root.
+- Still deferred: Keychain-backed env values, config write path / chmod enforcement, teardown, notifications config, and settings UI.
 
 ## Phase 8: Release Readiness
 

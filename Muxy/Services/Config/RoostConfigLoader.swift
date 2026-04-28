@@ -28,6 +28,7 @@ enum RoostConfigLoader {
         return RoostConfig(
             schemaVersion: 1,
             env: [:],
+            defaultWorkspaceLocation: nil,
             setup: legacy.setup.map { RoostConfigSetupCommand(command: $0.command, name: $0.name) },
             agentPresets: []
         )

@@ -3,17 +3,20 @@ import Foundation
 public struct RoostConfig: Sendable, Codable {
     public let schemaVersion: Int
     public let env: [String: String]
+    public let defaultWorkspaceLocation: String?
     public let setup: [RoostConfigSetupCommand]
     public let agentPresets: [RoostConfigAgentPreset]
 
     public init(
         schemaVersion: Int = 1,
         env: [String: String] = [:],
+        defaultWorkspaceLocation: String? = nil,
         setup: [RoostConfigSetupCommand] = [],
         agentPresets: [RoostConfigAgentPreset] = []
     ) {
         self.schemaVersion = schemaVersion
         self.env = env
+        self.defaultWorkspaceLocation = defaultWorkspaceLocation
         self.setup = setup
         self.agentPresets = agentPresets
     }
@@ -21,6 +24,7 @@ public struct RoostConfig: Sendable, Codable {
     private enum CodingKeys: String, CodingKey {
         case schemaVersion
         case env
+        case defaultWorkspaceLocation
         case setup
         case agentPresets
     }
@@ -29,6 +33,7 @@ public struct RoostConfig: Sendable, Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         env = RoostConfigEnv.decode(container, forKey: .env)
+        defaultWorkspaceLocation = try container.decodeIfPresent(String.self, forKey: .defaultWorkspaceLocation)
         setup = (try? container.decodeIfPresent([RoostConfigSetupCommand].self, forKey: .setup)) ?? []
 
         let rawArray = (try? container.decodeIfPresent([RoostConfigAgentPresetTolerant].self, forKey: .agentPresets)) ?? []

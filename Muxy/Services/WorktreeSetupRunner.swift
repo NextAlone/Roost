@@ -39,6 +39,7 @@ enum WorktreeSetupRunner {
                 RoostConfigSetupCommand(
                     command: $0.command.trimmingCharacters(in: .whitespacesAndNewlines),
                     name: $0.name,
+                    cwd: $0.cwd,
                     env: $0.env,
                     keychainEnv: $0.keychainEnv
                 )

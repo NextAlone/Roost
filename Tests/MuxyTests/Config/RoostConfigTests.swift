@@ -25,17 +25,22 @@ struct RoostConfigTests {
           "setup": [
             { "name": "install", "command": "pnpm install", "env": { "LOCAL": "2" } },
             { "command": "pnpm dev" }
+          ],
+          "teardown": [
+            { "name": "cleanup", "command": "pnpm clean", "cwd": "tools" }
           ]
         }
         """
         let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
         #expect(config.setup.count == 2)
+        #expect(config.teardown.count == 1)
         #expect(config.defaultWorkspaceLocation == ".roost/workspaces")
         #expect(config.setup[0].name == "install")
         #expect(config.env["GLOBAL"] == "1")
         #expect(config.setup[0].env["LOCAL"] == "2")
         #expect(config.setup[1].command == "pnpm dev")
         #expect(config.setup[1].name == nil)
+        #expect(config.teardown[0].cwd == "tools")
     }
 
     @Test("decodes agentPresets override")
@@ -132,6 +137,7 @@ struct RoostConfigTests {
         let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
         #expect(config.schemaVersion == 1)
         #expect(config.setup.isEmpty)
+        #expect(config.teardown.count == 1)
         #expect(config.env["FOO"] == "bar")
         #expect(config.defaultWorkspaceLocation == "/tmp/wt")
     }

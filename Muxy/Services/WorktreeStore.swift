@@ -253,6 +253,7 @@ final class WorktreeStore {
         repoPath: String
     ) async {
         guard worktree.canBeRemoved else { return }
+        await WorktreeTeardownRunner.run(sourceProjectPath: repoPath, worktreePath: worktree.path)
         let controller = VcsWorktreeControllerFactory.controller(for: worktree.vcsKind)
         do {
             let target: VcsWorktreeRemovalTarget = worktree.jjWorkspaceName.map { .identified($0) } ?? .orphan

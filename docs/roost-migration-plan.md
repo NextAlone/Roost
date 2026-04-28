@@ -604,7 +604,7 @@ Rules:
 - `RoostConfig` decodes top-level `env`, per-setup `env`, and per-agent preset `env` plain string maps. Object values such as `{ "fromKeychain": "..." }` are tolerated but ignored until Keychain resolution lands.
 - Setup execution merges top-level env with per-command env and prefixes each command with shell-escaped assignments.
 - Agent tabs merge top-level env with per-preset env and pass the result to Ghostty when creating the terminal surface. Roost's own `MUXY_*` env vars still win.
-- Still deferred: config write path / chmod enforcement, teardown, notifications config, and settings UI.
+- Still deferred: config write path / chmod enforcement, notifications config, and settings UI.
 
 **Follow-up status (2026-04-29): default workspace location landed.**
 
@@ -618,6 +618,13 @@ Rules:
 - `env` values can be either plain strings or `{ "fromKeychain": "service", "account": "optional-account" }`.
 - Setup commands and agent presets resolve Keychain references at launch time through macOS `/usr/bin/security`; unresolved entries are skipped and secret values are not persisted into config.
 - Still deferred: config write path / chmod enforcement, teardown, notifications config, and settings UI.
+
+**Follow-up status (2026-04-29): teardown support landed.**
+
+- `RoostConfig.teardown` decodes the same command shape as `setup`, including `cwd` and env values.
+- Managed worktree cleanup runs teardown commands before VCS removal. Commands execute with the worktree as default cwd; relative `cwd` values resolve under that worktree.
+- Teardown failures are logged but do not block managed worktree cleanup.
+- Still deferred: config write path / chmod enforcement, notifications config, and settings UI.
 
 ## Phase 8: Release Readiness
 

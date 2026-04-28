@@ -11,6 +11,7 @@ final class TerminalPaneState: Identifiable {
     let externalEditorFilePath: String?
     let agentKind: AgentKind
     let createdAt: Date
+    var lastState: SessionLifecycleState = .running
     let searchState = TerminalSearchState()
     @ObservationIgnored private var titleDebounceTask: Task<Void, Never>?
 

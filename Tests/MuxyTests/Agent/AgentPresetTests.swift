@@ -32,4 +32,30 @@ struct AgentPresetTests {
             #expect(AgentPresetCatalog.preset(for: kind).requiresDedicatedWorkspace == false)
         }
     }
+
+    @Test("configured override wins for a known kind")
+    func overrideWinsForKind() {
+        let configured = [RoostConfigAgentPreset(
+            name: "Custom Claude",
+            kind: .claudeCode,
+            command: "claude --model opus",
+            cardinality: .dedicated
+        )]
+        let preset = AgentPresetCatalog.preset(for: .claudeCode, configuredPresets: configured)
+        #expect(preset.defaultCommand == "claude --model opus")
+        #expect(preset.requiresDedicatedWorkspace == true)
+    }
+
+    @Test("kinds without override fall back to built-in")
+    func unrelatedKindUsesBuiltIn() {
+        let configured = [RoostConfigAgentPreset(
+            name: "Custom Claude",
+            kind: .claudeCode,
+            command: "claude --model opus",
+            cardinality: .dedicated
+        )]
+        let preset = AgentPresetCatalog.preset(for: .codex, configuredPresets: configured)
+        #expect(preset.defaultCommand == "codex")
+        #expect(preset.requiresDedicatedWorkspace == false)
+    }
 }

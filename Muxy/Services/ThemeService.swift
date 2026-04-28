@@ -13,8 +13,8 @@ struct ThemePreview: Identifiable {
 @MainActor @Observable
 final class ThemeService {
     static let shared = ThemeService()
-    nonisolated static let defaultThemeName = "Muxy"
-    nonisolated static let pinnedThemeNames: Set<String> = ["Muxy", "Muxy Light"]
+    nonisolated static let defaultThemeName = "Ayu Light"
+    nonisolated static let pinnedThemeNames: Set<String> = ["Ayu Light", "Muxy", "Muxy Light"]
 
     @ObservationIgnored private let config: MuxyConfig
     @ObservationIgnored private let ghostty: GhosttyService

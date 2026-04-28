@@ -12,6 +12,19 @@ struct SessionRow: View {
         tab.content.pane?.agentKind ?? .terminal
     }
 
+    @ViewBuilder
+    private var lifecycleDot: some View {
+        switch tab.content.pane?.lastState ?? .running {
+        case .running:
+            EmptyView()
+        case .exited:
+            Circle()
+                .fill(MuxyTheme.fgDim)
+                .frame(width: 5, height: 5)
+                .accessibilityLabel("Exited")
+        }
+    }
+
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 6) {
@@ -25,6 +38,8 @@ struct SessionRow: View {
                     .foregroundStyle(isActive ? MuxyTheme.fg : MuxyTheme.fgMuted)
                     .lineLimit(1)
                     .truncationMode(.tail)
+
+                lifecycleDot
 
                 Spacer(minLength: 0)
             }

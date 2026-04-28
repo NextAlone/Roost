@@ -29,16 +29,13 @@ struct JjActionBar: View {
 
     private func actionButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 10))
-                Text(label)
-                    .font(.system(size: 11))
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
+            Image(systemName: systemImage)
+                .font(.system(size: 12))
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
         .help(label)
+        .accessibilityLabel(Text(label))
     }
 }

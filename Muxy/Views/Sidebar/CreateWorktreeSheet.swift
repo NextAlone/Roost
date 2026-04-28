@@ -37,6 +37,18 @@ struct CreateWorktreeSheet: View {
         projectVcsKind == .jj ? "bookmark" : "branch"
     }
 
+    private var sampleSetupConfig: String {
+        """
+        {
+          "schemaVersion": 1,
+          "setup": [
+            { "command": "pnpm install" },
+            { "command": "pnpm dev" }
+          ]
+        }
+        """
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("New Workspace")
@@ -162,7 +174,7 @@ struct CreateWorktreeSheet: View {
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(MuxyTheme.fg)
                 .textSelection(.enabled)
-            Text("{\n  \"schemaVersion\": 1,\n  \"setup\": [\n    { \"command\": \"pnpm install\" },\n    { \"command\": \"pnpm dev\" }\n  ]\n}")
+            Text(sampleSetupConfig)
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(MuxyTheme.fg)
                 .textSelection(.enabled)

@@ -532,7 +532,8 @@ struct ExpandedProjectRow: View {
         }
         guard let area = appState.workspaceRoots[key]?.allAreas().first(where: {
             $0.tabs.contains(where: { $0.id == tab.id })
-        }) else { return }
+        })
+        else { return }
         appState.dispatch(.selectTab(projectID: project.id, areaID: area.id, tabID: tab.id))
     }
 }
@@ -772,18 +773,21 @@ private struct UntrackedJjWorkspacesHint: View {
                     .foregroundStyle(MuxyTheme.fgMuted)
             }
             ForEach(names, id: \.self) { name in
-                Button(action: { onImport(name) }) {
-                    HStack(spacing: 4) {
-                        Text(name)
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(MuxyTheme.fgDim)
-                        Spacer(minLength: 6)
-                        Text("Bind…")
-                            .font(.system(size: 9))
-                            .foregroundStyle(MuxyTheme.accent)
+                Button(
+                    action: { onImport(name) },
+                    label: {
+                        HStack(spacing: 4) {
+                            Text(name)
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundStyle(MuxyTheme.fgDim)
+                            Spacer(minLength: 6)
+                            Text("Bind…")
+                                .font(.system(size: 9))
+                                .foregroundStyle(MuxyTheme.accent)
+                        }
+                        .contentShape(Rectangle())
                     }
-                    .contentShape(Rectangle())
-                }
+                )
                 .buttonStyle(.plain)
                 .padding(.leading, 14)
             }

@@ -71,5 +71,5 @@ struct LocalHostdClient: RoostHostdClient {
 }
 
 extension EnvironmentValues {
-    @Entry var roostHostdClient: (any RoostHostdClient)? = nil
+    @Entry var roostHostdClient: (any RoostHostdClient)?
 }

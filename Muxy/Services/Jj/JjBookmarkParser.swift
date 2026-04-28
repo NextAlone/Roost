@@ -6,7 +6,11 @@ enum JjBookmarkParseError: Error, Sendable {
 }
 
 enum JjBookmarkParser {
-    static let template = #"self.name() ++ "\t" ++ self.remote() ++ "\t" ++ if(self.normal_target(), self.normal_target().change_id().shortest(), "") ++ "\t" ++ if(self.normal_target(), self.normal_target().change_id(), "") ++ "\n""#
+    static let template = [
+        #"self.name() ++ "\t" ++ self.remote() ++ "\t""#,
+        #"if(self.normal_target(), self.normal_target().change_id().shortest(), "") ++ "\t""#,
+        #"if(self.normal_target(), self.normal_target().change_id(), "") ++ "\n""#,
+    ].joined(separator: " ++ ")
 
     static func parse(_ raw: String) throws -> [JjBookmark] {
         var byName: [String: JjBookmark] = [:]

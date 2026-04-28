@@ -7,7 +7,11 @@ enum JjShowParseError: Error, Sendable {
 }
 
 enum JjShowParser {
-    static let template = #""CHANGE\t" ++ self.change_id().shortest() ++ "\t" ++ self.change_id() ++ "\n" ++ self.parents().map(|p| "PARENTS\t" ++ p.change_id().shortest() ++ "\t" ++ p.change_id()).join("\n") ++ "\nDESCRIPTION\n" ++ self.description() ++ "END_DESCRIPTION\n""#
+    static let template = [
+        #""CHANGE\t" ++ self.change_id().shortest() ++ "\t" ++ self.change_id() ++ "\n""#,
+        #"self.parents().map(|p| "PARENTS\t" ++ p.change_id().shortest() ++ "\t" ++ p.change_id()).join("\n")"#,
+        #""\nDESCRIPTION\n" ++ self.description() ++ "END_DESCRIPTION\n""#,
+    ].joined(separator: " ++ ")
 
     static func parse(_ raw: String) throws -> JjShowOutput {
         var change: JjChangeId?

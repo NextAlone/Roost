@@ -1,8 +1,8 @@
 --swiftversion 6.0
---minversion 0.54
+--minversion 0.61
 
 # File options
---exclude .build,GhosttyKit,Tests,scripts
+--exclude .build,GhosttyKit,Tests,scripts,target,apps/Roost/Generated
 
 # Format options
 --indent 4
@@ -49,3 +49,10 @@
 --disable organizeDeclarations
 --disable wrapPropertyBodies
 --disable redundantStaticSelf
+--disable andOperator
+--disable conditionalAssignment
+--disable environmentEntry
+--disable hoistTry
+--disable preferCountWhere
+--disable preferKeyPath
+--disable redundantSendable

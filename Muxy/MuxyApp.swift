@@ -10,7 +10,7 @@ struct MuxyApp: App {
     @State private var projectStore: ProjectStore
     @State private var worktreeStore: WorktreeStore
     @State private var statusStore: WorkspaceStatusStore
-    @State private var hostd: RoostHostd?
+    @State private var hostdClient: (any RoostHostdClient)?
     private let updateService = UpdateService.shared
 
     init() {
@@ -47,10 +47,13 @@ struct MuxyApp: App {
                 .environment(GhosttyService.shared)
                 .environment(MuxyConfig.shared)
                 .environment(ThemeService.shared)
-                .environment(\.roostHostd, hostd)
+                .environment(\.roostHostdClient, hostdClient)
                 .task {
-                    if hostd == nil {
-                        hostd = try? await RoostHostd()
+                    if hostdClient == nil {
+                        if let hostd = try? await RoostHostd() {
+                            try? await hostd.markAllRunningExited()
+                            hostdClient = LocalHostdClient(hostd: hostd)
+                        }
                     }
                 }
                 .preferredColorScheme(MuxyTheme.colorScheme)
@@ -116,7 +119,7 @@ struct MuxyApp: App {
                 config: .shared,
                 ghostty: .shared,
                 updateService: .shared,
-                hostd: hostd
+                hostdClient: hostdClient
             )
         }
 
@@ -127,7 +130,7 @@ struct MuxyApp: App {
                 .environment(worktreeStore)
                 .environment(statusStore)
                 .environment(GhosttyService.shared)
-                .environment(\.roostHostd, hostd)
+                .environment(\.roostHostdClient, hostdClient)
                 .preferredColorScheme(MuxyTheme.colorScheme)
         }
         .defaultSize(width: 700, height: 600)

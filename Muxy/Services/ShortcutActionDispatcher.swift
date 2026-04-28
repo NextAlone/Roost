@@ -8,7 +8,7 @@ struct ShortcutActionDispatcher {
     let worktreeStore: WorktreeStore
     let ghostty: GhosttyService
     let notificationCenter: NotificationCenter
-    let hostd: RoostHostd?
+    let hostdClient: (any RoostHostdClient)?
 
     init(
         appState: AppState,
@@ -16,14 +16,14 @@ struct ShortcutActionDispatcher {
         worktreeStore: WorktreeStore,
         ghostty: GhosttyService,
         notificationCenter: NotificationCenter = .default,
-        hostd: RoostHostd? = nil
+        hostdClient: (any RoostHostdClient)? = nil
     ) {
         self.appState = appState
         self.projectStore = projectStore
         self.worktreeStore = worktreeStore
         self.ghostty = ghostty
         self.notificationCenter = notificationCenter
-        self.hostd = hostd
+        self.hostdClient = hostdClient
     }
 
     func perform(_ action: ShortcutAction, activeProject: Project?, openVCS: (Project) -> Void) -> Bool {
@@ -206,7 +206,7 @@ struct ShortcutActionDispatcher {
             guard let worktree = resolveActiveWorktree(for: projectID) else { return false }
             appState.selectWorktree(projectID: projectID, worktree: worktree)
         }
-        appState.createAgentTab(kind, projectID: projectID, hostd: hostd)
+        appState.createAgentTab(kind, projectID: projectID, hostdClient: hostdClient)
         return true
     }
 

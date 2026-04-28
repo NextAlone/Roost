@@ -227,9 +227,9 @@ final class AppState {
         dispatch(.createVCSTab(projectID: projectID, areaID: nil))
     }
 
-    func createAgentTab(_ kind: AgentKind, projectID: UUID, hostd: RoostHostd? = nil) {
+    func createAgentTab(_ kind: AgentKind, projectID: UUID, hostdClient: (any RoostHostdClient)? = nil) {
         dispatch(.createAgentTab(projectID: projectID, areaID: nil, kind: kind))
-        guard let hostd,
+        guard let hostdClient,
               let area = focusedArea(for: projectID),
               let tab = area.activeTab,
               let pane = tab.content.pane,
@@ -239,8 +239,8 @@ final class AppState {
         let workspacePath = pane.projectPath
         let agentKind = pane.agentKind
         let command = pane.startupCommand
-        Task { [hostd] in
-            try? await hostd.createSession(
+        Task { [hostdClient] in
+            try? await hostdClient.createSession(
                 id: paneID,
                 projectID: projectID,
                 worktreeID: worktreeID,

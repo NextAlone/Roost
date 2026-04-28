@@ -462,6 +462,13 @@ Later features:
 - Errors surface inline below the action bar.
 - Defaults: backout/abandon/duplicate operate on `@`; squash collapses `@` into `@-`. No per-action revset picker (deferred).
 - Bookmark CRUD (5d) → upcoming.
+
+**Status (2026-04-28): Phase 5d (bookmark CRUD) landed.**
+
+- "+" button in the bookmarks section header opens `JjBookmarkCreateSheet` to create a bookmark targeting `@`.
+- Right-click context menu on each bookmark row: "Move to current change" and "Delete" actions.
+- All actions route through the existing `runMutation` helper for serialized execution + error surfacing + state refresh.
+- **Phase 5 complete.** Future enhancements (deferred): per-action revset pickers, push/pull bookmarks, rename bookmark, conflict resolution UI, DAG view, op log / undo.
 - Conflict content viewer.
 - Revset search.
 - Side-by-side diff improvements.

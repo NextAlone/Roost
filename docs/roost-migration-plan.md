@@ -412,6 +412,14 @@ Exit criteria:
 - Session lifecycle state (running / idle / exited / errored) **deferred** to a Phase 4c.5 follow-up (requires GhosttyTerminalNSView lifecycle hooks). Not blocking Phase 4d.
 - Phase 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
 
+**Status (2026-04-28): Phase 4c.5 (session lifecycle badge) landed.**
+
+- `SessionLifecycleState` enum (running / exited) lives in `MuxyShared/Agent/`.
+- `TerminalPaneState.lastState: SessionLifecycleState` defaults to `.running`. Volatile — not persisted to snapshot (lifecycle resets on restart since the process is gone).
+- `TabAreaView.onProcessExit` now sets `pane.lastState = .exited` and conditionally force-closes the tab — only for non-agent panes (`agentKind == .terminal`). Agent panes stay visible with the exited badge so users can inspect output.
+- `SessionRow` renders a small grey dot for `.exited` sessions; no badge for `.running` (default state, avoids clutter).
+- `idle` and `errored` states deferred — no clean signal from Ghostty's current action wiring.
+
 **Status (2026-04-28): Phase 4d (`requiresDedicatedWorkspace` enforcement) landed.**
 
 - `ShortcutActionDispatcher.shouldRouteToWorkspaceCreation(kind:presetLookup:)` exposes the routing decision as a pure helper for testing.

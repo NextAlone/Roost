@@ -50,6 +50,13 @@ actor RoostHostd {
     func pruneExited() async throws {
         try await store.pruneExited()
     }
+
+    func markAllRunningExited() async throws {
+        let live = try await store.list().filter { $0.lastState == .running }
+        for record in live {
+            try await store.update(id: record.id, lastState: .exited)
+        }
+    }
 }
 
 extension EnvironmentValues {

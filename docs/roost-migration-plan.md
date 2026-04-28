@@ -549,6 +549,16 @@ Exit criteria:
 - All sessions are still single-process — no XPC handoff yet. Sessions in the DB get marked `exited` if main app is killed (no graceful shutdown signal); Phase 6c needs to address.
 - Phase 6c (XPC service extraction) and 6d (re-attach + history UI) → upcoming.
 
+**Status (2026-04-28): Phase 6c + 6d (client abstraction + history UI) landed.**
+
+- `RoostHostdClient` Swift protocol decouples call sites from the in-process actor. `LocalHostdClient` is the current implementation; future `XPCHostdClient` will wrap `NSXPCConnection` once an XPC service bundle is built (separate task — needs Xcode project surgery).
+- All call sites (AppState.createAgentTab, ShortcutActionDispatcher, MuxyCommands, TabAreaView) now go through `(any RoostHostdClient)?` rather than the raw actor.
+- On launch, `RoostHostd.markAllRunningExited()` flips any leftover `.running` records to `.exited` (in-process hostd implies process death == sessions dead). Real XPC will skip this.
+- `SessionHistoryStore` (@Observable @MainActor) wraps client.listAllSessions; `SessionHistoryView` renders the recent 50 sessions with state badge + Re-launch + Prune Exited buttons.
+- Re-launch opens a new agent tab in the same project + worktree (best-effort). Disabled if project / worktree no longer exists.
+- Sidebar gains a clock-arrow button (in both collapsed + expanded footer layouts) that opens the history sheet.
+- **Phase 6 in-process work complete.** Real cross-process XPC service is queued as a separate infrastructure task (Xcode project surgery + xcodebuild + codesign work).
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

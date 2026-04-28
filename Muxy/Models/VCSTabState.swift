@@ -157,6 +157,16 @@ final class VCSTabState {
     @ObservationIgnored private static let commitsPerPage = 100
     private(set) var vcsKind: VcsKind = .git
 
+    @ObservationIgnored private var _jjState: JjPanelState?
+
+    var jjState: JjPanelState? {
+        guard vcsKind == .jj else { return nil }
+        if let existing = _jjState { return existing }
+        let created = JjPanelState(repoPath: projectPath)
+        _jjState = created
+        return created
+    }
+
     init(projectPath: String) {
         self.projectPath = projectPath
         self.vcsKind = VcsKindDetector.detect(at: projectPath)
@@ -217,6 +227,13 @@ final class VCSTabState {
     }
 
     func refresh() {
+        if vcsKind == .jj {
+            Task { @MainActor in
+                await jjState?.refresh()
+            }
+            hasCompletedInitialLoad = true
+            return
+        }
         performRefresh(incremental: false)
     }
 

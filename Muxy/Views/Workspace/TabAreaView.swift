@@ -1,3 +1,4 @@
+import MuxyShared
 import SwiftUI
 
 struct TabAreaView: View {
@@ -62,7 +63,16 @@ struct TabAreaView: View {
                         focused: isActive && isFocused && isActiveProject,
                         visible: isActive,
                         onFocus: onFocus,
-                        onProcessExit: { onForceCloseTab(tab.id) },
+                        onProcessExit: {
+                            if let pane = tab.content.pane {
+                                pane.lastState = .exited
+                                if pane.agentKind == .terminal {
+                                    onForceCloseTab(tab.id)
+                                }
+                            } else {
+                                onForceCloseTab(tab.id)
+                            }
+                        },
                         onSplitRequest: { direction, position in
                             appState.dispatch(.splitArea(.init(
                                 projectID: projectID,

@@ -586,6 +586,15 @@ Rules:
 - Config files have `chmod 600` enforced on first write; surface a warning if found wider.
 - `.roost/` is excluded from jj/git tracking by default; document this in the project init flow.
 
+**Status (2026-04-28): Phase 7 (config + presets) v1 landed.**
+
+- `RoostConfig` (versioned, decode-tolerant) lives in `MuxyShared/Config/`. Schema version 1.
+- `RoostConfigLoader.load(fromProjectPath:)` reads `.roost/config.json` first; falls back to legacy `.muxy/worktree.json` for the `setup` field only (back-compat).
+- `AgentPresetCatalog.preset(for:configuredPresets:)` overload returns user overrides when a configured preset matches the requested `AgentKind`; otherwise built-in fallback. `cardinality: "dedicated"` maps to `requiresDedicatedWorkspace = true`.
+- `TabArea.createAgentTab` now consults the loader at creation time — best-effort, falls back to built-ins on missing/invalid config.
+- Out of scope this phase (deferred): `defaultWorkspaceLocation`, `teardown`, `env` resolution / Keychain references, `notifications` config, settings UI for editing config inline, `chmod 600` enforcement on writes (no write path exists yet). Schema reserves these keys but does not consume them.
+- Setup commands continue to run via `WorktreeSetupRunner` reading `.muxy/worktree.json` directly — migration of that path to `RoostConfig.setup` is a follow-up to keep this plan focused.
+
 ## Phase 8: Release Readiness
 
 Goal: make Roost usable as a standalone app.

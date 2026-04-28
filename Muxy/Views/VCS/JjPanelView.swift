@@ -3,10 +3,22 @@ import SwiftUI
 
 struct JjPanelView: View {
     @Bindable var state: JjPanelState
+    @State private var showDescribeSheet = false
+    @State private var showCommitSheet = false
+    @State private var actionError: String?
+
+    private let mutator = JjMutationService(queue: JjProcessQueue.shared)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
+            actionBar
+            if let actionError {
+                Text(actionError)
+                    .font(.system(size: 11))
+                    .foregroundStyle(MuxyTheme.diffRemoveFg)
+                    .padding(.horizontal, 4)
+            }
             if let snapshot = state.snapshot {
                 changeCard(snapshot: snapshot)
                 Divider()
@@ -29,6 +41,28 @@ struct JjPanelView: View {
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task { await state.refresh() }
+        .sheet(isPresented: $showDescribeSheet) {
+            JjMessageSheet(
+                title: "Describe Change",
+                confirmLabel: "Save",
+                onConfirm: { message in
+                    showDescribeSheet = false
+                    runMutation { try await mutator.describe(repoPath: state.repoPath, message: message) }
+                },
+                onCancel: { showDescribeSheet = false }
+            )
+        }
+        .sheet(isPresented: $showCommitSheet) {
+            JjMessageSheet(
+                title: "Commit Working Copy",
+                confirmLabel: "Commit",
+                onConfirm: { message in
+                    showCommitSheet = false
+                    runMutation { try await mutator.commit(repoPath: state.repoPath, message: message) }
+                },
+                onCancel: { showCommitSheet = false }
+            )
+        }
     }
 
     private var header: some View {
@@ -205,5 +239,29 @@ struct JjPanelView: View {
         Text("No data")
             .font(.system(size: 11))
             .foregroundStyle(MuxyTheme.fgDim)
+    }
+
+    private var actionBar: some View {
+        JjActionBar(
+            onDescribe: { showDescribeSheet = true },
+            onNew: { runMutation { try await mutator.newChange(repoPath: state.repoPath) } },
+            onCommit: { showCommitSheet = true },
+            onSquash: { runMutation { try await mutator.squash(repoPath: state.repoPath) } },
+            onAbandon: { runMutation { try await mutator.abandon(repoPath: state.repoPath) } },
+            onDuplicate: { runMutation { try await mutator.duplicate(repoPath: state.repoPath) } },
+            onBackout: { runMutation { try await mutator.backout(repoPath: state.repoPath) } }
+        )
+    }
+
+    private func runMutation(_ work: @escaping () async throws -> Void) {
+        Task {
+            do {
+                try await work()
+                actionError = nil
+                await state.refresh()
+            } catch {
+                actionError = String(describing: error)
+            }
+        }
     }
 }

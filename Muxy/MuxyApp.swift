@@ -8,6 +8,7 @@ struct MuxyApp: App {
     @State private var projectStore: ProjectStore
     @State private var worktreeStore: WorktreeStore
     @State private var statusStore: WorkspaceStatusStore
+    @State private var hostd: RoostHostd?
     private let updateService = UpdateService.shared
 
     init() {
@@ -43,6 +44,12 @@ struct MuxyApp: App {
                 .environment(GhosttyService.shared)
                 .environment(MuxyConfig.shared)
                 .environment(ThemeService.shared)
+                .environment(\.roostHostd, hostd)
+                .task {
+                    if hostd == nil {
+                        hostd = try? await RoostHostd()
+                    }
+                }
                 .preferredColorScheme(MuxyTheme.colorScheme)
                 .onAppear {
                     NotificationStore.shared.appState = appState
@@ -115,6 +122,7 @@ struct MuxyApp: App {
                 .environment(worktreeStore)
                 .environment(statusStore)
                 .environment(GhosttyService.shared)
+                .environment(\.roostHostd, hostd)
                 .preferredColorScheme(MuxyTheme.colorScheme)
         }
         .defaultSize(width: 700, height: 600)

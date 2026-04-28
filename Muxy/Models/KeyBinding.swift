@@ -281,5 +281,10 @@ struct KeyBinding: Codable, Identifiable {
         Self(action: .toggleAIUsage, combo: KeyCombo(key: "l", command: true)),
         Self(action: .navigateBack, combo: KeyCombo(key: KeyCombo.leftArrowKey, command: true, control: true)),
         Self(action: .navigateForward, combo: KeyCombo(key: KeyCombo.rightArrowKey, command: true, control: true)),
+        Self(action: .newProject, combo: KeyCombo(key: "n", command: true, shift: true)),
+        Self(action: .newClaudeCodeTab, combo: KeyCombo(key: "1", command: true, option: true)),
+        Self(action: .newCodexTab, combo: KeyCombo(key: "2", command: true, option: true)),
+        Self(action: .newGeminiCliTab, combo: KeyCombo(key: "3", command: true, option: true)),
+        Self(action: .newOpenCodeTab, combo: KeyCombo(key: "4", command: true, option: true)),
     ]
 }

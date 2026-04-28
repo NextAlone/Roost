@@ -118,7 +118,7 @@ struct CreateWorktreeSheet: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(MuxyTheme.diffRemoveFg)
-                Text("Setup commands from .muxy/worktree.json")
+                Text("Setup commands from project config")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(MuxyTheme.fg)
             }
@@ -154,15 +154,15 @@ struct CreateWorktreeSheet: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(MuxyTheme.fg)
             }
-            Text("To run setup commands after creating a workspace, add .muxy/worktree.json in this repository.")
+            Text("To run setup commands after creating a workspace, add .roost/config.json in this repository.")
                 .font(.system(size: 10))
                 .foregroundStyle(MuxyTheme.fgMuted)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("\(project.path)/.muxy/worktree.json")
+            Text("\(project.path)/.roost/config.json")
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(MuxyTheme.fg)
                 .textSelection(.enabled)
-            Text("{\n  \"setup\": [\n    \"pnpm install\",\n    \"pnpm dev\"\n  ]\n}")
+            Text("{\n  \"schemaVersion\": 1,\n  \"setup\": [\n    { \"command\": \"pnpm install\" },\n    { \"command\": \"pnpm dev\" }\n  ]\n}")
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(MuxyTheme.fg)
                 .textSelection(.enabled)
@@ -175,11 +175,11 @@ struct CreateWorktreeSheet: View {
     }
 
     private func loadSetupCommands() {
-        guard let config = WorktreeConfig.load(fromProjectPath: project.path) else {
+        guard let config = RoostConfigLoader.load(fromProjectPath: project.path) else {
             setupCommands = []
             return
         }
-        setupCommands = config.setup.map(\.command).filter { !$0.isEmpty }
+        setupCommands = WorktreeSetupRunner.setupCommands(config: config)
     }
 
     private var canCreate: Bool {

@@ -593,7 +593,11 @@ Rules:
 - `AgentPresetCatalog.preset(for:configuredPresets:)` overload returns user overrides when a configured preset matches the requested `AgentKind`; otherwise built-in fallback. `cardinality: "dedicated"` maps to `requiresDedicatedWorkspace = true`.
 - `TabArea.createAgentTab` now consults the loader at creation time — best-effort, falls back to built-ins on missing/invalid config.
 - Out of scope this phase (deferred): `defaultWorkspaceLocation`, `teardown`, `env` resolution / Keychain references, `notifications` config, settings UI for editing config inline, `chmod 600` enforcement on writes (no write path exists yet). Schema reserves these keys but does not consume them.
-- Setup commands continue to run via `WorktreeSetupRunner` reading `.muxy/worktree.json` directly — migration of that path to `RoostConfig.setup` is a follow-up to keep this plan focused.
+
+**Follow-up status (2026-04-29): setup execution migrated.**
+
+- `WorktreeSetupRunner` now reads setup commands through `RoostConfigLoader`, so `.roost/config.json` is the primary source and legacy `.muxy/worktree.json` remains a setup-only fallback.
+- `CreateWorktreeSheet` previews the same normalized setup commands that execution uses and documents the `.roost/config.json` shape.
 
 ## Phase 8: Release Readiness
 
@@ -649,4 +653,3 @@ This list is the Phase 1 + Phase 2 spike scope; items overlap with later phase d
 6. Add first Roost agent preset commands.
 7. Add a small Roost status panel showing active project, workspace, and session.
 8. Re-run `scripts/checks.sh` (which includes `swift build`) after every phase.
-

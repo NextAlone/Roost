@@ -30,6 +30,7 @@ enum RoostConfigLoader {
             env: [:],
             defaultWorkspaceLocation: nil,
             setup: legacy.setup.map { RoostConfigSetupCommand(command: $0.command, name: $0.name) },
+            teardown: [],
             agentPresets: []
         )
     }

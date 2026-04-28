@@ -6,6 +6,7 @@ public struct RoostConfig: Sendable, Codable {
     public let keychainEnv: [String: RoostConfigKeychainEnv]
     public let defaultWorkspaceLocation: String?
     public let setup: [RoostConfigSetupCommand]
+    public let teardown: [RoostConfigSetupCommand]
     public let agentPresets: [RoostConfigAgentPreset]
 
     public init(
@@ -14,6 +15,7 @@ public struct RoostConfig: Sendable, Codable {
         keychainEnv: [String: RoostConfigKeychainEnv] = [:],
         defaultWorkspaceLocation: String? = nil,
         setup: [RoostConfigSetupCommand] = [],
+        teardown: [RoostConfigSetupCommand] = [],
         agentPresets: [RoostConfigAgentPreset] = []
     ) {
         self.schemaVersion = schemaVersion
@@ -21,6 +23,7 @@ public struct RoostConfig: Sendable, Codable {
         self.keychainEnv = keychainEnv
         self.defaultWorkspaceLocation = defaultWorkspaceLocation
         self.setup = setup
+        self.teardown = teardown
         self.agentPresets = agentPresets
     }
 
@@ -29,6 +32,7 @@ public struct RoostConfig: Sendable, Codable {
         case env
         case defaultWorkspaceLocation
         case setup
+        case teardown
         case agentPresets
     }
 
@@ -40,6 +44,7 @@ public struct RoostConfig: Sendable, Codable {
         keychainEnv = decodedEnv.keychain
         defaultWorkspaceLocation = try container.decodeIfPresent(String.self, forKey: .defaultWorkspaceLocation)
         setup = (try? container.decodeIfPresent([RoostConfigSetupCommand].self, forKey: .setup)) ?? []
+        teardown = (try? container.decodeIfPresent([RoostConfigSetupCommand].self, forKey: .teardown)) ?? []
 
         let rawArray = (try? container.decodeIfPresent([RoostConfigAgentPresetTolerant].self, forKey: .agentPresets)) ?? []
         agentPresets = rawArray.compactMap(\.preset)
@@ -51,6 +56,7 @@ public struct RoostConfig: Sendable, Codable {
         try container.encode(EncodedEnv(plain: env, keychain: keychainEnv), forKey: .env)
         try container.encodeIfPresent(defaultWorkspaceLocation, forKey: .defaultWorkspaceLocation)
         try container.encode(setup, forKey: .setup)
+        try container.encode(teardown, forKey: .teardown)
         try container.encode(agentPresets, forKey: .agentPresets)
     }
 }
@@ -68,17 +74,20 @@ public struct RoostConfigKeychainEnv: Sendable, Codable, Hashable {
 public struct RoostConfigSetupCommand: Sendable, Codable, Hashable {
     public let command: String
     public let name: String?
+    public let cwd: String?
     public let env: [String: String]
     public let keychainEnv: [String: RoostConfigKeychainEnv]
 
     public init(
         command: String,
         name: String? = nil,
+        cwd: String? = nil,
         env: [String: String] = [:],
         keychainEnv: [String: RoostConfigKeychainEnv] = [:]
     ) {
         self.command = command
         self.name = name
+        self.cwd = cwd
         self.env = env
         self.keychainEnv = keychainEnv
     }
@@ -86,6 +95,7 @@ public struct RoostConfigSetupCommand: Sendable, Codable, Hashable {
     private enum CodingKeys: String, CodingKey {
         case command
         case name
+        case cwd
         case env
     }
 
@@ -93,6 +103,7 @@ public struct RoostConfigSetupCommand: Sendable, Codable, Hashable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         command = try container.decode(String.self, forKey: .command)
         name = try container.decodeIfPresent(String.self, forKey: .name)
+        cwd = try container.decodeIfPresent(String.self, forKey: .cwd)
         let decodedEnv = RoostConfigEnv.decode(container, forKey: .env)
         env = decodedEnv.plain
         keychainEnv = decodedEnv.keychain
@@ -102,6 +113,7 @@ public struct RoostConfigSetupCommand: Sendable, Codable, Hashable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(command, forKey: .command)
         try container.encodeIfPresent(name, forKey: .name)
+        try container.encodeIfPresent(cwd, forKey: .cwd)
         try container.encode(EncodedEnv(plain: env, keychain: keychainEnv), forKey: .env)
     }
 }

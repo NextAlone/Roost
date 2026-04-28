@@ -44,7 +44,8 @@ Roost reads `<project>/.roost/config.json` for per-project settings. Schema vers
 
 - `env`: environment variables shared by setup commands and agent presets; values can be plain strings or `{ "fromKeychain": "service", "account": "optional-account" }`
 - `defaultWorkspaceLocation`: directory for newly created workspaces; relative paths resolve from the project root
-- `setup`: list of `{ name?, command, env? }` to run after creating a workspace
+- `setup`: list of `{ name?, command, cwd?, env? }` to run after creating a workspace
+- `teardown`: list of `{ name?, command, cwd?, env? }` to run before removing a managed workspace
 - `agentPresets`: list of `{ name, kind, command, env?, cardinality }` overrides for built-in agents (`kind` ∈ `terminal`, `claudeCode`, `codex`, `geminiCli`, `openCode`; `cardinality` ∈ `shared`, `dedicated`)
 
 Example:
@@ -58,6 +59,7 @@ Example:
     "API_TOKEN": { "fromKeychain": "roost-api-token", "account": "default" }
   },
   "setup": [{ "name": "install", "command": "pnpm install", "env": { "CI": "1" } }],
+  "teardown": [{ "name": "cleanup", "command": "pnpm clean", "cwd": "tools" }],
   "agentPresets": [
     {
       "name": "Claude Opus",

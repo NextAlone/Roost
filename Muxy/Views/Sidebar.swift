@@ -1,3 +1,4 @@
+import MuxyShared
 import SwiftUI
 
 enum SidebarLayout {
@@ -246,6 +247,11 @@ struct SidebarFooter: View {
     @State private var showThemePicker = false
     @State private var showNotifications = false
     @State private var showAIUsagePopover = false
+    @State private var showSessionHistory = false
+    @Environment(AppState.self) private var appState
+    @Environment(ProjectStore.self) private var projectStore
+    @Environment(WorktreeStore.self) private var worktreeStore
+    @Environment(\.roostHostdClient) private var hostdClient
     private let usageService = AIUsageService.shared
 
     private var usageDisplayMode: AIUsageDisplayMode {
@@ -351,6 +357,11 @@ struct SidebarFooter: View {
             if usageEnabled {
                 aiUsageButton
             }
+            IconButton(symbol: "clock.arrow.circlepath", accessibilityLabel: "Session History") {
+                showSessionHistory.toggle()
+            }
+            .help("Session History")
+            .sheet(isPresented: $showSessionHistory) { sessionHistorySheet }
             IconButton(symbol: notificationBellIcon, accessibilityLabel: "Notifications") { showNotifications.toggle() }
                 .help("Notifications")
                 .popover(isPresented: $showNotifications) {
@@ -375,6 +386,11 @@ struct SidebarFooter: View {
             if usageEnabled {
                 aiUsageButton
             }
+            IconButton(symbol: "clock.arrow.circlepath", accessibilityLabel: "Session History") {
+                showSessionHistory.toggle()
+            }
+            .help("Session History")
+            .sheet(isPresented: $showSessionHistory) { sessionHistorySheet }
             IconButton(symbol: notificationBellIcon, accessibilityLabel: "Notifications") { showNotifications.toggle() }
                 .help("Notifications")
                 .popover(isPresented: $showNotifications) {
@@ -392,5 +408,23 @@ struct SidebarFooter: View {
         Task {
             await usageService.refresh(force: true)
         }
+    }
+
+    private var sessionHistorySheet: some View {
+        SessionHistoryView(
+            onRelaunch: { record in
+                showSessionHistory = false
+                relaunch(record: record)
+            },
+            onClose: { showSessionHistory = false }
+        )
+    }
+
+    private func relaunch(record: SessionRecord) {
+        guard let project = projectStore.projects.first(where: { $0.id == record.projectID }) else { return }
+        let worktrees = worktreeStore.worktrees[record.projectID] ?? []
+        guard let worktree = worktrees.first(where: { $0.id == record.worktreeID }) else { return }
+        appState.selectProject(project, worktree: worktree)
+        appState.createAgentTab(record.agentKind, projectID: project.id, hostdClient: hostdClient)
     }
 }

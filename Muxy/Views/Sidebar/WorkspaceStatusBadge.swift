@@ -6,7 +6,8 @@ struct WorkspaceStatusBadge: View {
 
     var body: some View {
         switch status {
-        case .clean, .unknown:
+        case .clean,
+             .unknown:
             EmptyView()
         case .dirty:
             Circle()

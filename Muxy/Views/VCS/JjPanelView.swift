@@ -158,9 +158,11 @@ struct JjPanelView: View {
 
     private func color(for change: JjFileChange) -> Color {
         switch change {
-        case .added, .copied: MuxyTheme.diffAddFg
+        case .added,
+             .copied: MuxyTheme.diffAddFg
         case .deleted: MuxyTheme.diffRemoveFg
-        case .modified, .renamed: MuxyTheme.fgMuted
+        case .modified,
+             .renamed: MuxyTheme.fgMuted
         }
     }
 

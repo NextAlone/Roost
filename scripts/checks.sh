@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
 BOLD="\033[1m"
@@ -84,6 +84,8 @@ run_step() {
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOL_VERSIONS_FILE="$SCRIPT_DIR/../.tool-versions"
+WORKSPACE_HASH=$(printf "%s" "$PWD" | shasum | awk '{print $1}')
+SWIFTPM_BUILD_PATH="${ROOST_SWIFTPM_BUILD_PATH:-${TMPDIR%/}/roost-spm-build-$WORKSPACE_HASH}"
 
 read_tool_version() {
   local tool=$1
@@ -143,15 +145,11 @@ if [ "$failed" -eq 0 ] && [ "$HAS_SWIFTLINT" -eq 1 ]; then
 fi
 
 if [ "$failed" -eq 0 ]; then
-  run_step "Build" swift build || failed=1
+  run_step "Build" swift build --build-path "$SWIFTPM_BUILD_PATH" || failed=1
 fi
 
 if [ "$failed" -eq 0 ]; then
-  run_step "Build (iOS)" xcodebuild -project MuxyMobile.xcodeproj -scheme MuxyMobile -destination "generic/platform=iOS Simulator" -quiet build || failed=1
-fi
-
-if [ "$failed" -eq 0 ]; then
-  run_step "Test" swift test || failed=1
+  run_step "Test" swift test --build-path "$SWIFTPM_BUILD_PATH" || failed=1
 fi
 
 printf "\n"

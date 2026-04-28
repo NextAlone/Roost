@@ -94,17 +94,19 @@ enum JjStatusParser {
         let prefix = String(token[..<openBracket])
         let suffixStart = token.index(after: openBracket)
         let suffixEnd = token.index(before: token.endIndex)
-        let suffix = String(token[suffixStart..<suffixEnd])
+        let suffix = String(token[suffixStart ..< suffixEnd])
         return JjChangeId(prefix: prefix, full: prefix + suffix)
     }
 
     private static func parseChangeLine(_ s: String) -> JjStatusEntry? {
         guard s.count > 2, s[s.index(s.startIndex, offsetBy: 1)] == " " else { return nil }
-        let code = String(s.first!)
+        guard let first = s.first else { return nil }
+        let code = String(first)
         guard let change = JjFileChange(rawValue: code) else { return nil }
         let rest = String(s.dropFirst(2))
         if change == .renamed || change == .copied,
-           let arrow = rest.range(of: " -> ") {
+           let arrow = rest.range(of: " -> ")
+        {
             return JjStatusEntry(
                 change: change,
                 path: String(rest[arrow.upperBound...]),

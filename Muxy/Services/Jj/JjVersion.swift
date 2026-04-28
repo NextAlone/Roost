@@ -19,7 +19,8 @@ extension JjVersion {
         guard nums.count == 3,
               let major = Int(nums[0]),
               let minor = Int(nums[1]),
-              let patch = Int(nums[2]) else {
+              let patch = Int(nums[2])
+        else {
             throw JjVersionParseError.malformed(raw)
         }
         return JjVersion(major: major, minor: minor, patch: patch)

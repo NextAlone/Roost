@@ -76,3 +76,7 @@ trailing_comma:
 
 vertical_whitespace:
   max_empty_lines: 1
+
+function_parameter_count:
+  warning: 6
+  error: 6

@@ -1,0 +1,63 @@
+import Foundation
+import Testing
+
+@testable import Roost
+
+@Suite("WorktreeSetupRunner")
+struct WorktreeSetupRunnerTests {
+    private func makeProject() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("roost-setup-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    @Test("uses .roost setup before legacy setup")
+    func roostConfigWins() throws {
+        let project = try makeProject()
+        defer { try? FileManager.default.removeItem(at: project) }
+
+        let roostDir = project.appendingPathComponent(".roost")
+        try FileManager.default.createDirectory(at: roostDir, withIntermediateDirectories: true)
+        try Data("""
+        { "schemaVersion": 1, "setup": [{ "command": "make bootstrap" }] }
+        """.utf8).write(to: roostDir.appendingPathComponent("config.json"))
+
+        let muxyDir = project.appendingPathComponent(".muxy")
+        try FileManager.default.createDirectory(at: muxyDir, withIntermediateDirectories: true)
+        try Data("""
+        { "setup": [{ "command": "legacy setup" }] }
+        """.utf8).write(to: muxyDir.appendingPathComponent("worktree.json"))
+
+        #expect(WorktreeSetupRunner.commandLine(sourceProjectPath: project.path) == "make bootstrap")
+    }
+
+    @Test("falls back to legacy setup")
+    func legacyFallback() throws {
+        let project = try makeProject()
+        defer { try? FileManager.default.removeItem(at: project) }
+
+        let muxyDir = project.appendingPathComponent(".muxy")
+        try FileManager.default.createDirectory(at: muxyDir, withIntermediateDirectories: true)
+        try Data("""
+        { "setup": ["pnpm install", "pnpm dev"] }
+        """.utf8).write(to: muxyDir.appendingPathComponent("worktree.json"))
+
+        #expect(WorktreeSetupRunner.commandLine(sourceProjectPath: project.path) == "pnpm install && pnpm dev")
+    }
+
+    @Test("filters blank setup commands")
+    func blankCommands() throws {
+        let project = try makeProject()
+        defer { try? FileManager.default.removeItem(at: project) }
+
+        let roostDir = project.appendingPathComponent(".roost")
+        try FileManager.default.createDirectory(at: roostDir, withIntermediateDirectories: true)
+        try Data("""
+        { "schemaVersion": 1, "setup": [{ "command": "  " }, { "command": "swift build" }] }
+        """.utf8).write(to: roostDir.appendingPathComponent("config.json"))
+
+        #expect(WorktreeSetupRunner.commandLine(sourceProjectPath: project.path) == "swift build")
+    }
+}

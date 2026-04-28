@@ -42,17 +42,25 @@ A jj-tracked project unlocks the full jj-first behaviour. Git-tracked projects c
 
 Roost reads `<project>/.roost/config.json` for per-project settings. Schema version 1 supports:
 
-- `setup`: list of `{ name?, command }` to run after creating a workspace
-- `agentPresets`: list of `{ name, kind, command, cardinality }` overrides for built-in agents (`kind` ∈ `terminal`, `claudeCode`, `codex`, `geminiCli`, `openCode`; `cardinality` ∈ `shared`, `dedicated`)
+- `env`: plain string environment variables shared by setup commands and agent presets
+- `setup`: list of `{ name?, command, env? }` to run after creating a workspace
+- `agentPresets`: list of `{ name, kind, command, env?, cardinality }` overrides for built-in agents (`kind` ∈ `terminal`, `claudeCode`, `codex`, `geminiCli`, `openCode`; `cardinality` ∈ `shared`, `dedicated`)
 
 Example:
 
 ```json
 {
   "schemaVersion": 1,
-  "setup": [{ "name": "install", "command": "pnpm install" }],
+  "env": { "NODE_ENV": "development" },
+  "setup": [{ "name": "install", "command": "pnpm install", "env": { "CI": "1" } }],
   "agentPresets": [
-    { "name": "Claude Opus", "kind": "claudeCode", "command": "claude --model opus", "cardinality": "dedicated" }
+    {
+      "name": "Claude Opus",
+      "kind": "claudeCode",
+      "command": "claude --model opus",
+      "env": { "CLAUDE_CONFIG_DIR": ".roost/claude" },
+      "cardinality": "dedicated"
+    }
   ]
 }
 ```

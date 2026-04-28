@@ -3,11 +3,18 @@ import Foundation
 public struct AgentPreset: Sendable, Hashable {
     public let kind: AgentKind
     public let defaultCommand: String?
+    public let env: [String: String]
     public let requiresDedicatedWorkspace: Bool
 
-    public init(kind: AgentKind, defaultCommand: String?, requiresDedicatedWorkspace: Bool = false) {
+    public init(
+        kind: AgentKind,
+        defaultCommand: String?,
+        env: [String: String] = [:],
+        requiresDedicatedWorkspace: Bool = false
+    ) {
         self.kind = kind
         self.defaultCommand = defaultCommand
+        self.env = env
         self.requiresDedicatedWorkspace = requiresDedicatedWorkspace
     }
 }
@@ -19,16 +26,24 @@ public enum AgentPresetCatalog {
 
     public static func preset(
         for kind: AgentKind,
+        env: [String: String] = [:],
         configuredPresets: [RoostConfigAgentPreset]
     ) -> AgentPreset {
         if let override = configuredPresets.first(where: { $0.kind == kind }) {
             return AgentPreset(
                 kind: kind,
                 defaultCommand: override.command,
+                env: env.merging(override.env) { _, override in override },
                 requiresDedicatedWorkspace: override.cardinality == .dedicated
             )
         }
-        return builtIn(for: kind)
+        let preset = builtIn(for: kind)
+        return AgentPreset(
+            kind: preset.kind,
+            defaultCommand: preset.defaultCommand,
+            env: env,
+            requiresDedicatedWorkspace: preset.requiresDedicatedWorkspace
+        )
     }
 
     private static func builtIn(for kind: AgentKind) -> AgentPreset {

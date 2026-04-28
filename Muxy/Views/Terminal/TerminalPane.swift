@@ -125,7 +125,7 @@ struct TerminalBridge: NSViewRepresentable {
             command: state.startupCommand
         )
         if view.envVars.isEmpty, let key = worktreeKey {
-            view.envVars = Self.buildEnvVars(paneID: state.id, worktreeKey: key)
+            view.envVars = Self.buildEnvVars(paneID: state.id, worktreeKey: key, configured: state.env)
         }
         view.isFocused = focused
         view.overlayActive = overlayActive
@@ -149,7 +149,7 @@ struct TerminalBridge: NSViewRepresentable {
 
     func updateNSView(_ nsView: GhosttyTerminalNSView, context: Context) {
         if nsView.envVars.isEmpty, nsView.surface == nil, let key = worktreeKey {
-            nsView.envVars = Self.buildEnvVars(paneID: state.id, worktreeKey: key)
+            nsView.envVars = Self.buildEnvVars(paneID: state.id, worktreeKey: key, configured: state.env)
         }
         nsView.overlayActive = overlayActive
         nsView.onFocus = onFocus
@@ -184,17 +184,22 @@ struct TerminalBridge: NSViewRepresentable {
         }
     }
 
-    private static func buildEnvVars(paneID: UUID, worktreeKey key: WorktreeKey) -> [(key: String, value: String)] {
-        var vars: [(key: String, value: String)] = [
-            (key: "MUXY_PANE_ID", value: paneID.uuidString),
-            (key: "MUXY_PROJECT_ID", value: key.projectID.uuidString),
-            (key: "MUXY_WORKTREE_ID", value: key.worktreeID.uuidString),
-            (key: "MUXY_SOCKET_PATH", value: NotificationSocketServer.socketPath),
-        ]
+    private static func buildEnvVars(
+        paneID: UUID,
+        worktreeKey key: WorktreeKey,
+        configured: [String: String]
+    ) -> [(key: String, value: String)] {
+        var vars = configured
+        vars["MUXY_PANE_ID"] = paneID.uuidString
+        vars["MUXY_PROJECT_ID"] = key.projectID.uuidString
+        vars["MUXY_WORKTREE_ID"] = key.worktreeID.uuidString
+        vars["MUXY_SOCKET_PATH"] = NotificationSocketServer.socketPath
         if let hookPath = MuxyNotificationHooks.hookScriptPath {
-            vars.append((key: "MUXY_HOOK_SCRIPT", value: hookPath))
+            vars["MUXY_HOOK_SCRIPT"] = hookPath
         }
         return vars
+            .map { (key: $0.key, value: $0.value) }
+            .sorted { $0.key < $1.key }
     }
 
     private func configureSearchCallbacks(_ view: GhosttyTerminalNSView) {

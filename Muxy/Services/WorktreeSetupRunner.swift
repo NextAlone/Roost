@@ -22,15 +22,34 @@ enum WorktreeSetupRunner {
 
     nonisolated static func commandLine(sourceProjectPath: String) -> String? {
         guard let config = RoostConfigLoader.load(fromProjectPath: sourceProjectPath) else { return nil }
-        let commands = setupCommands(config: config)
+        let commands = setupEntries(config: config).map { command in
+            commandLine(command: command, globalEnv: config.env)
+        }
         guard !commands.isEmpty else { return nil }
         return commands.joined(separator: " && ")
     }
 
     nonisolated static func setupCommands(config: RoostConfig) -> [String] {
+        setupEntries(config: config).map(\.command)
+    }
+
+    nonisolated static func setupEntries(config: RoostConfig) -> [RoostConfigSetupCommand] {
         config.setup
-            .map(\.command)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+            .map { RoostConfigSetupCommand(
+                command: $0.command.trimmingCharacters(in: .whitespacesAndNewlines),
+                name: $0.name,
+                env: $0.env
+            ) }
+            .filter { !$0.command.isEmpty }
+    }
+
+    nonisolated static func commandLine(command: RoostConfigSetupCommand, globalEnv: [String: String]) -> String {
+        let env = globalEnv.merging(command.env) { _, commandValue in commandValue }
+        guard !env.isEmpty else { return command.command.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let prefix = env
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key)=\(ShellEscaper.escape($0.value))" }
+            .joined(separator: " ")
+        return "\(prefix) \(command.command.trimmingCharacters(in: .whitespacesAndNewlines))"
     }
 }

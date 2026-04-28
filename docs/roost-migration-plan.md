@@ -540,6 +540,15 @@ Exit criteria:
 - Stop mode terminates sessions predictably.
 - Stale manifest/socket cleanup is reliable.
 
+**Status (2026-04-28): Phase 6a + 6b (in-process hostd foundation) landed.**
+
+- `SessionRecord` DTO lives in `MuxyShared/Hostd/`. Persisted DTO with id / projectID / worktreeID / workspacePath / agentKind / command / createdAt / lastState.
+- `SessionStore` actor wraps a single SQLite3 connection (`import SQLite3`, no SPM dep). Database at `~/Library/Application Support/Roost/hostd/sessions.sqlite`. Schema versioned via `PRAGMA user_version`.
+- `RoostHostd` actor is the public API: `createSession`, `markExited`, `listLiveSessions`, `listAllSessions`, `deleteSession`, `pruneExited`. Injected into SwiftUI environment via `\.roostHostd` key.
+- Agent tabs are recorded on creation via `AppState.createAgentTab(_:projectID:hostd:)` and marked exited via `TabAreaView.onProcessExit`.
+- All sessions are still single-process — no XPC handoff yet. Sessions in the DB get marked `exited` if main app is killed (no graceful shutdown signal); Phase 6c needs to address.
+- Phase 6c (XPC service extraction) and 6d (re-attach + history UI) → upcoming.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

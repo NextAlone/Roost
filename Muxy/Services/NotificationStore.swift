@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import MuxyShared
 import os
 
 private let logger = Logger(subsystem: "app.muxy", category: "NotificationStore")
@@ -124,28 +125,48 @@ final class NotificationStore {
     }
 
     private func insertIfNotFocused(_ notification: MuxyNotification, appState: AppState) {
+        let settings = deliverySettings(for: notification)
+        guard settings.enabled else { return }
         if NSApp.isActive, NotificationNavigator.isActiveTab(notification.tabID, appState: appState) {
-            playSound()
+            playSound(settings: settings)
             return
         }
 
         notifications.insert(notification, at: 0)
         trimIfNeeded()
         scheduleSave()
-        deliverNotification(notification)
+        deliverNotification(notification, settings: settings)
     }
 
-    private func deliverNotification(_ notification: MuxyNotification) {
-        if Self.defaults.bool(forKey: "muxy.notifications.toastEnabled", fallback: true) {
-            ToastState.shared.show(notification.title)
+    private func deliverNotification(_ notification: MuxyNotification, settings: NotificationDeliverySettings) {
+        if settings.toastEnabled {
+            ToastState.shared.show(notification.title, position: settings.toastPosition)
         }
-        playSound()
+        playSound(settings: settings)
     }
 
-    private func playSound() {
-        let soundName = Self.defaults.string(forKey: "muxy.notifications.sound") ?? NotificationSound.funk.rawValue
+    private func playSound(settings: NotificationDeliverySettings) {
+        let soundName = settings.sound
         guard soundName != NotificationSound.none.rawValue else { return }
         NSSound(named: .init(soundName))?.play()
+    }
+
+    private func deliverySettings(for notification: MuxyNotification) -> NotificationDeliverySettings {
+        let defaults = NotificationDeliverySettings(
+            enabled: true,
+            toastEnabled: Self.defaults.bool(forKey: "muxy.notifications.toastEnabled", fallback: true),
+            sound: Self.defaults.string(forKey: "muxy.notifications.sound") ?? NotificationSound.funk.rawValue,
+            toastPosition: ToastPosition(
+                rawValue: Self.defaults.string(forKey: "muxy.notifications.toastPosition") ?? ""
+            ) ?? .topCenter
+        )
+        guard let config = notificationConfig(for: notification) else { return defaults }
+        return defaults.applying(config)
+    }
+
+    private func notificationConfig(for notification: MuxyNotification) -> RoostConfigNotifications? {
+        let projectRoot = worktreeStore?.primary(for: notification.projectID)?.path ?? notification.worktreePath
+        return RoostConfigLoader.load(fromProjectPath: projectRoot)?.notifications
     }
 
     func markAsRead(_ id: UUID) {

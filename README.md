@@ -46,6 +46,7 @@ Roost reads `<project>/.roost/config.json` for per-project settings. Schema vers
 - `defaultWorkspaceLocation`: directory for newly created workspaces; relative paths resolve from the project root
 - `setup`: list of `{ name?, command, cwd?, env? }` to run after creating a workspace
 - `teardown`: list of `{ name?, command, cwd?, env? }` to run before removing a managed workspace
+- `notifications`: `{ enabled?, toastEnabled?, sound?, toastPosition? }` per-project overrides
 - `agentPresets`: list of `{ name, kind, command, env?, cardinality }` overrides for built-in agents (`kind` ∈ `terminal`, `claudeCode`, `codex`, `geminiCli`, `openCode`; `cardinality` ∈ `shared`, `dedicated`)
 
 Example:
@@ -60,6 +61,7 @@ Example:
   },
   "setup": [{ "name": "install", "command": "pnpm install", "env": { "CI": "1" } }],
   "teardown": [{ "name": "cleanup", "command": "pnpm clean", "cwd": "tools" }],
+  "notifications": { "toastEnabled": true, "sound": "Ping", "toastPosition": "Bottom Right" },
   "agentPresets": [
     {
       "name": "Claude Opus",

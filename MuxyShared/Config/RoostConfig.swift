@@ -8,6 +8,7 @@ public struct RoostConfig: Sendable, Codable {
     public let setup: [RoostConfigSetupCommand]
     public let teardown: [RoostConfigSetupCommand]
     public let agentPresets: [RoostConfigAgentPreset]
+    public let notifications: RoostConfigNotifications?
 
     public init(
         schemaVersion: Int = 1,
@@ -16,7 +17,8 @@ public struct RoostConfig: Sendable, Codable {
         defaultWorkspaceLocation: String? = nil,
         setup: [RoostConfigSetupCommand] = [],
         teardown: [RoostConfigSetupCommand] = [],
-        agentPresets: [RoostConfigAgentPreset] = []
+        agentPresets: [RoostConfigAgentPreset] = [],
+        notifications: RoostConfigNotifications? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.env = env
@@ -25,6 +27,7 @@ public struct RoostConfig: Sendable, Codable {
         self.setup = setup
         self.teardown = teardown
         self.agentPresets = agentPresets
+        self.notifications = notifications
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -34,6 +37,7 @@ public struct RoostConfig: Sendable, Codable {
         case setup
         case teardown
         case agentPresets
+        case notifications
     }
 
     public init(from decoder: Decoder) throws {
@@ -48,6 +52,7 @@ public struct RoostConfig: Sendable, Codable {
 
         let rawArray = (try? container.decodeIfPresent([RoostConfigAgentPresetTolerant].self, forKey: .agentPresets)) ?? []
         agentPresets = rawArray.compactMap(\.preset)
+        notifications = try container.decodeIfPresent(RoostConfigNotifications.self, forKey: .notifications)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -58,6 +63,26 @@ public struct RoostConfig: Sendable, Codable {
         try container.encode(setup, forKey: .setup)
         try container.encode(teardown, forKey: .teardown)
         try container.encode(agentPresets, forKey: .agentPresets)
+        try container.encodeIfPresent(notifications, forKey: .notifications)
+    }
+}
+
+public struct RoostConfigNotifications: Sendable, Codable, Hashable {
+    public let enabled: Bool?
+    public let toastEnabled: Bool?
+    public let sound: String?
+    public let toastPosition: String?
+
+    public init(
+        enabled: Bool? = nil,
+        toastEnabled: Bool? = nil,
+        sound: String? = nil,
+        toastPosition: String? = nil
+    ) {
+        self.enabled = enabled
+        self.toastEnabled = toastEnabled
+        self.sound = sound
+        self.toastPosition = toastPosition
     }
 }
 

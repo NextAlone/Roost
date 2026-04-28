@@ -21,6 +21,12 @@ struct RoostConfigTests {
         {
           "schemaVersion": 1,
           "defaultWorkspaceLocation": ".roost/workspaces",
+          "notifications": {
+            "enabled": true,
+            "toastEnabled": false,
+            "sound": "Ping",
+            "toastPosition": "Bottom Right"
+          },
           "env": { "GLOBAL": "1" },
           "setup": [
             { "name": "install", "command": "pnpm install", "env": { "LOCAL": "2" } },
@@ -35,6 +41,12 @@ struct RoostConfigTests {
         #expect(config.setup.count == 2)
         #expect(config.teardown.count == 1)
         #expect(config.defaultWorkspaceLocation == ".roost/workspaces")
+        #expect(config.notifications == RoostConfigNotifications(
+            enabled: true,
+            toastEnabled: false,
+            sound: "Ping",
+            toastPosition: "Bottom Right"
+        ))
         #expect(config.setup[0].name == "install")
         #expect(config.env["GLOBAL"] == "1")
         #expect(config.setup[0].env["LOCAL"] == "2")

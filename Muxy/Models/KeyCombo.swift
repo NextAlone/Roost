@@ -128,7 +128,7 @@ struct KeyCombo: Codable, Equatable, Hashable {
         case Self.rightArrowKey: .rightArrow
         case Self.upArrowKey: .upArrow
         case Self.downArrowKey: .downArrow
-        default: KeyEquivalent(Character(key))
+        default: key.first.map { KeyEquivalent($0) } ?? KeyEquivalent(" ")
         }
     }
 

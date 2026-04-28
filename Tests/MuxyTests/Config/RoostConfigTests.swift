@@ -48,7 +48,10 @@ struct RoostConfigTests {
               "name": "Custom Claude",
               "kind": "claudeCode",
               "command": "claude --model sonnet",
-              "env": { "CLAUDE_CONFIG_DIR": ".roost/claude" },
+              "env": {
+                "CLAUDE_CONFIG_DIR": ".roost/claude",
+                "CLAUDE_TOKEN": { "fromKeychain": "claude-token", "account": "work" }
+              },
               "cardinality": "dedicated"
             }
           ]
@@ -61,17 +64,18 @@ struct RoostConfigTests {
         #expect(preset.kind == .claudeCode)
         #expect(preset.command == "claude --model sonnet")
         #expect(preset.env["CLAUDE_CONFIG_DIR"] == ".roost/claude")
+        #expect(preset.keychainEnv["CLAUDE_TOKEN"] == RoostConfigKeychainEnv(service: "claude-token", account: "work"))
         #expect(preset.cardinality == .dedicated)
     }
 
-    @Test("env object values are ignored")
-    func envObjectValuesIgnored() throws {
+    @Test("env keychain references decode separately")
+    func envKeychainReferencesDecodeSeparately() throws {
         let json = """
         {
           "schemaVersion": 1,
           "env": {
             "PLAIN": "ok",
-            "SECRET": { "fromKeychain": "token" }
+            "SECRET": { "fromKeychain": "token", "account": "default" }
           },
           "setup": [
             {
@@ -86,7 +90,9 @@ struct RoostConfigTests {
         """
         let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
         #expect(config.env == ["PLAIN": "ok"])
+        #expect(config.keychainEnv["SECRET"] == RoostConfigKeychainEnv(service: "token", account: "default"))
         #expect(config.setup.first?.env == ["LOCAL": "yes"])
+        #expect(config.setup.first?.keychainEnv["LOCAL_SECRET"] == RoostConfigKeychainEnv(service: "local-token"))
     }
 
     @Test("missing schemaVersion → default 1")

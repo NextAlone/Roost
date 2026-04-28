@@ -42,7 +42,7 @@ A jj-tracked project unlocks the full jj-first behaviour. Git-tracked projects c
 
 Roost reads `<project>/.roost/config.json` for per-project settings. Schema version 1 supports:
 
-- `env`: plain string environment variables shared by setup commands and agent presets
+- `env`: environment variables shared by setup commands and agent presets; values can be plain strings or `{ "fromKeychain": "service", "account": "optional-account" }`
 - `defaultWorkspaceLocation`: directory for newly created workspaces; relative paths resolve from the project root
 - `setup`: list of `{ name?, command, env? }` to run after creating a workspace
 - `agentPresets`: list of `{ name, kind, command, env?, cardinality }` overrides for built-in agents (`kind` ∈ `terminal`, `claudeCode`, `codex`, `geminiCli`, `openCode`; `cardinality` ∈ `shared`, `dedicated`)
@@ -53,7 +53,10 @@ Example:
 {
   "schemaVersion": 1,
   "defaultWorkspaceLocation": ".roost/workspaces",
-  "env": { "NODE_ENV": "development" },
+  "env": {
+    "NODE_ENV": "development",
+    "API_TOKEN": { "fromKeychain": "roost-api-token", "account": "default" }
+  },
   "setup": [{ "name": "install", "command": "pnpm install", "env": { "CI": "1" } }],
   "agentPresets": [
     {

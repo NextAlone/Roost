@@ -14,6 +14,24 @@ public struct AgentPreset: Sendable, Hashable {
 
 public enum AgentPresetCatalog {
     public static func preset(for kind: AgentKind) -> AgentPreset {
+        builtIn(for: kind)
+    }
+
+    public static func preset(
+        for kind: AgentKind,
+        configuredPresets: [RoostConfigAgentPreset]
+    ) -> AgentPreset {
+        if let override = configuredPresets.first(where: { $0.kind == kind }) {
+            return AgentPreset(
+                kind: kind,
+                defaultCommand: override.command,
+                requiresDedicatedWorkspace: override.cardinality == .dedicated
+            )
+        }
+        return builtIn(for: kind)
+    }
+
+    private static func builtIn(for kind: AgentKind) -> AgentPreset {
         switch kind {
         case .terminal:
             AgentPreset(kind: .terminal, defaultCommand: nil)

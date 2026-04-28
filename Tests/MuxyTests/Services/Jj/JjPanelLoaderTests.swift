@@ -6,7 +6,7 @@ import Testing
 
 @Suite("JjPanelLoader")
 struct JjPanelLoaderTests {
-    @Test("composes show + status + summary into a snapshot")
+    @Test("composes show + status + summary + bookmarks + conflicts into a snapshot")
     func composes() async throws {
         let change = JjChangeId(prefix: "ab", full: "abcdef")
         let show = JjShowOutput(
@@ -21,19 +21,41 @@ struct JjPanelLoaderTests {
             parent: nil,
             workingCopySummary: "",
             entries: [entry],
-            hasConflicts: false
+            hasConflicts: true
         )
         let parentDiff = [entry]
+        let bookmark = JjBookmark(name: "main", target: change, isLocal: true, remotes: [])
+        let conflict = JjConflict(path: "README.md")
 
         let loader = JjPanelLoader(
             showLoader: { _ in show },
             statusLoader: { _ in status },
-            summaryLoader: { _, _ in parentDiff }
+            summaryLoader: { _, _ in parentDiff },
+            bookmarksLoader: { _ in [bookmark] },
+            conflictsLoader: { _ in [conflict] }
         )
         let snapshot = try await loader.load(repoPath: "/tmp/wt")
         #expect(snapshot.show.description == "demo")
         #expect(snapshot.parentDiff.count == 1)
         #expect(snapshot.status.entries.count == 1)
+        #expect(snapshot.bookmarks.count == 1)
+        #expect(snapshot.conflicts.first?.path == "README.md")
+    }
+
+    @Test("conflicts not fetched when status.hasConflicts == false")
+    func skipsConflictsWhenClean() async throws {
+        let change = JjChangeId(prefix: "ab", full: "abcdef")
+        let show = JjShowOutput(change: change, parents: [], description: "x", diffStat: nil)
+        let status = JjStatus(workingCopy: change, parent: nil, workingCopySummary: "", entries: [], hasConflicts: false)
+        let loader = JjPanelLoader(
+            showLoader: { _ in show },
+            statusLoader: { _ in status },
+            summaryLoader: { _, _ in [] },
+            bookmarksLoader: { _ in [] },
+            conflictsLoader: { _ in fatalError("must not be called") }
+        )
+        let snapshot = try await loader.load(repoPath: "/tmp/wt")
+        #expect(snapshot.conflicts.isEmpty)
     }
 
     @Test("propagates show errors")
@@ -42,7 +64,9 @@ struct JjPanelLoaderTests {
         let loader = JjPanelLoader(
             showLoader: { _ in throw Boom() },
             statusLoader: { _ in fatalError("not reached") },
-            summaryLoader: { _, _ in fatalError("not reached") }
+            summaryLoader: { _, _ in fatalError("not reached") },
+            bookmarksLoader: { _ in fatalError("not reached") },
+            conflictsLoader: { _ in fatalError("not reached") }
         )
         await #expect(throws: Boom.self) {
             try await loader.load(repoPath: "/tmp/wt")

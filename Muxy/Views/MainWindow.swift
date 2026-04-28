@@ -457,7 +457,7 @@ struct MainWindow: View {
     }
 
     private var toastPosition: ToastPosition {
-        ToastPosition(rawValue: toastPositionRaw) ?? .topCenter
+        ToastState.shared.position ?? ToastPosition(rawValue: toastPositionRaw) ?? .topCenter
     }
 
     private var toastAlignment: Alignment {

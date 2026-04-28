@@ -488,6 +488,7 @@ Terminal event → GhosttyRuntimeEventAdapter / NotificationSocketServer
      → TerminalViewRegistry.paneID(for:) (reverse lookup)
      → NotificationNavigator.resolveContext() (pane → project/worktree/area/tab)
      → NotificationStore.add() (suppressed if pane is focused and app active)
+     → Apply global settings plus project `.roost/config.json` notification overrides
      → Toast + sound delivery
      → Persist to notifications.json (debounced)
      → UI update (badge on sidebar, notification panel)
@@ -499,6 +500,10 @@ Each terminal surface receives `MUXY_PANE_ID`, `MUXY_PROJECT_ID`,
 `MUXY_WORKTREE_ID`, and `MUXY_SOCKET_PATH` via `ghostty_surface_config_s.env_vars`.
 These are used by the Claude wrapper script and socket API to identify the
 originating pane.
+
+Project `.roost/config.json` can override notification delivery per project with
+`notifications.enabled`, `toastEnabled`, `sound`, and `toastPosition`. Invalid sound
+or position strings fall back to the global Settings values.
 
 ### Click-to-Navigate
 

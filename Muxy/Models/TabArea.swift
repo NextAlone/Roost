@@ -78,13 +78,18 @@ final class TabArea: Identifiable {
     }
 
     func createAgentTab(kind: AgentKind) {
-        let configured = RoostConfigLoader.load(fromProjectPath: projectPath)?.agentPresets ?? []
-        let preset = AgentPresetCatalog.preset(for: kind, configuredPresets: configured)
+        let config = RoostConfigLoader.load(fromProjectPath: projectPath)
+        let preset = AgentPresetCatalog.preset(
+            for: kind,
+            env: config?.env ?? [:],
+            configuredPresets: config?.agentPresets ?? []
+        )
         let pane = TerminalPaneState(
             projectPath: projectPath,
             title: preset.kind.displayName,
             startupCommand: preset.defaultCommand,
             startupCommandInteractive: preset.defaultCommand != nil,
+            env: preset.env,
             agentKind: kind
         )
         insertTab(TerminalTab(pane: pane))

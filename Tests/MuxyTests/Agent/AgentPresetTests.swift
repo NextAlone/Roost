@@ -39,10 +39,16 @@ struct AgentPresetTests {
             name: "Custom Claude",
             kind: .claudeCode,
             command: "claude --model opus",
+            env: ["CLAUDE_CONFIG_DIR": ".roost/claude"],
             cardinality: .dedicated
         )]
-        let preset = AgentPresetCatalog.preset(for: .claudeCode, configuredPresets: configured)
+        let preset = AgentPresetCatalog.preset(
+            for: .claudeCode,
+            env: ["GLOBAL": "1", "CLAUDE_CONFIG_DIR": "global"],
+            configuredPresets: configured
+        )
         #expect(preset.defaultCommand == "claude --model opus")
+        #expect(preset.env == ["GLOBAL": "1", "CLAUDE_CONFIG_DIR": ".roost/claude"])
         #expect(preset.requiresDedicatedWorkspace == true)
     }
 

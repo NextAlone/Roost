@@ -44,6 +44,34 @@ struct AgentTabCreationTests {
         #expect(area.activeTab?.title == "Claude Code")
     }
 
+    @Test("configured agent env is applied to pane")
+    func configuredEnv() throws {
+        let project = FileManager.default.temporaryDirectory
+            .appendingPathComponent("roost-agent-env-tests")
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: project) }
+        let roostDir = project.appendingPathComponent(".roost")
+        try FileManager.default.createDirectory(at: roostDir, withIntermediateDirectories: true)
+        try Data("""
+        {
+          "schemaVersion": 1,
+          "env": { "GLOBAL": "1", "CLAUDE_CONFIG_DIR": "global" },
+          "agentPresets": [
+            {
+              "name": "Claude",
+              "kind": "claudeCode",
+              "command": "claude",
+              "env": { "CLAUDE_CONFIG_DIR": ".roost/claude" }
+            }
+          ]
+        }
+        """.utf8).write(to: roostDir.appendingPathComponent("config.json"))
+
+        let area = TabArea(projectPath: project.path)
+        area.createAgentTab(kind: .claudeCode)
+        #expect(area.activeTab?.content.pane?.env == ["GLOBAL": "1", "CLAUDE_CONFIG_DIR": ".roost/claude"])
+    }
+
     @Test("custom title overrides agent display name")
     func customTitleWins() {
         let area = TabArea(projectPath: "/tmp/wt")

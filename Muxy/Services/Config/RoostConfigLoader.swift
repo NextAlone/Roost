@@ -27,6 +27,7 @@ enum RoostConfigLoader {
         guard let legacy = try? JSONDecoder().decode(LegacyWorktreeConfig.self, from: data) else { return nil }
         return RoostConfig(
             schemaVersion: 1,
+            env: [:],
             setup: legacy.setup.map { RoostConfigSetupCommand(command: $0.command, name: $0.name) },
             agentPresets: []
         )

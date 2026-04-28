@@ -20,8 +20,9 @@ struct RoostConfigTests {
         let json = """
         {
           "schemaVersion": 1,
+          "env": { "GLOBAL": "1" },
           "setup": [
-            { "name": "install", "command": "pnpm install" },
+            { "name": "install", "command": "pnpm install", "env": { "LOCAL": "2" } },
             { "command": "pnpm dev" }
           ]
         }
@@ -29,6 +30,8 @@ struct RoostConfigTests {
         let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
         #expect(config.setup.count == 2)
         #expect(config.setup[0].name == "install")
+        #expect(config.env["GLOBAL"] == "1")
+        #expect(config.setup[0].env["LOCAL"] == "2")
         #expect(config.setup[1].command == "pnpm dev")
         #expect(config.setup[1].name == nil)
     }
@@ -43,6 +46,7 @@ struct RoostConfigTests {
               "name": "Custom Claude",
               "kind": "claudeCode",
               "command": "claude --model sonnet",
+              "env": { "CLAUDE_CONFIG_DIR": ".roost/claude" },
               "cardinality": "dedicated"
             }
           ]
@@ -54,7 +58,33 @@ struct RoostConfigTests {
         #expect(preset.name == "Custom Claude")
         #expect(preset.kind == .claudeCode)
         #expect(preset.command == "claude --model sonnet")
+        #expect(preset.env["CLAUDE_CONFIG_DIR"] == ".roost/claude")
         #expect(preset.cardinality == .dedicated)
+    }
+
+    @Test("env object values are ignored")
+    func envObjectValuesIgnored() throws {
+        let json = """
+        {
+          "schemaVersion": 1,
+          "env": {
+            "PLAIN": "ok",
+            "SECRET": { "fromKeychain": "token" }
+          },
+          "setup": [
+            {
+              "command": "make",
+              "env": {
+                "LOCAL": "yes",
+                "LOCAL_SECRET": { "fromKeychain": "local-token" }
+              }
+            }
+          ]
+        }
+        """
+        let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
+        #expect(config.env == ["PLAIN": "ok"])
+        #expect(config.setup.first?.env == ["LOCAL": "yes"])
     }
 
     @Test("missing schemaVersion → default 1")
@@ -94,5 +124,6 @@ struct RoostConfigTests {
         let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
         #expect(config.schemaVersion == 1)
         #expect(config.setup.isEmpty)
+        #expect(config.env["FOO"] == "bar")
     }
 }

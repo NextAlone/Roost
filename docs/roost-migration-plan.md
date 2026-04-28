@@ -599,6 +599,13 @@ Rules:
 - `WorktreeSetupRunner` now reads setup commands through `RoostConfigLoader`, so `.roost/config.json` is the primary source and legacy `.muxy/worktree.json` remains a setup-only fallback.
 - `CreateWorktreeSheet` previews the same normalized setup commands that execution uses and documents the `.roost/config.json` shape.
 
+**Follow-up status (2026-04-29): plain env support landed.**
+
+- `RoostConfig` decodes top-level `env`, per-setup `env`, and per-agent preset `env` plain string maps. Object values such as `{ "fromKeychain": "..." }` are tolerated but ignored until Keychain resolution lands.
+- Setup execution merges top-level env with per-command env and prefixes each command with shell-escaped assignments.
+- Agent tabs merge top-level env with per-preset env and pass the result to Ghostty when creating the terminal surface. Roost's own `MUXY_*` env vars still win.
+- Still deferred: Keychain-backed env values, config write path / chmod enforcement, teardown, default workspace location, notifications config, and settings UI.
+
 ## Phase 8: Release Readiness
 
 Goal: make Roost usable as a standalone app.

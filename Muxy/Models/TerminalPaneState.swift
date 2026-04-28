@@ -10,6 +10,7 @@ final class TerminalPaneState: Identifiable {
     var currentWorkingDirectory: String?
     let startupCommand: String?
     let startupCommandInteractive: Bool
+    let env: [String: String]
     let externalEditorFilePath: String?
     let agentKind: AgentKind
     let createdAt: Date
@@ -23,6 +24,7 @@ final class TerminalPaneState: Identifiable {
         initialWorkingDirectory: String? = nil,
         startupCommand: String? = nil,
         startupCommandInteractive: Bool = false,
+        env: [String: String] = [:],
         externalEditorFilePath: String? = nil,
         agentKind: AgentKind = .terminal,
         createdAt: Date = Date()
@@ -32,6 +34,7 @@ final class TerminalPaneState: Identifiable {
         self.currentWorkingDirectory = initialWorkingDirectory
         self.startupCommand = startupCommand
         self.startupCommandInteractive = startupCommandInteractive
+        self.env = env
         self.externalEditorFilePath = externalEditorFilePath
         self.agentKind = agentKind
         self.createdAt = createdAt

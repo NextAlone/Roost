@@ -60,4 +60,25 @@ struct WorktreeSetupRunnerTests {
 
         #expect(WorktreeSetupRunner.commandLine(sourceProjectPath: project.path) == "swift build")
     }
+
+    @Test("applies global and command env to each setup command")
+    func setupEnv() throws {
+        let project = try makeProject()
+        defer { try? FileManager.default.removeItem(at: project) }
+
+        let roostDir = project.appendingPathComponent(".roost")
+        try FileManager.default.createDirectory(at: roostDir, withIntermediateDirectories: true)
+        try Data("""
+        {
+          "schemaVersion": 1,
+          "env": { "GLOBAL": "one two", "OVERRIDE": "global" },
+          "setup": [
+            { "command": "pnpm install", "env": { "OVERRIDE": "local" } },
+            { "command": "pnpm dev" }
+          ]
+        }
+        """.utf8).write(to: roostDir.appendingPathComponent("config.json"))
+
+        #expect(WorktreeSetupRunner.commandLine(sourceProjectPath: project.path) == "GLOBAL='one two' OVERRIDE=local pnpm install && GLOBAL='one two' OVERRIDE=global pnpm dev")
+    }
 }

@@ -452,6 +452,16 @@ Later features:
 - `JjPanelLoader` lazily fetches conflicts only when `status.hasConflicts == true` (avoids extra subprocess in common case). Bookmarks always fetched.
 - `JjPanelView` renders bookmark list (with target prefix + remote markers) and conflict list. The old conflict banner is removed.
 - Mutating actions (5c, 5d) → upcoming.
+
+**Status (2026-04-28): Phase 5c (mutating actions) landed.**
+
+- `JjMutationService` exposes 7 mutations (describe, new, commit, squash, abandon, duplicate, backout) wrapping `jj <subcmd>` calls; all serialize through `JjProcessQueue.shared`.
+- `JjActionBar` renders all 7 actions as a button bar above the change card.
+- `JjMessageSheet` collects message input for describe + commit.
+- After each successful mutation, `state.refresh()` reloads the panel.
+- Errors surface inline below the action bar.
+- Defaults: backout/abandon/duplicate operate on `@`; squash collapses `@` into `@-`. No per-action revset picker (deferred).
+- Bookmark CRUD (5d) → upcoming.
 - Conflict content viewer.
 - Revset search.
 - Side-by-side diff improvements.

@@ -10,12 +10,7 @@ enum RoostConfigLoader {
     }
 
     private static func loadRoost(fromProjectPath projectPath: String) -> RoostConfig? {
-        let url = URL(fileURLWithPath: projectPath)
-            .appendingPathComponent(".roost")
-            .appendingPathComponent("config.json")
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(RoostConfig.self, from: data)
+        try? RoostConfigStore.load(projectPath: projectPath)
     }
 
     private static func loadLegacy(fromProjectPath projectPath: String) -> RoostConfig? {

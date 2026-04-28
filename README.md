@@ -74,6 +74,8 @@ Example:
 }
 ```
 
+When Roost writes this file, it creates `.roost/` with `0700` permissions and `config.json` with `0600` permissions.
+
 Legacy `.muxy/worktree.json` is still read as a fallback for `setup` only.
 
 ## Architecture

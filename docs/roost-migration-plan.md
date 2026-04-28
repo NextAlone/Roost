@@ -604,7 +604,7 @@ Rules:
 - `RoostConfig` decodes top-level `env`, per-setup `env`, and per-agent preset `env` plain string maps. Object values such as `{ "fromKeychain": "..." }` are tolerated but ignored until Keychain resolution lands.
 - Setup execution merges top-level env with per-command env and prefixes each command with shell-escaped assignments.
 - Agent tabs merge top-level env with per-preset env and pass the result to Ghostty when creating the terminal surface. Roost's own `MUXY_*` env vars still win.
-- Still deferred: config write path / chmod enforcement and settings UI.
+- Still deferred: settings UI.
 
 **Follow-up status (2026-04-29): default workspace location landed.**
 
@@ -632,6 +632,13 @@ Rules:
 - `NotificationStore` applies global Settings defaults first, then project `.roost/config.json` overrides. `enabled: false` suppresses both saved notifications and delivery for that project.
 - Invalid sound or toast position values fall back to global Settings values.
 - Still deferred: config write path / chmod enforcement and settings UI.
+
+**Follow-up status (2026-04-29): config write path and permissions landed.**
+
+- `RoostConfigStore` provides the write path for `.roost/config.json` and keeps `RoostConfigLoader` focused on read fallback behavior.
+- Writes create `.roost/` with `0700` permissions and `config.json` with `0600` permissions.
+- `fileSecurity` detects missing, secure, overly permissive, and unknown config permission states; `enforceSecurePermissions` fixes existing config files.
+- Still deferred: settings UI.
 
 ## Phase 8: Release Readiness
 

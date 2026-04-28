@@ -437,6 +437,13 @@ Later features:
 
 - DAG view.
 - Operation log / undo.
+
+**Status (2026-04-28): Phase 5a (read-side panel) landed.**
+
+- `JjPanelSnapshot` (value type), `JjPanelLoader` (composes `jj show @` + `jj status` + `jj diff --summary -r @-`), `JjPanelState` (@Observable @MainActor) live in `Muxy/Models` / `Muxy/Services/Jj`.
+- `VCSTabState` lazy-owns `jjState: JjPanelState?` and dispatches `refresh()` by `vcsKind`.
+- `JjPanelView` renders the change card (id + description), file list, conflict banner, and refresh button. Replaces the old `jjPlaceholder` (kept as fallback).
+- Bookmarks (5b), conflicts detail (5b), and mutating actions (5c, 5d) → upcoming.
 - Conflict content viewer.
 - Revset search.
 - Side-by-side diff improvements.

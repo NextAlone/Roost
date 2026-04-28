@@ -58,7 +58,3 @@ actor RoostHostd {
         }
     }
 }
-
-extension EnvironmentValues {
-    @Entry var roostHostd: RoostHostd?
-}

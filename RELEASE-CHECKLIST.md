@@ -1,69 +1,79 @@
 # Roost Release Checklist
 
-This checklist covers the manual / human-driven items that automation cannot complete. Phase 8 (Release Readiness) of the migration plan tracks these as gates before public distribution.
+This checklist tracks the current self-signed release path. Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, telemetry, crash reporting, and the real XPC host daemon are future work.
 
-## Build
+## Current Release: Self-Signed ZIP
 
-- [ ] Choose Apple Developer Team ID and bundle identifier (e.g., `app.roost`).
-- [ ] Generate / acquire Developer ID Application certificate.
-- [ ] Wire bundle id + Team into the `.app` build (currently SPM `swift build` produces an unsigned `Roost` executable; for distribution, build via `xcodebuild` with proper Info.plist and Signing & Capabilities).
-- [ ] Add Hardened Runtime flag.
-- [ ] Add entitlements:
-  - process spawning (terminal subprocess execution)
-  - file access scope (project directories + Application Support)
-  - network for `jj git fetch` (outbound HTTPS)
+- [ ] Run `scripts/checks.sh`.
+- [ ] Build `Roost.app.zip` with `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip`.
+- [ ] Verify `build/Roost.app.zip` exists.
+- [ ] Verify `build/SHA256SUMS.txt` exists and contains `Roost.app.zip`.
+- [ ] Verify checksum:
 
-## Notarization
+  ```bash
+  cd build
+  shasum -a 256 -c SHA256SUMS.txt
+  ```
 
-- [ ] CI workflow that codesigns + notarizes on tagged release.
-- [ ] Stapled ticket attached to the released DMG / ZIP.
-- [ ] App Store Connect API key for `notarytool`.
+- [ ] Verify app signature:
 
-## Distribution
+  ```bash
+  codesign --verify --deep --strict build/Roost.app
+  ```
 
-- [ ] App icon (`AppIcon.appiconset` + 1024px master).
-- [ ] DMG packaging or ZIP archive convention.
-- [ ] Sparkle appcast feed:
-  - Decision: bridge from old Muxy feed or fresh-install only?
-  - Host appcast XML on a stable URL.
-  - EdDSA key for appcast signing.
-- [ ] Homebrew cask:
-  - Cask formula in `homebrew-cask` (PR upstream).
-  - Auto-update strategy.
+- [ ] Launch the app locally after removing quarantine from a copy:
 
-## Permissions
+  ```bash
+  xattr -dr com.apple.quarantine build/Roost.app
+  open build/Roost.app
+  ```
 
-- [ ] Audit Info.plist usage description strings:
-  - `NSAppleEventsUsageDescription` (if any AppleScript usage)
-  - any other `NS*UsageDescription` keys
-- [ ] First-run onboarding: explain what permissions are requested and why.
+## Permissions Audit
 
-## Telemetry / Analytics
+- [ ] Confirm `Muxy/Muxy.entitlements` contains only hardened-runtime code-signing exceptions needed for the self-signed build.
+- [ ] Confirm `Muxy/Info.plist` usage descriptions are written as subprocess-triggered terminal permissions, not hidden Roost automation.
+- [ ] Confirm `SUEnableAutomaticChecks` is `false` for the manual self-signed release path.
+- [ ] Confirm [docs/permissions.md](docs/permissions.md) documents files, subprocesses, Keychain, network, notifications, manual updates, and Gatekeeper.
 
-- [ ] Decision: opt-in by default (per migration plan rule).
-- [ ] Decision: which SDK or in-house solution.
-- [ ] Document data collected before any code lands.
+## Manual Smoke
 
-## Crash Reporting
+- [ ] Open a jj project.
+- [ ] Create and remove a workspace.
+- [ ] Open a plain terminal tab and run `jj status`.
+- [ ] Open an agent tab, exit it, and re-launch it from history.
+- [ ] Open the jj VCS panel and run describe / new / commit / squash / abandon on a disposable repo.
+- [ ] Create, move, and delete a bookmark on a disposable repo.
+- [ ] Run setup and teardown commands using a disposable `.roost/config.json`.
+- [ ] Run a setup command with a missing Keychain env reference and confirm the workflow does not crash.
+- [ ] Re-test on the lowest supported macOS version, 14.0, before publishing outside local machines.
 
-- [ ] Capture crashes via system Crashlogs OR a third-party SDK.
-- [ ] User-visible export of debug logs.
+## Future: Developer ID / Notarization
 
-## XPC Service (deferred)
+- [ ] Choose Apple Developer Team ID and final bundle identifier.
+- [ ] Generate or acquire Developer ID Application certificate.
+- [ ] Wire Team ID into an Xcode or equivalent app build.
+- [ ] Add Hardened Runtime release settings.
+- [ ] Add notarization CI with `notarytool`.
+- [ ] Staple the notarization ticket to the released DMG or ZIP.
 
-- [ ] Real cross-process `RoostHostdXPCService`:
-  - Build separate Xcode project (or extend with `xcodegen`) producing `.xpc` bundle.
-  - Embed under `Roost.app/Contents/XPCServices/`.
-  - NSXPCConnection client wraps existing `RoostHostdClient` protocol (the abstraction is already in place — only the implementation swap is needed).
-  - Sandbox + entitlement story for inter-process PTY ownership.
+## Future: Distribution
 
-## Pre-Release Smoke
+- [ ] Decide whether public distribution uses DMG, ZIP, Homebrew cask, or multiple channels.
+- [ ] Decide whether Sparkle bridges from any old Muxy feed or starts as a fresh Roost feed.
+- [ ] Host appcast XML on a stable URL if Sparkle is enabled.
+- [ ] Generate and protect Sparkle EdDSA keys if Sparkle is enabled.
+- [ ] Define Homebrew cask auto-update strategy if Homebrew is enabled.
 
-- [ ] `scripts/checks.sh` clean.
-- [ ] Manual session lifecycle smoke:
-  - Create + close project
-  - Create + remove workspace
-  - Open agent tab → exit Claude → re-launch from history
-  - Open VCS panel on jj repo → describe / new / commit / squash / abandon
-  - Bookmark create / move / delete
-- [ ] Re-test on the lowest supported macOS version (14.0).
+## Future: XPC Service
+
+- [ ] Build `RoostHostdXPCService` as a separate `.xpc` bundle.
+- [ ] Embed it under `Roost.app/Contents/XPCServices/`.
+- [ ] Implement `NSXPCConnection` client behind the existing `RoostHostdClient` protocol.
+- [ ] Define sandbox and entitlement boundaries for inter-process PTY ownership.
+
+## Future: Telemetry and Crash Reporting
+
+- [ ] Decide whether telemetry exists. Current decision: no telemetry.
+- [ ] Document exact telemetry data before any telemetry code lands.
+- [ ] Decide whether crash reporting uses system Crashlogs or a third-party SDK.
+- [ ] Add user-visible debug log export before asking users for diagnostics.

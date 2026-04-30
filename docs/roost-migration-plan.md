@@ -671,6 +671,12 @@ Tasks:
 - `RELEASE-CHECKLIST.md` enumerates the human-driven release items: signing, notarization, Sparkle feed, Homebrew cask, telemetry, crash reporting, permissions audit, XPC service (deferred), pre-release smoke.
 - **Phase 8 engineering work complete.** Distribution gates (Apple Developer Team ID, signing identity, notarization CI, app icon, Sparkle hosting, Homebrew cask submission) are tracked in `RELEASE-CHECKLIST.md` as human follow-up.
 
+**Follow-up status (2026-05-01): self-signed release path designed.**
+
+- Current release target is self-signed, non-notarized, manually distributed as `Roost.app.zip` with `SHA256SUMS.txt`.
+- Developer ID notarization, Sparkle feed hosting, Homebrew cask distribution, telemetry, crash reporting, and real XPC hostd remain future work.
+- Permission model documented in `docs/permissions.md`: Roost is a terminal host, subprocesses can trigger macOS privacy prompts, Keychain env values are resolved at launch time and not persisted as plaintext.
+
 ## Risk Register
 
 - **jj working-copy snapshot race (product-level data safety)**: jj's working copy is a commit; any `jj status`/`log` invocation that omits `--ignore-working-copy` triggers a snapshot. Multi-agent writes can be silently captured into a change. Phase 1 snapshot policy is the mitigation; assume violations cause real data corruption.

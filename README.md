@@ -84,7 +84,9 @@ See [docs/architecture.md](docs/architecture.md) and [docs/roost-migration-plan.
 
 ## Release
 
-See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for the manual handoff items (signing, notarization, telemetry, distribution).
+The current release path is self-signed, non-notarized, and manually distributed as `Roost.app.zip` plus `SHA256SUMS.txt`.
+
+See [docs/permissions.md](docs/permissions.md) for the trust model and install notes. See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for release gates and future distribution work.
 
 ## Third-Party Licenses
 

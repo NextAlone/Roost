@@ -41,14 +41,14 @@ The current Roost release is self-signed and non-notarized. It is intended for u
 
 Install flow:
 
-1. Download `Roost.app.zip` and `SHA256SUMS.txt` from the release.
+1. Download `Roost-<version>-<arch>.zip` and `SHA256SUMS.txt` from the release.
 2. Verify the archive:
 
    ```bash
    shasum -a 256 -c SHA256SUMS.txt
    ```
 
-3. Unzip `Roost.app.zip`.
+3. Unzip `Roost-<version>-<arch>.zip`.
 4. Move `Roost.app` to `/Applications`.
 5. If Gatekeeper blocks launch, either approve the app in System Settings or remove the quarantine attribute:
 
@@ -92,7 +92,7 @@ Current Roost notifications are in-app records, badges, sounds, and optional toa
 
 ## Updates
 
-The current release uses manual updates. Download a newer `Roost.app.zip`, verify its SHA256 checksum, quit Roost, and replace the app.
+The current release uses manual updates. Download a newer `Roost-<version>-<arch>.zip`, verify its SHA256 checksum, quit Roost, and replace the app.
 
 Sparkle is still present in the codebase, but automatic updates are not the current self-signed distribution contract.
 
@@ -116,7 +116,7 @@ with:
 ```markdown
 ## Release
 
-The current release path is self-signed, non-notarized, and manually distributed as `Roost.app.zip` plus `SHA256SUMS.txt`.
+The current release path is self-signed, non-notarized, and manually distributed as `Roost-<version>-<arch>.zip` plus `SHA256SUMS.txt`.
 
 See [docs/permissions.md](docs/permissions.md) for the trust model and install notes. See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for release gates and future distribution work.
 ```
@@ -126,7 +126,7 @@ See [docs/permissions.md](docs/permissions.md) for the trust model and install n
 Run:
 
 ```bash
-rg -n "docs/permissions.md|Roost.app.zip|SHA256SUMS" README.md docs/permissions.md
+rg -n "docs/permissions.md|Roost-<version>-<arch>.zip|SHA256SUMS" README.md docs/permissions.md
 ```
 
 Expected: matches in both files.
@@ -156,9 +156,9 @@ This checklist tracks the current self-signed release path. Developer ID notariz
 ## Current Release: Self-Signed ZIP
 
 - [ ] Run `scripts/checks.sh`.
-- [ ] Build `Roost.app.zip` with `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip`.
-- [ ] Verify `build/Roost.app.zip` exists.
-- [ ] Verify `build/SHA256SUMS.txt` exists and contains `Roost.app.zip`.
+- [ ] Build `Roost-<X.Y.Z>-arm64.zip` with `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip --sign-identity -`.
+- [ ] Verify `build/Roost-<X.Y.Z>-arm64.zip` exists.
+- [ ] Verify `build/SHA256SUMS.txt` exists and contains `Roost-<X.Y.Z>-arm64.zip`.
 - [ ] Verify checksum:
 
   ```bash
@@ -235,7 +235,7 @@ This checklist tracks the current self-signed release path. Developer ID notariz
 Run:
 
 ```bash
-rg -n "Current Release|Future: Developer ID|Current decision: no telemetry|Roost.app.zip|SUEnableAutomaticChecks" RELEASE-CHECKLIST.md
+rg -n "Current Release|Future: Developer ID|Current decision: no telemetry|Roost-<version>-<arch>.zip|SUEnableAutomaticChecks" RELEASE-CHECKLIST.md
 ```
 
 Expected: one or more matches for each phrase.
@@ -568,7 +568,7 @@ append:
 
 **Follow-up status (2026-05-01): self-signed release path designed.**
 
-- Current release target is self-signed, non-notarized, manually distributed as `Roost.app.zip` with `SHA256SUMS.txt`.
+- Current release target is self-signed, non-notarized, manually distributed as `Roost-<version>-<arch>.zip` with `SHA256SUMS.txt`.
 - Developer ID notarization, Sparkle feed hosting, Homebrew cask distribution, telemetry, crash reporting, and real XPC hostd remain future work.
 - Permission model documented in `docs/permissions.md`: Roost is a terminal host, subprocesses can trigger macOS privacy prompts, Keychain env values are resolved at launch time and not persisted as plaintext.
 ```
@@ -578,7 +578,7 @@ append:
 Run:
 
 ```bash
-rg -n "self-signed release path|Roost.app.zip|docs/permissions.md" docs/roost-migration-plan.md
+rg -n "self-signed release path|Roost-<version>-<arch>.zip|docs/permissions.md" docs/roost-migration-plan.md
 ```
 
 Expected: three matching lines in the Phase 8 section.
@@ -629,7 +629,7 @@ Expected: formatting, linting, and build pass.
 Run:
 
 ```bash
-scripts/build-release.sh --arch arm64 --version 0.1.0 --zip
+scripts/build-release.sh --arch arm64 --version 0.1.0 --zip --sign-identity -
 ```
 
 Expected:

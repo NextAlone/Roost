@@ -33,7 +33,7 @@ The target for the current release is a self-signed, non-notarized macOS app dis
 
 The current release should be documented as a self-signed developer build:
 
-- Build output: `Roost.app.zip` is preferred over DMG for the first self-signed release.
+- Build output: `Roost-<version>-<arch>.zip` is preferred over DMG for the first self-signed release.
 - Signing: ad-hoc or local self-signed identity only.
 - Notarization: not available without Developer ID and intentionally out of scope.
 - Installation: users unzip, move `Roost.app` to `/Applications`, then approve Gatekeeper manually or remove quarantine with `xattr -dr com.apple.quarantine /Applications/Roost.app`.

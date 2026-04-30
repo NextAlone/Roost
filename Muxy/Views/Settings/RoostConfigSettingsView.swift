@@ -12,6 +12,7 @@ struct RoostConfigSettingsView: View {
     @State private var toastPosition = ToastPosition.topCenter.rawValue
     @State private var statusMessage: String?
     @State private var fileSecurity: RoostConfigFileSecurity = .missing
+    @State private var appFileSecurity: RoostConfigFileSecurity = .missing
 
     private var selectedProject: Project? {
         guard let selectedProjectID else { return projectStore.projects.first }
@@ -20,6 +21,25 @@ struct RoostConfigSettingsView: View {
 
     var body: some View {
         SettingsContainer {
+            SettingsSection("Roost") {
+                SettingsRow("Config File") {
+                    HStack(spacing: 8) {
+                        Text(appFileSecurityText)
+                            .font(.system(size: SettingsMetrics.footnoteFontSize))
+                            .foregroundStyle(appFileSecurityColor)
+                        Button("Open") { openAppConfig() }
+                        Button("Fix") { fixAppPermissions() }
+                            .disabled(!canFixAppPermissions)
+                    }
+                }
+
+                SettingsRow("Default Workspace Location") {
+                    TextField("~/Documents/Repos/.workspaces", text: $defaultWorkspaceLocation)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: SettingsMetrics.controlWidth)
+                }
+            }
+
             SettingsSection("Project") {
                 SettingsRow("Repository") {
                     Picker("", selection: selectedProjectBinding) {
@@ -45,14 +65,6 @@ struct RoostConfigSettingsView: View {
                 }
             }
 
-            SettingsSection("Workspace") {
-                SettingsRow("Default Location") {
-                    TextField(".roost/workspaces", text: $defaultWorkspaceLocation)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: SettingsMetrics.controlWidth)
-                }
-            }
-
             SettingsSection("Notifications") {
                 SettingsToggleRow(label: "Enabled", isOn: $notificationsEnabled)
                 SettingsToggleRow(label: "Toast", isOn: $toastEnabled)
@@ -62,7 +74,7 @@ struct RoostConfigSettingsView: View {
 
             SettingsSection("Actions", footer: statusMessage, showsDivider: false) {
                 HStack {
-                    Button("Reload") { loadSelectedProject() }
+                    Button("Reload") { loadAll() }
                     Button("Save") { save() }
                         .keyboardShortcut(.defaultAction)
                     Spacer()
@@ -75,7 +87,7 @@ struct RoostConfigSettingsView: View {
             if selectedProjectID == nil {
                 selectedProjectID = projectStore.projects.first?.id
             }
-            loadSelectedProject()
+            loadAll()
         }
         .onChange(of: selectedProjectID) { _, _ in
             loadSelectedProject()
@@ -112,9 +124,43 @@ struct RoostConfigSettingsView: View {
         return false
     }
 
+    private var appFileSecurityText: String {
+        switch appFileSecurity {
+        case .missing: "Missing"
+        case .secure: "0600"
+        case let .tooPermissive(permissions): String(format: "%03o", permissions)
+        case .unknown: "Unknown"
+        }
+    }
+
+    private var appFileSecurityColor: Color {
+        switch appFileSecurity {
+        case .secure: .secondary
+        case .missing: .secondary
+        case .tooPermissive: .orange
+        case .unknown: .red
+        }
+    }
+
+    private var canFixAppPermissions: Bool {
+        if case .tooPermissive = appFileSecurity { return true }
+        return false
+    }
+
+    private func loadAll() {
+        loadAppConfig()
+        loadSelectedProject()
+    }
+
+    private func loadAppConfig() {
+        appFileSecurity = RoostAppConfigStore.fileSecurity()
+        let config = try? RoostAppConfigStore.load()
+        defaultWorkspaceLocation = config?.defaultWorkspaceLocation ?? ""
+    }
+
     private func loadSelectedProject() {
         guard let project = selectedProject else {
-            resetFields()
+            resetProjectFields()
             statusMessage = nil
             fileSecurity = .missing
             return
@@ -122,7 +168,6 @@ struct RoostConfigSettingsView: View {
 
         fileSecurity = RoostConfigStore.fileSecurity(projectPath: project.path)
         let config = try? RoostConfigStore.load(projectPath: project.path)
-        defaultWorkspaceLocation = config?.defaultWorkspaceLocation ?? ""
         let notifications = config?.notifications
         notificationsEnabled = notifications?.enabled ?? true
         toastEnabled = notifications?.toastEnabled ?? true
@@ -132,14 +177,49 @@ struct RoostConfigSettingsView: View {
     }
 
     private func save() {
-        guard let project = selectedProject else { return }
-        let existing = try? RoostConfigStore.load(projectPath: project.path)
+        guard saveAppConfig() else { return }
+        guard saveProjectConfig() else { return }
+        if selectedProject == nil {
+            statusMessage = "Saved \(RoostAppConfigStore.configURL().path)"
+        } else {
+            statusMessage = "Saved Roost and project config."
+        }
+    }
+
+    @discardableResult
+    private func saveAppConfig() -> Bool {
+        let existing = try? RoostAppConfigStore.load()
         let location = defaultWorkspaceLocation.trimmingCharacters(in: .whitespacesAndNewlines)
         let config = RoostConfig(
             schemaVersion: existing?.schemaVersion ?? 1,
             env: existing?.env ?? [:],
             keychainEnv: existing?.keychainEnv ?? [:],
             defaultWorkspaceLocation: location.isEmpty ? nil : location,
+            setup: existing?.setup ?? [],
+            teardown: existing?.teardown ?? [],
+            agentPresets: existing?.agentPresets ?? [],
+            notifications: existing?.notifications
+        )
+
+        do {
+            try RoostAppConfigStore.save(config)
+            appFileSecurity = RoostAppConfigStore.fileSecurity()
+            return true
+        } catch {
+            statusMessage = "Save failed: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    @discardableResult
+    private func saveProjectConfig() -> Bool {
+        guard let project = selectedProject else { return true }
+        let existing = try? RoostConfigStore.load(projectPath: project.path)
+        let config = RoostConfig(
+            schemaVersion: existing?.schemaVersion ?? 1,
+            env: existing?.env ?? [:],
+            keychainEnv: existing?.keychainEnv ?? [:],
+            defaultWorkspaceLocation: existing?.defaultWorkspaceLocation,
             setup: existing?.setup ?? [],
             teardown: existing?.teardown ?? [],
             agentPresets: existing?.agentPresets ?? [],
@@ -154,9 +234,20 @@ struct RoostConfigSettingsView: View {
         do {
             try RoostConfigStore.save(config, projectPath: project.path)
             fileSecurity = RoostConfigStore.fileSecurity(projectPath: project.path)
-            statusMessage = "Saved \(RoostConfigStore.configURL(projectPath: project.path).path)"
+            return true
         } catch {
             statusMessage = "Save failed: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    private func fixAppPermissions() {
+        do {
+            try RoostAppConfigStore.enforceSecurePermissions()
+            appFileSecurity = RoostAppConfigStore.fileSecurity()
+            statusMessage = "Permissions fixed."
+        } catch {
+            statusMessage = "Permission fix failed: \(error.localizedDescription)"
         }
     }
 
@@ -171,11 +262,10 @@ struct RoostConfigSettingsView: View {
         }
     }
 
-    private func openConfig() {
-        guard let project = selectedProject else { return }
-        let url = RoostConfigStore.configURL(projectPath: project.path)
+    private func openAppConfig() {
+        let url = RoostAppConfigStore.configURL()
         if !FileManager.default.fileExists(atPath: url.path) {
-            save()
+            saveAppConfig()
         }
         guard FileManager.default.fileExists(atPath: url.path) else {
             statusMessage = "Open failed: config file was not created."
@@ -189,8 +279,25 @@ struct RoostConfigSettingsView: View {
         }
     }
 
-    private func resetFields() {
-        defaultWorkspaceLocation = ""
+    private func openConfig() {
+        guard let project = selectedProject else { return }
+        let url = RoostConfigStore.configURL(projectPath: project.path)
+        if !FileManager.default.fileExists(atPath: url.path) {
+            saveProjectConfig()
+        }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            statusMessage = "Open failed: config file was not created."
+            return
+        }
+        if NSWorkspace.shared.open(url) {
+            statusMessage = "Opened \(url.path)"
+        } else {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            statusMessage = "Revealed \(url.path)"
+        }
+    }
+
+    private func resetProjectFields() {
         notificationsEnabled = true
         toastEnabled = true
         sound = NotificationSound.funk.rawValue

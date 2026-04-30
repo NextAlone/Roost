@@ -40,10 +40,13 @@ A jj-tracked project unlocks the full jj-first behaviour. Git-tracked projects c
 
 ## Configuration
 
+Roost reads `~/Library/Application Support/Roost/config.json` for app-wide settings. Schema version 1 currently supports:
+
+- `defaultWorkspaceLocation`: directory for newly created workspaces; `~` expands to the user home directory, absolute paths are used directly, and relative paths resolve from the user home directory
+
 Roost reads `<project>/.roost/config.json` for per-project settings. Schema version 1 supports:
 
 - `env`: environment variables shared by setup commands and agent presets; values can be plain strings or `{ "fromKeychain": "service", "account": "optional-account" }`
-- `defaultWorkspaceLocation`: directory for newly created workspaces; relative paths resolve from the project root
 - `setup`: list of `{ name?, command, cwd?, env? }` to run after creating a workspace
 - `teardown`: list of `{ name?, command, cwd?, env? }` to run before removing a managed workspace
 - `notifications`: `{ enabled?, toastEnabled?, sound?, toastPosition? }` per-project overrides
@@ -54,7 +57,6 @@ Example:
 ```json
 {
   "schemaVersion": 1,
-  "defaultWorkspaceLocation": ".roost/workspaces",
   "env": {
     "NODE_ENV": "development",
     "API_TOKEN": { "fromKeychain": "roost-api-token", "account": "default" }

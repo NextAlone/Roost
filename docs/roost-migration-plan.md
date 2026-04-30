@@ -566,7 +566,7 @@ Goal: standardize project and agent automation.
 Config files:
 
 - `.roost/config.json`
-- Future: user-level `~/Library/Application Support/Roost/config.json`
+- App-wide: `~/Library/Application Support/Roost/config.json`
 
 Initial fields (define a versioned JSON Schema before first read site lands):
 
@@ -608,10 +608,10 @@ Rules:
 
 **Follow-up status (2026-04-29): default workspace location landed.**
 
-- `RoostConfig.defaultWorkspaceLocation` controls where newly created workspaces are checked out. Absolute paths are used directly; relative paths resolve against the project root.
+- App-wide `RoostConfig.defaultWorkspaceLocation` controls where newly created workspaces are checked out from `~/Library/Application Support/Roost/config.json`. `~` expands to the user home directory, absolute paths are used directly, and relative paths resolve against the user home directory.
 - `CreateWorktreeSheet` and remote `vcsAddWorktree` both use `WorkspaceLocationResolver`, so local and mobile/remote workspace creation share path semantics.
 - Empty / missing location keeps the original Application Support checkout root.
-- Still deferred: Keychain-backed env values, config write path / chmod enforcement, teardown, notifications config, and settings UI.
+- Subsequent follow-ups landed Keychain-backed env values, config write paths with chmod enforcement, teardown, notifications config, and settings UI.
 
 **Follow-up status (2026-04-29): Keychain-backed env support landed.**
 

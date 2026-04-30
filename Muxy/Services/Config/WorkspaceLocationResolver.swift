@@ -3,26 +3,33 @@ import MuxyShared
 
 enum WorkspaceLocationResolver {
     static func directory(projectID: UUID, projectPath: String, name: String) -> URL {
-        let config = RoostConfigLoader.load(fromProjectPath: projectPath)
-        return directory(projectID: projectID, projectPath: projectPath, name: name, config: config)
+        let config = try? RoostAppConfigStore.load()
+        return directory(projectID: projectID, projectPath: projectPath, name: name, appConfig: config)
     }
 
-    static func directory(projectID: UUID, projectPath: String, name: String, config: RoostConfig?) -> URL {
-        guard let raw = config?.defaultWorkspaceLocation?.trimmingCharacters(in: .whitespacesAndNewlines),
+    static func directory(projectID: UUID, projectPath _: String, name: String, appConfig: RoostConfig?) -> URL {
+        guard let raw = appConfig?.defaultWorkspaceLocation?.trimmingCharacters(in: .whitespacesAndNewlines),
               !raw.isEmpty
         else {
             return MuxyFileStorage.worktreeDirectory(forProjectID: projectID, name: name)
         }
 
-        let base = resolveBase(raw, projectPath: projectPath)
+        let base = resolveBase(raw)
         return base.appendingPathComponent(name, isDirectory: true)
     }
 
-    private static func resolveBase(_ raw: String, projectPath: String) -> URL {
+    private static func resolveBase(_ raw: String) -> URL {
+        if raw == "~" {
+            return URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        }
+        if raw.hasPrefix("~/") {
+            return URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+                .appendingPathComponent(String(raw.dropFirst(2)), isDirectory: true)
+        }
         if raw.hasPrefix("/") {
             return URL(fileURLWithPath: raw, isDirectory: true)
         }
-        return URL(fileURLWithPath: projectPath, isDirectory: true)
+        return URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
             .appendingPathComponent(raw, isDirectory: true)
     }
 }

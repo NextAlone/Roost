@@ -6,19 +6,19 @@ import Testing
 
 @Suite("WorkspaceLocationResolver")
 struct WorkspaceLocationResolverTests {
-    @Test("empty config uses app support workspace directory")
+    @Test("empty app config uses app support workspace directory")
     func fallbackDirectory() {
         let projectID = UUID()
         let url = WorkspaceLocationResolver.directory(
             projectID: projectID,
             projectPath: "/tmp/project",
             name: "feature",
-            config: nil
+            appConfig: nil
         )
         #expect(url == MuxyFileStorage.worktreeDirectory(forProjectID: projectID, name: "feature"))
     }
 
-    @Test("blank configured location falls back")
+    @Test("blank app configured location falls back")
     func blankDirectory() {
         let projectID = UUID()
         let config = RoostConfig(defaultWorkspaceLocation: "  ")
@@ -26,21 +26,21 @@ struct WorkspaceLocationResolverTests {
             projectID: projectID,
             projectPath: "/tmp/project",
             name: "feature",
-            config: config
+            appConfig: config
         )
         #expect(url == MuxyFileStorage.worktreeDirectory(forProjectID: projectID, name: "feature"))
     }
 
-    @Test("relative location resolves against project path")
+    @Test("relative app location resolves against home directory")
     func relativeDirectory() {
-        let config = RoostConfig(defaultWorkspaceLocation: ".roost/workspaces")
+        let config = RoostConfig(defaultWorkspaceLocation: "Documents/Repos/.workspaces")
         let url = WorkspaceLocationResolver.directory(
             projectID: UUID(),
             projectPath: "/tmp/project",
             name: "feature",
-            config: config
+            appConfig: config
         )
-        #expect(url.path == "/tmp/project/.roost/workspaces/feature")
+        #expect(url.path == NSHomeDirectory() + "/Documents/Repos/.workspaces/feature")
     }
 
     @Test("absolute location is used directly")
@@ -50,8 +50,20 @@ struct WorkspaceLocationResolverTests {
             projectID: UUID(),
             projectPath: "/tmp/project",
             name: "feature",
-            config: config
+            appConfig: config
         )
         #expect(url.path == "/tmp/roost-workspaces/feature")
+    }
+
+    @Test("tilde location resolves against home directory")
+    func tildeDirectory() {
+        let config = RoostConfig(defaultWorkspaceLocation: "~/Documents/Repos/.workspaces")
+        let url = WorkspaceLocationResolver.directory(
+            projectID: UUID(),
+            projectPath: "/tmp/project",
+            name: "feature",
+            appConfig: config
+        )
+        #expect(url.path == NSHomeDirectory() + "/Documents/Repos/.workspaces/feature")
     }
 }

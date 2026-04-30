@@ -38,6 +38,24 @@ struct KeyBindingStoreTests {
         #expect(store.action(for: event, scopes: [.mainWindow]) == nil)
     }
 
+    @Test("cleared shortcut does not resolve action")
+    func clearedShortcutDoesNotResolveAction() throws {
+        let persistence = StubKeyBindingPersistence(bindings: KeyBinding.defaults)
+        let store = KeyBindingStore(persistence: persistence)
+        let event = try keyEvent(
+            characters: "t",
+            charactersIgnoringModifiers: "t",
+            keyCode: 17,
+            modifiers: [.command]
+        )
+
+        store.clearBinding(action: .newTab)
+
+        #expect(store.combo(for: .newTab) == nil)
+        #expect(store.action(for: event, scopes: [.mainWindow]) == nil)
+        #expect(persistence.savedBindings.first { $0.action == .newTab }?.combo == nil)
+    }
+
     private func keyEvent(
         characters: String,
         charactersIgnoringModifiers: String,
@@ -63,6 +81,7 @@ struct KeyBindingStoreTests {
 
     private final class StubKeyBindingPersistence: KeyBindingPersisting {
         private let storedBindings: [KeyBinding]
+        private(set) var savedBindings: [KeyBinding] = []
 
         init(bindings: [KeyBinding]) {
             storedBindings = bindings
@@ -72,7 +91,9 @@ struct KeyBindingStoreTests {
             storedBindings
         }
 
-        func saveBindings(_: [KeyBinding]) throws {}
+        func saveBindings(_ bindings: [KeyBinding]) throws {
+            savedBindings = bindings
+        }
     }
 
     private struct EventCreationError: Error {}

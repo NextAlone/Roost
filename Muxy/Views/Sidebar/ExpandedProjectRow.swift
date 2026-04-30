@@ -186,7 +186,7 @@ struct ExpandedProjectRow: View {
             if showShortcutBadge, let shortcutIndex,
                let action = ShortcutAction.projectAction(for: shortcutIndex)
             {
-                ShortcutBadge(label: KeyBindingStore.shared.combo(for: action).displayString)
+                ShortcutBadge(label: KeyBindingStore.shared.displayString(for: action))
             }
         }
     }
@@ -363,10 +363,11 @@ struct ExpandedProjectRow: View {
 
     private var showShortcutBadge: Bool {
         guard let shortcutIndex,
-              let action = ShortcutAction.projectAction(for: shortcutIndex)
+              let action = ShortcutAction.projectAction(for: shortcutIndex),
+              let combo = KeyBindingStore.shared.combo(for: action)
         else { return false }
         return ModifierKeyMonitor.shared.isHolding(
-            modifiers: KeyBindingStore.shared.combo(for: action).modifiers
+            modifiers: combo.modifiers
         )
     }
 

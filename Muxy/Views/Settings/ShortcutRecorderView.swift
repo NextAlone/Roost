@@ -4,12 +4,14 @@ import SwiftUI
 struct ShortcutRecorderView: NSViewRepresentable {
     let onRecord: (KeyCombo) -> Void
     let onCancel: () -> Void
+    var onClear: () -> Void = {}
     var requiresModifier = true
 
     func makeNSView(context: Context) -> ShortcutRecorderNSView {
         let view = ShortcutRecorderNSView()
         view.onRecord = onRecord
         view.onCancel = onCancel
+        view.onClear = onClear
         view.requiresModifier = requiresModifier
         DispatchQueue.main.async { view.window?.makeFirstResponder(view) }
         return view
@@ -18,6 +20,7 @@ struct ShortcutRecorderView: NSViewRepresentable {
     func updateNSView(_ nsView: ShortcutRecorderNSView, context: Context) {
         nsView.onRecord = onRecord
         nsView.onCancel = onCancel
+        nsView.onClear = onClear
         nsView.requiresModifier = requiresModifier
     }
 }
@@ -25,6 +28,7 @@ struct ShortcutRecorderView: NSViewRepresentable {
 final class ShortcutRecorderNSView: NSView {
     var onRecord: ((KeyCombo) -> Void)?
     var onCancel: (() -> Void)?
+    var onClear: (() -> Void)?
     var requiresModifier = true
     private var completed = false
 
@@ -75,6 +79,11 @@ final class ShortcutRecorderNSView: NSView {
         if event.keyCode == 53 {
             completed = true
             onCancel?()
+            return true
+        }
+        if event.keyCode == 51 || event.keyCode == 117 {
+            completed = true
+            onClear?()
             return true
         }
 

@@ -159,6 +159,10 @@ struct KeyboardShortcutsSettingsView: View {
                     },
                     onReset: { store.resetBinding(action: action)
                         conflictWarning = nil
+                    },
+                    onClear: { store.clearBinding(action: action)
+                        recordingAction = nil
+                        conflictWarning = nil
                     }
                 )
             }
@@ -364,13 +368,14 @@ struct KeyboardShortcutsSettingsView: View {
 
 private struct ShortcutRow: View {
     let action: ShortcutAction
-    let combo: KeyCombo
+    let combo: KeyCombo?
     let isRecording: Bool
     let conflictAction: ShortcutAction?
     let onStartRecording: () -> Void
     let onRecord: (KeyCombo) -> Void
     let onCancel: () -> Void
     let onReset: () -> Void
+    let onClear: () -> Void
     @State private var hovered = false
 
     var body: some View {
@@ -411,10 +416,20 @@ private struct ShortcutRow: View {
                 .accessibilityLabel("Reset Shortcut")
             }
 
+            if combo != nil, hovered {
+                Button(action: onClear) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear Shortcut")
+            }
+
             Button(action: onStartRecording) {
-                Text(combo.displayString)
+                Text(combo?.displayString ?? "Not set")
                     .font(.system(size: SettingsMetrics.footnoteFontSize, weight: .medium, design: .rounded))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(combo == nil ? .secondary : .primary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
@@ -425,11 +440,11 @@ private struct ShortcutRow: View {
 
     private var recordingView: some View {
         ZStack {
-            ShortcutRecorderView(onRecord: onRecord, onCancel: onCancel)
+            ShortcutRecorderView(onRecord: onRecord, onCancel: onCancel, onClear: onClear)
                 .frame(width: 0, height: 0)
                 .opacity(0)
 
-            Text("Press shortcut…")
+            Text("Press shortcut or Delete to clear…")
                 .font(.system(size: SettingsMetrics.footnoteFontSize, weight: .medium))
                 .foregroundStyle(.orange)
                 .padding(.horizontal, 8)

@@ -313,14 +313,14 @@ struct MainWindow: View {
             NavigationArrowButton(
                 symbol: "chevron.left",
                 isEnabled: appState.navigation.canGoBack,
-                label: "Back (\(KeyBindingStore.shared.combo(for: .navigateBack).displayString))"
+                label: "Back (\(KeyBindingStore.shared.displayString(for: .navigateBack)))"
             ) {
                 appState.goBack()
             }
             NavigationArrowButton(
                 symbol: "chevron.right",
                 isEnabled: appState.navigation.canGoForward,
-                label: "Forward (\(KeyBindingStore.shared.combo(for: .navigateForward).displayString))"
+                label: "Forward (\(KeyBindingStore.shared.displayString(for: .navigateForward)))"
             ) {
                 appState.goForward()
             }
@@ -429,14 +429,14 @@ struct MainWindow: View {
                             IconButton(symbol: "doc.text", size: 12, accessibilityLabel: "Quick Open") {
                                 NotificationCenter.default.post(name: .quickOpen, object: nil)
                             }
-                            .help("Quick Open (\(KeyBindingStore.shared.combo(for: .quickOpen).displayString))")
+                            .help("Quick Open (\(KeyBindingStore.shared.displayString(for: .quickOpen)))")
                             FileDiffIconButton {
                                 openVCS(for: project)
                             }
                             FileTreeIconButton {
                                 NotificationCenter.default.post(name: .toggleFileTree, object: nil)
                             }
-                            .help("File Tree (\(KeyBindingStore.shared.combo(for: .toggleFileTree).displayString))")
+                            .help("File Tree (\(KeyBindingStore.shared.displayString(for: .toggleFileTree)))")
                         }
                     }
                     .padding(.trailing, 4)

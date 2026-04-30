@@ -22,13 +22,27 @@ final class KeyBindingStore {
             ?? KeyBinding(action: action, combo: KeyCombo(key: "", modifiers: 0))
     }
 
-    func combo(for action: ShortcutAction) -> KeyCombo {
+    func combo(for action: ShortcutAction) -> KeyCombo? {
         binding(for: action).combo
     }
 
     func updateBinding(action: ShortcutAction, combo: KeyCombo) {
-        guard let index = bindings.firstIndex(where: { $0.action == action }) else { return }
+        guard let index = bindings.firstIndex(where: { $0.action == action }) else {
+            bindings.append(KeyBinding(action: action, combo: combo))
+            save()
+            return
+        }
         bindings[index].combo = combo
+        save()
+    }
+
+    func clearBinding(action: ShortcutAction) {
+        guard let index = bindings.firstIndex(where: { $0.action == action }) else {
+            bindings.append(KeyBinding(action: action, combo: nil))
+            save()
+            return
+        }
+        bindings[index].combo = nil
         save()
     }
 
@@ -39,7 +53,8 @@ final class KeyBindingStore {
 
     func resetBinding(action: ShortcutAction) {
         guard let defaultBinding = KeyBinding.defaults.first(where: { $0.action == action }) else { return }
-        updateBinding(action: defaultBinding.action, combo: defaultBinding.combo)
+        guard let combo = defaultBinding.combo else { return }
+        updateBinding(action: defaultBinding.action, combo: combo)
     }
 
     func isRegisteredShortcut(event: NSEvent, scopes: Set<ShortcutScope>) -> Bool {
@@ -54,7 +69,7 @@ final class KeyBindingStore {
         let flags = event.modifierFlags.intersection(KeyCombo.supportedModifierMask).rawValue
         return ShortcutAction.allCases.first { action in
             guard scopes.contains(action.scope) else { return false }
-            let combo = combo(for: action)
+            guard let combo = combo(for: action) else { return false }
             return combo.key == normalizedKey && combo.modifiers == flags
         }
     }
@@ -70,6 +85,10 @@ final class KeyBindingStore {
             }
             return binding.combo == combo
         }?.action
+    }
+
+    func displayString(for action: ShortcutAction) -> String {
+        combo(for: action)?.displayString ?? "Not set"
     }
 
     private func load() {

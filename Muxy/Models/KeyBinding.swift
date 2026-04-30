@@ -230,7 +230,7 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
 
 struct KeyBinding: Codable, Identifiable {
     let action: ShortcutAction
-    var combo: KeyCombo
+    var combo: KeyCombo?
 
     var id: String { action.rawValue }
 

@@ -76,7 +76,7 @@ struct KeyBindingTests {
 
     @Test("KeyBinding.defaults has unique combos")
     func defaultsUniqueCombos() {
-        let combos = KeyBinding.defaults.map(\.combo)
+        let combos = KeyBinding.defaults.compactMap(\.combo)
         let unique = Set(combos)
         #expect(combos.count == unique.count)
     }
@@ -91,5 +91,16 @@ struct KeyBindingTests {
         let decoded = try JSONDecoder().decode(KeyBinding.self, from: data)
         #expect(decoded.action == binding.action)
         #expect(decoded.combo == binding.combo)
+    }
+
+    @Test("KeyBinding Codable supports empty shortcut")
+    func codableEmptyShortcut() throws {
+        let binding = KeyBinding(action: .newTab, combo: nil)
+
+        let data = try JSONEncoder().encode(binding)
+        let decoded = try JSONDecoder().decode(KeyBinding.self, from: data)
+
+        #expect(decoded.action == .newTab)
+        #expect(decoded.combo == nil)
     }
 }

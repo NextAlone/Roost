@@ -21,7 +21,7 @@ struct EmptyProjectPlaceholder: View {
             Button(action: onCreateTab) {
                 HStack(spacing: 8) {
                     Text("New Tab")
-                    Text(KeyBindingStore.shared.combo(for: .newTab).displayString)
+                    Text(KeyBindingStore.shared.displayString(for: .newTab))
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .opacity(0.72)
                 }

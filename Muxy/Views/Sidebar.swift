@@ -142,7 +142,7 @@ struct Sidebar: View {
     }
 
     private func shortcutTooltip(_ name: String, for action: ShortcutAction) -> String {
-        "\(name) (\(KeyBindingStore.shared.combo(for: action).displayString))"
+        "\(name) (\(KeyBindingStore.shared.displayString(for: action)))"
     }
 
     private func projectDragGesture(for project: Project) -> some Gesture {
@@ -382,7 +382,7 @@ struct SidebarFooter: View {
                 onRefresh: refreshUsage
             )
         }
-        .help("AI Usage (\(KeyBindingStore.shared.combo(for: .toggleAIUsage).displayString))")
+        .help("AI Usage (\(KeyBindingStore.shared.displayString(for: .toggleAIUsage)))")
     }
 
     private var collapsedFooter: some View {
@@ -401,10 +401,10 @@ struct SidebarFooter: View {
                     NotificationPanel(onDismiss: { showNotifications = false })
                 }
             IconButton(symbol: "paintpalette", accessibilityLabel: "Theme Picker") { showThemePicker.toggle() }
-                .help("Theme Picker (\(KeyBindingStore.shared.combo(for: .toggleThemePicker).displayString))")
+                .help("Theme Picker (\(KeyBindingStore.shared.displayString(for: .toggleThemePicker)))")
                 .popover(isPresented: $showThemePicker) { ThemePicker() }
             IconButton(symbol: sidebarToggleIcon, accessibilityLabel: sidebarToggleLabel) { postToggleSidebar() }
-                .help("\(sidebarToggleLabel) (\(KeyBindingStore.shared.combo(for: .toggleSidebar).displayString))")
+                .help("\(sidebarToggleLabel) (\(KeyBindingStore.shared.displayString(for: .toggleSidebar)))")
         }
         .padding(.bottom, 8)
     }
@@ -412,7 +412,7 @@ struct SidebarFooter: View {
     private var expandedFooter: some View {
         HStack(spacing: 4) {
             IconButton(symbol: sidebarToggleIcon, accessibilityLabel: sidebarToggleLabel) { postToggleSidebar() }
-                .help("\(sidebarToggleLabel) (\(KeyBindingStore.shared.combo(for: .toggleSidebar).displayString))")
+                .help("\(sidebarToggleLabel) (\(KeyBindingStore.shared.displayString(for: .toggleSidebar)))")
 
             Spacer()
 
@@ -430,7 +430,7 @@ struct SidebarFooter: View {
                     NotificationPanel(onDismiss: { showNotifications = false })
                 }
             IconButton(symbol: "paintpalette", accessibilityLabel: "Theme Picker") { showThemePicker.toggle() }
-                .help("Theme Picker (\(KeyBindingStore.shared.combo(for: .toggleThemePicker).displayString))")
+                .help("Theme Picker (\(KeyBindingStore.shared.displayString(for: .toggleThemePicker)))")
                 .popover(isPresented: $showThemePicker) { ThemePicker() }
         }
         .padding(.horizontal, 10)

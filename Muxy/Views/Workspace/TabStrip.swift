@@ -166,7 +166,7 @@ struct PaneTabStrip: View {
     }
 
     private func shortcutTooltip(_ name: String, for action: ShortcutAction) -> String {
-        "\(name) (\(KeyBindingStore.shared.combo(for: action).displayString))"
+        "\(name) (\(KeyBindingStore.shared.displayString(for: action)))"
     }
 
     private var developmentBadge: some View {
@@ -329,10 +329,11 @@ private struct TabCell: View {
 
     private var showBadge: Bool {
         guard let shortcutIndex,
-              let action = ShortcutAction.tabAction(for: shortcutIndex)
+              let action = ShortcutAction.tabAction(for: shortcutIndex),
+              let combo = KeyBindingStore.shared.combo(for: action)
         else { return false }
         return ModifierKeyMonitor.shared.isHolding(
-            modifiers: KeyBindingStore.shared.combo(for: action).modifiers
+            modifiers: combo.modifiers
         )
     }
 
@@ -394,7 +395,7 @@ private struct TabCell: View {
                 if showBadge, let shortcutIndex,
                    let action = ShortcutAction.tabAction(for: shortcutIndex)
                 {
-                    ShortcutBadge(label: KeyBindingStore.shared.combo(for: action).displayString)
+                    ShortcutBadge(label: KeyBindingStore.shared.displayString(for: action))
                 }
             }
             .overlay(alignment: .bottom) {

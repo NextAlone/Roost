@@ -1,11 +1,12 @@
 # Roost Release Checklist
 
-This checklist tracks the current self-signed release path. Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, telemetry, crash reporting, and the real XPC host daemon are future work.
+This checklist tracks the current self-signed/ad-hoc local signature release path. Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, telemetry, crash reporting, and the real XPC host daemon are future work.
 
-## Current Release: Self-Signed ZIP
+## Current Release: Self-Signed / Ad-Hoc ZIP
 
 - [ ] Run `scripts/checks.sh`.
-- [ ] Run `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip` to produce `build/Roost-<X.Y.Z>-arm64.zip`.
+- [ ] Run `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip --sign-identity -` to produce `build/Roost-<X.Y.Z>-arm64.zip`.
+- [ ] Confirm `--sign-identity -` uses ad-hoc local signing and does not provide Developer ID or notarization trust.
 - [ ] Verify `build/Roost-<X.Y.Z>-arm64.zip` exists.
 - [ ] Verify `build/SHA256SUMS.txt` exists and contains the versioned archive.
 - [ ] Verify checksum:
@@ -30,9 +31,9 @@ This checklist tracks the current self-signed release path. Developer ID notariz
 
 ## Permissions Audit
 
-- [ ] Confirm `Muxy/Muxy.entitlements` contains only hardened-runtime code-signing exceptions needed for the self-signed build.
+- [ ] Confirm `Muxy/Muxy.entitlements` contains only hardened-runtime code-signing exceptions needed for the self-signed/ad-hoc local signature build.
 - [ ] Confirm `Muxy/Info.plist` usage descriptions are written as subprocess-triggered terminal permissions, not hidden Roost automation.
-- [ ] Confirm `SUEnableAutomaticChecks` is `false` for the manual self-signed release path.
+- [ ] Confirm `SUEnableAutomaticChecks` is `false` for the manual self-signed/ad-hoc local signature release path.
 - [ ] Confirm [docs/permissions.md](docs/permissions.md) documents files, subprocesses, Keychain, network, notifications, manual updates, and Gatekeeper.
 
 ## Manual Smoke

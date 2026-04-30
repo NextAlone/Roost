@@ -668,12 +668,12 @@ Tasks:
 
 - `THIRD_PARTY_LICENSES.md` bundles license texts for Muxy, Sparkle, SwiftTerm, libghostty.
 - `README.md` adds Quickstart, Configuration, Architecture, Release, and Third-Party Licenses sections.
-- `RELEASE-CHECKLIST.md` tracks the current self-signed release gates and future distribution work.
-- **Phase 8 engineering work complete.** Current self-signed release gates and future distribution work are tracked in `RELEASE-CHECKLIST.md`.
+- `RELEASE-CHECKLIST.md` tracks the current self-signed/ad-hoc local signature release gates and future distribution work.
+- **Phase 8 engineering work complete.** Current self-signed/ad-hoc local signature release gates and future distribution work are tracked in `RELEASE-CHECKLIST.md`.
 
-**Follow-up status (2026-05-01): self-signed release path designed.**
+**Follow-up status (2026-05-01): self-signed/ad-hoc release path designed.**
 
-- Current release target is self-signed, non-notarized, manually distributed as `Roost-<version>-<arch>.zip` with `SHA256SUMS.txt`.
+- Current release target is self-signed/ad-hoc, non-notarized, manually distributed as `Roost-<version>-<arch>.zip` with `SHA256SUMS.txt`.
 - Developer ID notarization, Sparkle feed hosting, Homebrew cask distribution, telemetry, crash reporting, and real XPC hostd remain future work.
 - Permission model documented in `docs/permissions.md`: Roost is a terminal host, subprocesses can trigger macOS privacy prompts, Keychain env values are resolved at launch time and not persisted as plaintext.
 

@@ -4,7 +4,7 @@ Roost is a macOS terminal host for jj workspaces and coding agents. It launches 
 
 ## Current Release Trust Model
 
-The current Roost release is self-signed and non-notarized. It is intended for users who understand that macOS will not show the same trust signal as a Developer ID notarized app.
+The current Roost archive uses a self-signed/ad-hoc local signature and is non-notarized. It is intended for users who understand that macOS will not show Developer ID trust or the same trust signal as a Developer ID notarized app.
 
 Install flow:
 
@@ -61,7 +61,7 @@ Current Roost notifications are in-app records, badges, sounds, and optional toa
 
 The current release uses manual updates. Download a newer `Roost-<version>-<arch>.zip`, verify its SHA256 checksum, quit Roost, and replace the app.
 
-Sparkle is still present in the codebase, but automatic updates are not the current self-signed distribution contract.
+Sparkle is still present in the codebase, but automatic updates are not the current self-signed/ad-hoc local signature distribution contract.
 
 ## Future Work
 

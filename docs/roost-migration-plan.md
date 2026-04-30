@@ -668,7 +668,7 @@ Tasks:
 
 - `THIRD_PARTY_LICENSES.md` bundles license texts for Muxy, Sparkle, SwiftTerm, libghostty.
 - `README.md` adds Quickstart, Configuration, Architecture, Release, and Third-Party Licenses sections.
-- `RELEASE-CHECKLIST.md` enumerates the human-driven release items: signing, notarization, Sparkle feed, Homebrew cask, telemetry, crash reporting, permissions audit, XPC service (deferred), pre-release smoke.
+- `RELEASE-CHECKLIST.md` tracks the current self-signed release gates and future distribution work.
 - **Phase 8 engineering work complete.** Current self-signed release gates and future distribution work are tracked in `RELEASE-CHECKLIST.md`.
 
 **Follow-up status (2026-05-01): self-signed release path designed.**

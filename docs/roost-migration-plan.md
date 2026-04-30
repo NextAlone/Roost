@@ -659,7 +659,7 @@ Tasks:
 - Sparkle feed replacement, with a migration path for any existing Muxy users on the old feed (one-time appcast bridge or fresh install only — pick and document).
 - Homebrew cask plan.
 - Crash/log export.
-- Telemetry: opt-in by default; document the exact data collected before any code lands.
+- Telemetry: no telemetry in the current release. Any future telemetry requires a separate opt-in design and documentation of exact data collected before code lands.
 - Permission copy updates.
 - README installation docs.
 - License notices for Muxy, GhosttyKit, Sparkle, SwiftTerm, and other dependencies.

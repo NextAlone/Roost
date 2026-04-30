@@ -43,7 +43,12 @@ let package = Package(
             path: "Muxy",
             exclude: ["Info.plist", "Muxy.entitlements", "Resources/ghostty", "Resources/terminfo"],
             resources: [
-                .process("Resources"),
+                .process("Resources/Assets.xcassets"),
+                .copy("Resources/AppIcons"),
+                .process("Resources/ProviderIcons"),
+                .process("Resources/markdown-assets"),
+                .process("Resources/scripts"),
+                .process("Resources/themes"),
                 .copy("Resources/ghostty"),
                 .copy("Resources/terminfo"),
             ],

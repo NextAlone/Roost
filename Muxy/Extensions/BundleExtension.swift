@@ -2,13 +2,22 @@ import Foundation
 
 extension Bundle {
     static let appResources: Bundle = {
-        let bundleName = "Muxy_Muxy.bundle"
+        if Bundle.module.bundleURL.lastPathComponent == "Roost_Roost.bundle" {
+            return Bundle.module
+        }
 
-        let candidates: [URL?] = [
-            Bundle.main.resourceURL?.appendingPathComponent(bundleName),
-            Bundle.main.bundleURL.appendingPathComponent(bundleName),
-            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/\(bundleName)"),
+        let bundleNames = [
+            "Roost_Roost.bundle",
+            "Muxy_Muxy.bundle",
         ]
+
+        let candidates = bundleNames.flatMap { bundleName in
+            [
+                Bundle.main.resourceURL?.appendingPathComponent(bundleName),
+                Bundle.main.bundleURL.appendingPathComponent(bundleName),
+                Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/\(bundleName)"),
+            ]
+        }
 
         for case let url? in candidates {
             if let bundle = Bundle(url: url) {

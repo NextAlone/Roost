@@ -87,11 +87,7 @@ struct MuxyCommands: Commands {
     var body: some Commands {
         CommandGroup(after: .appSettings) {
             Button {
-                NSWorkspace.shared.open(
-                    [config.ghosttyConfigURL],
-                    withApplicationAt: URL(fileURLWithPath: "/System/Applications/TextEdit.app"),
-                    configuration: NSWorkspace.OpenConfiguration()
-                )
+                NSWorkspace.shared.open(config.ghosttyConfigURL)
             } label: {
                 Label("Open Configuration...", systemImage: "doc.text")
             }

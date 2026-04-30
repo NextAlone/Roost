@@ -228,7 +228,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
-        setAppIcon()
+        AppIconService.applySelectedIcon()
         _ = GhosttyService.shared
         ThemeService.shared.applyDefaultThemeIfNeeded()
         UpdateService.shared.start()
@@ -318,16 +318,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated {
             MobileServerService.shared.stopForTermination()
         }
-    }
-
-    @MainActor
-    private func setAppIcon() {
-        guard let url = Bundle.appResources.url(forResource: "AppIcon", withExtension: "png") else {
-            return
-        }
-        guard let image = NSImage(contentsOf: url) else { return }
-        image.size = NSSize(width: 512, height: 512)
-        NSApp.applicationIconImage = image
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

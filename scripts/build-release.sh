@@ -86,8 +86,15 @@ cp "$PROJECT_ROOT/Muxy/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP_BUNDLE/Contents/Info.plist"
 
-echo "==> Generating app icon"
-"$SCRIPT_DIR/create-icns.sh" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+echo "==> Compiling app icons"
+ICON_BUILD_DIR="$BUILD_DIR/AppIcons"
+ICON_PARTIAL_PLIST="$BUILD_DIR/AppIcon-Partial.plist"
+"$SCRIPT_DIR/compile-app-icons.sh" "$ICON_BUILD_DIR" Graphite "$ICON_PARTIAL_PLIST" > /dev/null
+cp "$ICON_BUILD_DIR/Assets.car" "$APP_BUNDLE/Contents/Resources/Assets.car"
+cp "$ICON_BUILD_DIR/Graphite.icns" "$APP_BUNDLE/Contents/Resources/Graphite.icns"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIconFile Graphite" "$APP_BUNDLE/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :CFBundleIconName string Graphite" "$APP_BUNDLE/Contents/Info.plist" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Set :CFBundleIconName Graphite" "$APP_BUNDLE/Contents/Info.plist"
 
 echo "==> Embedding Sparkle.framework"
 SPARKLE_FRAMEWORK="$PROJECT_ROOT/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"

@@ -177,7 +177,16 @@ struct RoostConfigSettingsView: View {
         if !FileManager.default.fileExists(atPath: url.path) {
             save()
         }
-        NSWorkspace.shared.open(url)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            statusMessage = "Open failed: config file was not created."
+            return
+        }
+        if NSWorkspace.shared.open(url) {
+            statusMessage = "Opened \(url.path)"
+        } else {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            statusMessage = "Revealed \(url.path)"
+        }
     }
 
     private func resetFields() {

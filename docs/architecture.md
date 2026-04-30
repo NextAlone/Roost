@@ -279,6 +279,18 @@ User action → AppState.dispatch() → WorkspaceReducer.reduce()
 - **Terminal Working Directory Preservation**: When a user navigates within a terminal (e.g., `cd src/`), libghostty emits `GHOSTTY_ACTION_PWD` events. `GhosttyRuntimeEventAdapter` receives these events and routes them via the `onWorkingDirectoryChange` callback to `TerminalPane`, which updates `TerminalPaneState.currentWorkingDirectory`. This directory is persisted to disk through `TerminalTabSnapshot` in `workspaces.json`. On restore, `TerminalTab` initializes each terminal pane with its saved working directory (or the project root if none was saved), allowing terminals to reopen at their last-used directory instead of always starting at the project root.
 - **Persistence**: All files in `~/Library/Application Support/Muxy/`. Shared directory helper: `MuxyFileStorage`. Shortcuts are stored in `keybindings.json`; custom command shortcuts are stored in `command-shortcuts.json`. Worktrees are persisted per-project at `worktrees/{projectID}.json`, including whether a secondary worktree is Muxy-managed or externally discovered. Git projects can manually refresh this list from `git worktree list --porcelain` to import existing worktrees without deleting absent entries; paths are matched after symlink resolution so a repo opened via a symlinked path still collapses onto a single primary entry. Externally discovered worktrees are never touched by Muxy's `cleanupOnDisk` paths (project removal, post-merge cleanup, manual removal) — they can only be unregistered by the user in the underlying repo. Project config lives in-repo at `{Project.path}/.roost/config.json`; legacy setup commands still fall back to `{Project.path}/.muxy/worktree.json`. Roost writes `.roost/config.json` through `RoostConfigStore`, creating `.roost/` as `0700` and the config file as `0600`. New Muxy-managed worktrees use `defaultWorkspaceLocation` from Roost config when present, resolving relative paths from the project root. Roost env values may reference macOS Keychain items by service and optional account; setup, teardown, and agent tab launches resolve those references at runtime and do not write secret values back to config. Teardown commands run before managed worktree removal and do not block cleanup when a command fails.
 - **Ghostty Config**: Managed by `MuxyConfig`, stored at `~/Library/Application Support/Muxy/ghostty.conf`. Seeded from `~/.config/ghostty/config` on first run.
+- **App Icons**: User-facing icon variants live as Apple Icon Composer packages under
+  `Muxy/Resources/AppIcons/{Graphite,Blueprint,Light,Copper}.icon`. The release bundle
+  does not draw these packages manually: `scripts/compile-app-icons.sh` invokes `actool`
+  with `Graphite` as the primary app icon and the remaining packages as alternate icon
+  assets, producing `Assets.car`, `Graphite.icns`, and a partial plist with
+  `CFBundleIconFile` / `CFBundleIconName`. `scripts/build-release.sh` copies those build
+  products into `Contents/Resources` and updates `Info.plist`. Settings previews use PNGs
+  in `Muxy/Resources/AppIcons/Previews/`, generated from the same `actool` output via
+  `iconutil`; they are not the raw layer PNGs from inside the `.icon` packages. Runtime
+  selection persists in `UserDefaults` and updates `NSApp.applicationIconImage`, which only
+  changes the current process Dock icon because AppKit does not expose a macOS equivalent
+  to iOS's system alternate app icon API.
 - **Updates**: Sparkle framework via `UpdateService`.
 - **Window Title**: `NSWindow.title` is hidden visually (`titleVisibility = .hidden`) but set
   reactively by `WindowTitleUpdater` in `MainWindow` to `{project name} — {active tab title}`

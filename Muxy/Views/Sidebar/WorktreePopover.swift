@@ -91,35 +91,15 @@ struct WorktreePopover: View {
     private func requestRemove(worktree: Worktree) async {
         let probe = statusProbeResolver.probe(worktree.vcsKind)
         let hasChanges = await probe.hasUncommittedChanges(at: worktree.path)
-        if !hasChanges {
-            performRemove(worktree: worktree)
-            return
-        }
-        presentRemoveConfirmation(worktree: worktree)
-    }
-
-    private func presentRemoveConfirmation(worktree: Worktree) {
-        guard let window = NSApp.keyWindow ?? NSApp.mainWindow,
-              window.attachedSheet == nil
-        else { return }
-
-        let alert = NSAlert()
-        alert.messageText = "Remove workspace \"\(worktree.name)\"?"
-        alert.informativeText = "This workspace has uncommitted changes. Removing it will permanently discard them."
-        alert.alertStyle = .warning
-        alert.icon = NSApp.applicationIconImage
-        alert.addButton(withTitle: "Remove")
-        alert.addButton(withTitle: "Cancel")
-        alert.buttons[0].keyEquivalent = "\r"
-        alert.buttons[1].keyEquivalent = "\u{1b}"
-
-        alert.beginSheetModal(for: window) { response in
-            guard response == .alertFirstButtonReturn else { return }
-            performRemove(worktree: worktree)
+        WorkspaceRemovalConfirmation.present(
+            worktree: worktree,
+            hasUncommittedChanges: hasChanges
+        ) { deleteWorkspaceDirectory in
+            performRemove(worktree: worktree, deleteWorkspaceDirectory: deleteWorkspaceDirectory)
         }
     }
 
-    private func performRemove(worktree: Worktree) {
+    private func performRemove(worktree: Worktree, deleteWorkspaceDirectory: Bool) {
         let repoPath = project.path
         let remaining = worktrees.filter { $0.id != worktree.id }
         let replacement = remaining.first(where: { $0.id == activeWorktreeID })
@@ -131,6 +111,7 @@ struct WorktreePopover: View {
             replacement: replacement
         )
         worktreeStore.remove(worktreeID: worktree.id, from: project.id)
+        guard deleteWorkspaceDirectory else { return }
         Task.detached {
             await WorktreeStore.cleanupOnDisk(
                 worktree: worktree,

@@ -10,6 +10,8 @@ VERSION=""
 SIGN_IDENTITY=""
 SPARKLE_PUBLIC_KEY=""
 SPARKLE_FEED_URL=""
+PACKAGE_FORMAT="zip"
+BUILD_NUMBER=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -33,6 +35,18 @@ while [[ $# -gt 0 ]]; do
             SPARKLE_FEED_URL="$2"
             shift 2
             ;;
+        --zip)
+            PACKAGE_FORMAT="zip"
+            shift
+            ;;
+        --dmg)
+            PACKAGE_FORMAT="dmg"
+            shift
+            ;;
+        --build-number)
+            BUILD_NUMBER="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
             exit 1
@@ -41,7 +55,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$ARCH" || -z "$VERSION" ]]; then
-    echo "Usage: $0 --arch <arm64|x86_64> --version <X.Y.Z> [--sign-identity <identity>] [--sparkle-public-key <key>] [--sparkle-feed-url <url>]"
+    echo "Usage: $0 --arch <arm64|x86_64> --version <X.Y.Z> [--zip|--dmg] [--build-number <number>] [--sign-identity <identity>] [--sparkle-public-key <key>] [--sparkle-feed-url <url>]"
     exit 1
 fi
 
@@ -56,9 +70,13 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 
 TRIPLE="${ARCH}-apple-macosx14.0"
-BUILD_NUMBER=$(git -C "$PROJECT_ROOT" rev-list --count HEAD)
-APP_BUNDLE="$BUILD_DIR/Muxy.app"
-DMG_NAME="Muxy-${VERSION}-${ARCH}.dmg"
+if [[ -z "$BUILD_NUMBER" ]]; then
+    BUILD_NUMBER="$(date -u +%Y%m%d%H%M)"
+fi
+
+APP_BUNDLE="$BUILD_DIR/Roost.app"
+ZIP_NAME="Roost-${VERSION}-${ARCH}.zip"
+DMG_NAME="Roost-${VERSION}-${ARCH}.dmg"
 
 rm -rf "$APP_BUNDLE"
 
@@ -72,13 +90,15 @@ echo "==> Creating app bundle"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
 
-cp "$SPM_BUILD_DIR/Muxy" "$APP_BUNDLE/Contents/MacOS/Muxy"
-install_name_tool -add_rpath @executable_path/../Frameworks "$APP_BUNDLE/Contents/MacOS/Muxy"
+cp "$SPM_BUILD_DIR/Roost" "$APP_BUNDLE/Contents/MacOS/Roost"
+install_name_tool -add_rpath @executable_path/../Frameworks "$APP_BUNDLE/Contents/MacOS/Roost"
 
 echo "==> Stripping local and debug symbols"
-strip -Sx "$APP_BUNDLE/Contents/MacOS/Muxy"
+strip -Sx "$APP_BUNDLE/Contents/MacOS/Roost"
 
-if [[ -d "$SPM_BUILD_DIR/Muxy_Muxy.bundle" ]]; then
+if [[ -d "$SPM_BUILD_DIR/Roost_Roost.bundle" ]]; then
+    cp -R "$SPM_BUILD_DIR/Roost_Roost.bundle" "$APP_BUNDLE/Contents/Resources/Roost_Roost.bundle"
+elif [[ -d "$SPM_BUILD_DIR/Muxy_Muxy.bundle" ]]; then
     cp -R "$SPM_BUILD_DIR/Muxy_Muxy.bundle" "$APP_BUNDLE/Contents/Resources/Muxy_Muxy.bundle"
 fi
 
@@ -145,6 +165,22 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
         "$APP_BUNDLE"
 fi
 
+if [[ "$PACKAGE_FORMAT" == "zip" ]]; then
+    echo "==> Creating ZIP"
+    cd "$BUILD_DIR"
+    rm -f "$ZIP_NAME" SHA256SUMS.txt
+    /usr/bin/ditto -c -k --keepParent "Roost.app" "$ZIP_NAME"
+    shasum -a 256 "$ZIP_NAME" > SHA256SUMS.txt
+    echo "==> Done: $BUILD_DIR/$ZIP_NAME"
+    echo "==> Checksum: $BUILD_DIR/SHA256SUMS.txt"
+    exit 0
+fi
+
+if [[ "$PACKAGE_FORMAT" != "dmg" ]]; then
+    echo "Error: package format must be zip or dmg"
+    exit 1
+fi
+
 echo "==> Creating DMG"
 if ! command -v create-dmg &> /dev/null; then
     echo "Error: create-dmg not found. Install with: npm install --global create-dmg"
@@ -154,7 +190,7 @@ fi
 cd "$BUILD_DIR"
 create-dmg "$APP_BUNDLE" "$BUILD_DIR" || true
 
-GENERATED_DMG=$(find "$BUILD_DIR" -maxdepth 1 -name "Muxy*.dmg" -not -name "$DMG_NAME" | head -1)
+GENERATED_DMG=$(find "$BUILD_DIR" -maxdepth 1 -name "Roost*.dmg" -not -name "$DMG_NAME" | head -1)
 if [[ -n "$GENERATED_DMG" ]]; then
     mv "$GENERATED_DMG" "$BUILD_DIR/$DMG_NAME"
 fi

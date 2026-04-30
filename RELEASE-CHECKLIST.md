@@ -5,9 +5,9 @@ This checklist tracks the current self-signed release path. Developer ID notariz
 ## Current Release: Self-Signed ZIP
 
 - [ ] Run `scripts/checks.sh`.
-- [ ] Build `Roost.app.zip` with `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip` after the ZIP release script support has landed.
-- [ ] Verify `build/Roost.app.zip` exists.
-- [ ] Verify `build/SHA256SUMS.txt` exists and contains `Roost.app.zip`.
+- [ ] Run `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip` to produce `build/Roost-<X.Y.Z>-arm64.zip`.
+- [ ] Verify `build/Roost-<X.Y.Z>-arm64.zip` exists.
+- [ ] Verify `build/SHA256SUMS.txt` exists and contains the versioned archive.
 - [ ] Verify checksum:
 
   ```bash

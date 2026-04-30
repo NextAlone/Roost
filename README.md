@@ -84,7 +84,7 @@ See [docs/architecture.md](docs/architecture.md) and [docs/roost-migration-plan.
 
 ## Release
 
-The current release path is self-signed, non-notarized, and manually distributed as `Roost.app.zip` plus `SHA256SUMS.txt`.
+The current release path is self-signed, non-notarized, and manually distributed as `Roost-<version>-<arch>.zip` plus `SHA256SUMS.txt`.
 
 See [docs/permissions.md](docs/permissions.md) for the trust model and install notes. See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for release gates and future distribution work.
 

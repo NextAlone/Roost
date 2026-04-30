@@ -8,14 +8,14 @@ The current Roost release is self-signed and non-notarized. It is intended for u
 
 Install flow:
 
-1. Download `Roost.app.zip` and `SHA256SUMS.txt` from the release.
+1. Download `Roost-<version>-<arch>.zip` and `SHA256SUMS.txt` from the release.
 2. Verify the archive:
 
    ```bash
    shasum -a 256 -c SHA256SUMS.txt
    ```
 
-3. Unzip `Roost.app.zip`.
+3. Unzip `Roost-<version>-<arch>.zip`.
 4. Move `Roost.app` to `/Applications`.
 5. If Gatekeeper blocks launch, either approve the app in System Settings or remove the quarantine attribute:
 
@@ -59,7 +59,7 @@ Current Roost notifications are in-app records, badges, sounds, and optional toa
 
 ## Updates
 
-The current release uses manual updates. Download a newer `Roost.app.zip`, verify its SHA256 checksum, quit Roost, and replace the app.
+The current release uses manual updates. Download a newer `Roost-<version>-<arch>.zip`, verify its SHA256 checksum, quit Roost, and replace the app.
 
 Sparkle is still present in the codebase, but automatic updates are not the current self-signed distribution contract.
 

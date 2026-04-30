@@ -5,7 +5,7 @@ This checklist tracks the current self-signed release path. Developer ID notariz
 ## Current Release: Self-Signed ZIP
 
 - [ ] Run `scripts/checks.sh`.
-- [ ] Build `Roost.app.zip` with `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip`.
+- [ ] Build `Roost.app.zip` with `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip` after the ZIP release script support has landed.
 - [ ] Verify `build/Roost.app.zip` exists.
 - [ ] Verify `build/SHA256SUMS.txt` exists and contains `Roost.app.zip`.
 - [ ] Verify checksum:
@@ -15,7 +15,7 @@ This checklist tracks the current self-signed release path. Developer ID notariz
   shasum -a 256 -c SHA256SUMS.txt
   ```
 
-- [ ] Verify app signature:
+- [ ] Verify local code signature integrity (this is not notarization or Gatekeeper trust):
 
   ```bash
   codesign --verify --deep --strict build/Roost.app
@@ -54,7 +54,7 @@ This checklist tracks the current self-signed release path. Developer ID notariz
 - [ ] Wire Team ID into an Xcode or equivalent app build.
 - [ ] Add Hardened Runtime release settings.
 - [ ] Add notarization CI with `notarytool`.
-- [ ] Staple the notarization ticket to the released DMG or ZIP.
+- [ ] Staple the notarization ticket to the `.app` before ZIP packaging, or to the released DMG / PKG.
 
 ## Future: Distribution
 

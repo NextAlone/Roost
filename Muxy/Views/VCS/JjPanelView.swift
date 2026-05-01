@@ -548,8 +548,8 @@ struct JjPanelView: View {
     }
 
     private func graphColumnWidth(entries: [JjLogEntry]) -> CGFloat {
-        let maxCharacterCount = entries.map(\.graphDisplayColumnCharacterCount).max() ?? 2
-        return max(18, CGFloat(maxCharacterCount) * JjGraphTextMetrics.characterWidth)
+        let maxColumnCount = entries.map(\.graphDisplayColumnCount).max() ?? 1
+        return JjGraphMetrics.width(columnCount: maxColumnCount)
     }
 
     private func color(for change: JjFileChange) -> Color {
@@ -1056,13 +1056,14 @@ private struct JjChangeRow: View {
     }
 
     var body: some View {
+        let graphLayout = JjGraphGlyphLayout(entry: entry)
         let rowHeight = max(
-            JjGraphTextMetrics.rowHeight,
-            CGFloat(entry.graphDisplayLines.count) * JjGraphTextMetrics.lineHeight
+            JjGraphMetrics.rowHeight,
+            CGFloat(max(2, graphLayout.lines.count)) * JjGraphMetrics.lineHeight
         )
 
         HStack(alignment: .top, spacing: 6) {
-            JjGraphTextBlock(lines: entry.graphDisplayLines, graphColumnWidth: graphColumnWidth)
+            JjGraphGlyphBlock(layout: graphLayout, graphColumnWidth: graphColumnWidth, rowHeight: rowHeight)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -1155,32 +1156,6 @@ private struct JjChangeRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title), \(entry.change.prefix), \(entry.authorName), \(relativeDate(entry.authorTimestamp))")
-    }
-}
-
-private enum JjGraphTextMetrics {
-    static let characterWidth: CGFloat = 7
-    static let lineHeight: CGFloat = 13
-    static let rowHeight: CGFloat = 40
-}
-
-private struct JjGraphTextBlock: View {
-    let lines: [String]
-    let graphColumnWidth: CGFloat
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                Text(line)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(MuxyTheme.fgDim)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .frame(width: graphColumnWidth, height: JjGraphTextMetrics.lineHeight, alignment: .leading)
-            }
-        }
-        .padding(.top, 4)
-        .frame(width: graphColumnWidth, alignment: .topLeading)
     }
 }
 

@@ -1,12 +1,6 @@
 import SwiftUI
 
-enum GeneralSettingsKeys {
-    static let autoExpandWorktreesOnProjectSwitch = "muxy.general.autoExpandWorktreesOnProjectSwitch"
-}
-
 struct GeneralSettingsView: View {
-    @AppStorage(GeneralSettingsKeys.autoExpandWorktreesOnProjectSwitch)
-    private var autoExpandWorktrees = false
     @AppStorage(TabCloseConfirmationPreferences.confirmRunningProcessKey)
     private var confirmRunningProcess = true
     @AppStorage(ProjectLifecyclePreferences.keepOpenWhenNoTabsKey)
@@ -14,16 +8,6 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         SettingsContainer {
-            SettingsSection(
-                "Sidebar",
-                footer: "Automatically reveal workspaces when you switch to a project."
-            ) {
-                SettingsToggleRow(
-                    label: "Auto-expand workspaces on project switch",
-                    isOn: $autoExpandWorktrees
-                )
-            }
-
             SettingsSection(
                 "Projects",
                 footer: "Keep projects in the sidebar after closing their last tab. "

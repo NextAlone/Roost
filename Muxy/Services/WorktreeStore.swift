@@ -39,6 +39,9 @@ final class WorktreeStore {
                     loaded.insert(makePrimary(for: project), at: 0)
                     try? persistence.saveWorktrees(loaded, projectID: project.id)
                 }
+                if normalizePrimaryVcsKind(&loaded, for: project) {
+                    try? persistence.saveWorktrees(loaded, projectID: project.id)
+                }
                 setWorktrees(sortPrimaryFirst(loaded), for: project.id)
             } catch {
                 logger.error("Failed to load worktrees for project \(project.id): \(error)")
@@ -367,6 +370,14 @@ final class WorktreeStore {
             isPrimary: true,
             vcsKind: VcsKindDetector.detect(at: project.path)
         )
+    }
+
+    private func normalizePrimaryVcsKind(_ list: inout [Worktree], for project: Project) -> Bool {
+        guard let index = list.firstIndex(where: \.isPrimary) else { return false }
+        let detected = VcsKindDetector.detect(at: project.path)
+        guard list[index].vcsKind != detected else { return false }
+        list[index].vcsKind = detected
+        return true
     }
 
     private func sortPrimaryFirst(_ list: [Worktree]) -> [Worktree] {

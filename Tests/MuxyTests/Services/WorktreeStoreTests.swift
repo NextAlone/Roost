@@ -47,6 +47,32 @@ struct WorktreeStoreTests {
         #expect(worktree.canBeRemoved)
     }
 
+    @Test("loadAll normalizes primary VCS kind from disk")
+    func loadAllNormalizesPrimaryVcsKindFromDisk() throws {
+        let repo = try temporaryDirectory()
+        try FileManager.default.createDirectory(at: repo.appendingPathComponent(".git"), withIntermediateDirectories: false)
+        try FileManager.default.createDirectory(at: repo.appendingPathComponent(".jj"), withIntermediateDirectories: false)
+        let project = Project(name: "Repo", path: repo.path)
+        let persistence = WorktreePersistenceStub(
+            initial: [
+                project.id: [
+                    Worktree(
+                        name: project.name,
+                        path: project.path,
+                        isPrimary: true,
+                        vcsKind: .git
+                    )
+                ]
+            ]
+        )
+
+        let store = WorktreeStore(persistence: persistence, projects: [project])
+
+        let primary = try #require(store.primary(for: project.id))
+        #expect(primary.vcsKind == .jj)
+        #expect(persistence.savedWorktrees(projectID: project.id)?.first?.vcsKind == .jj)
+    }
+
     @Test("refreshFromGit imports missing external worktrees and preserves existing IDs by path")
     func refreshFromGitImportsAndPreservesIDs() async throws {
         let project = Project(name: "Repo", path: "/tmp/repo")
@@ -432,6 +458,10 @@ private final class WorktreePersistenceStub: WorktreePersisting {
     func removeWorktrees(projectID: UUID) throws {
         storage.removeValue(forKey: projectID)
     }
+
+    func savedWorktrees(projectID: UUID) -> [Worktree]? {
+        storage[projectID]
+    }
 }
 
 private struct GitWorktreeListingStub: GitWorktreeListing {
@@ -440,4 +470,10 @@ private struct GitWorktreeListingStub: GitWorktreeListing {
     func listWorktrees(repoPath: String) async throws -> [GitWorktreeRecord] {
         recordsByRepoPath[repoPath] ?? []
     }
+}
+
+private func temporaryDirectory() throws -> URL {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
+    return url
 }

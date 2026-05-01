@@ -16,9 +16,6 @@ struct ExpandedProjectRow: View {
     @Environment(WorktreeStore.self) private var worktreeStore
     @Environment(\.vcsStatusProbeResolver) private var statusProbeResolver
 
-    @AppStorage(GeneralSettingsKeys.autoExpandWorktreesOnProjectSwitch)
-    private var autoExpandWorktrees = false
-
     @State private var hovered = false
     @State private var isRenaming = false
     @State private var renameText = ""
@@ -60,12 +57,12 @@ struct ExpandedProjectRow: View {
         }
         .task(id: project.path) {
             isVcsRepo = VcsKindDetector.isVcsRepository(at: project.path)
-            if autoExpandWorktrees, isActive, isVcsRepo {
+            if isActive, isVcsRepo {
                 worktreesExpanded = true
             }
         }
         .onChange(of: isActive) { _, active in
-            guard autoExpandWorktrees, active, isVcsRepo else { return }
+            guard active, isVcsRepo else { return }
             withAnimation(.easeInOut(duration: 0.15)) {
                 worktreesExpanded = true
             }
@@ -174,13 +171,7 @@ struct ExpandedProjectRow: View {
         }
         .onTapGesture {
             guard !isAnyDragging else { return }
-            if isActive, isVcsRepo {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    worktreesExpanded.toggle()
-                }
-            } else {
-                onSelect()
-            }
+            onSelect()
         }
         .overlay {
             if showShortcutBadge, let shortcutIndex,
@@ -244,7 +235,12 @@ struct ExpandedProjectRow: View {
                     ExpandedWorktreeRow(
                         projectID: project.id,
                         worktree: worktree,
-                        selected: worktree.id == activeWorktreeID,
+                        selected: Self.isWorktreeSelected(
+                            projectID: project.id,
+                            worktreeID: worktree.id,
+                            activeProjectID: appState.activeProjectID,
+                            activeWorktreeID: activeWorktreeID
+                        ),
                         onSelect: {
                             appState.selectWorktree(projectID: project.id, worktree: worktree)
                         },
@@ -502,10 +498,20 @@ struct ExpandedProjectRow: View {
     }
 
     private func isSessionActive(tab: TerminalTab, key: WorktreeKey) -> Bool {
+        guard isActive else { return false }
         guard let activeWorktreeID = appState.activeWorktreeID[project.id] else { return false }
         let activeKey = WorktreeKey(projectID: project.id, worktreeID: activeWorktreeID)
         guard activeKey == key else { return false }
         return appState.focusedArea(for: project.id)?.activeTabID == tab.id
+    }
+
+    nonisolated static func isWorktreeSelected(
+        projectID: UUID,
+        worktreeID: UUID,
+        activeProjectID: UUID?,
+        activeWorktreeID: UUID?
+    ) -> Bool {
+        activeProjectID == projectID && activeWorktreeID == worktreeID
     }
 
     private func selectSession(tab: TerminalTab, worktree: Worktree, key: WorktreeKey) {
@@ -571,8 +577,8 @@ private struct ExpandedWorktreeRow: View {
                         if worktree.isPrimary {
                             PrimaryBadge()
                         }
-                        if worktree.vcsKind == .jj {
-                            JjBadge()
+                        if let label = worktree.vcsKind.sidebarWarningBadgeLabel {
+                            VcsWarningBadge(label: label)
                         }
                         WorkspaceStatusBadge(status: statusStore.status(forWorktreeID: worktree.id))
                     }
@@ -699,15 +705,23 @@ private struct PrimaryBadge: View {
     }
 }
 
-private struct JjBadge: View {
+private struct VcsWarningBadge: View {
+    let label: String
+
     var body: some View {
-        Text("JJ")
+        Text(label)
             .font(.system(size: 8, weight: .bold))
             .tracking(0.4)
-            .foregroundStyle(MuxyTheme.accent)
+            .foregroundStyle(MuxyTheme.diffRemoveFg)
             .padding(.horizontal, 4)
             .padding(.vertical, 1)
-            .background(MuxyTheme.accent.opacity(0.15), in: Capsule())
+            .background(MuxyTheme.diffRemoveFg.opacity(0.14), in: Capsule())
+    }
+}
+
+extension VcsKind {
+    var sidebarWarningBadgeLabel: String? {
+        self == .jj ? nil : rawValue.uppercased()
     }
 }
 

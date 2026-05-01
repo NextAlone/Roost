@@ -33,9 +33,17 @@ struct JjRepositoryService: Sendable {
     }
 
     func currentOpId(repoPath: String) async throws -> String {
+        let ops = try await operationLog(repoPath: repoPath, limit: 1)
+        guard let first = ops.first else {
+            throw JjProcessError.nonZeroExit(status: 0, stderr: "empty op log")
+        }
+        return first.id
+    }
+
+    func operationLog(repoPath: String, limit: Int = 20) async throws -> [JjOperation] {
         let result = try await runner(
             repoPath,
-            ["op", "log", "-n", "1", "--no-graph", "-T", JjOpLogParser.template],
+            ["op", "log", "-n", "\(limit)", "--no-graph", "-T", JjOpLogParser.template],
             .ignore,
             nil
         )
@@ -43,11 +51,7 @@ struct JjRepositoryService: Sendable {
             throw JjProcessError.nonZeroExit(status: result.status, stderr: result.stderr)
         }
         let raw = String(data: result.stdout, encoding: .utf8) ?? ""
-        let ops = try JjOpLogParser.parse(raw)
-        guard let first = ops.first else {
-            throw JjProcessError.nonZeroExit(status: 0, stderr: "empty op log")
-        }
-        return first.id
+        return try JjOpLogParser.parse(raw)
     }
 
     func show(repoPath: String, revset: String) async throws -> JjShowOutput {

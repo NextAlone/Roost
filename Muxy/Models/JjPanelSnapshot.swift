@@ -7,4 +7,5 @@ struct JjPanelSnapshot {
     let changes: [JjLogEntry]
     let bookmarks: [JjBookmark]
     let conflicts: [JjConflict]
+    let operations: [JjOperation]
 }

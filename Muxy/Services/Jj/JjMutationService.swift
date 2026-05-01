@@ -85,6 +85,10 @@ struct JjMutationService {
         try await runMutating(repoPath: repoPath, command: ["rebase", "-b", "@", "-d", revset])
     }
 
+    func restoreOperation(repoPath: String, id: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["op", "restore", "--what", "repo", id])
+    }
+
     private func runMutating(repoPath: String, command: [String]) async throws {
         let runner = self.runner
         try await queue.run(repoPath: repoPath, isMutating: true) {

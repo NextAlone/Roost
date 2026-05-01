@@ -488,7 +488,14 @@ Later features:
 - `JjBookmarkService` wraps `jj bookmark rename`, `jj git fetch --tracked`, and `jj git push --bookmark <name>`.
 - The Bookmarks section can fetch tracked bookmarks from the header.
 - Local bookmark rows can push the selected bookmark and open a rename sheet from the context menu.
-- Remaining active jj changes backlog: conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
+- Remaining active jj changes backlog at this checkpoint: conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
+
+**Follow-up status (2026-05-02): operation log and repository restore landed.**
+
+- `JjRepositoryService.operationLog` wraps `jj op log -n <limit> --no-graph` with the existing op-log parser.
+- `JjMutationService.restoreOperation` wraps `jj op restore --what repo <id>`, intentionally restoring repository state only and leaving remote-tracking bookmarks untouched.
+- `JjPanelView` shows a recent Operation Log section and requires confirmation before restoring to a selected operation.
+- Remaining active jj changes backlog: conflict resolution actions / content viewer, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
 
 Rules:
 
@@ -706,7 +713,7 @@ Tasks:
 
 ## Active Backlog After Current Landed Phases
 
-- jj changes: conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
+- jj changes: conflict resolution actions / content viewer, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
 - sessions: richer lifecycle states beyond running/exited when reliable terminal lifecycle signals exist.
 - hostd: real cross-process XPC service extraction with signing, sandbox, PTY ownership, and attach/release protocol.
 - release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design.

@@ -34,13 +34,19 @@ struct JjPanelLoaderTests {
         )
         let bookmark = JjBookmark(name: "main", target: change, isLocal: true, remotes: [])
         let conflict = JjConflict(path: "README.md")
+        let operation = JjOperation(
+            id: "abc1234",
+            timestamp: Date(timeIntervalSince1970: 1_776_000_000),
+            description: "commit"
+        )
 
         let loader = JjPanelLoader(
             showLoader: { _ in show },
             statusLoader: { _ in status },
             changesLoader: { _ in [logEntry] },
             bookmarksLoader: { _ in [bookmark] },
-            conflictsLoader: { _ in [conflict] }
+            conflictsLoader: { _ in [conflict] },
+            operationsLoader: { _ in [operation] }
         )
         let snapshot = try await loader.load(repoPath: "/tmp/wt")
         #expect(snapshot.show.description == "demo")
@@ -48,6 +54,7 @@ struct JjPanelLoaderTests {
         #expect(snapshot.changes.count == 1)
         #expect(snapshot.bookmarks.count == 1)
         #expect(snapshot.conflicts.first?.path == "README.md")
+        #expect(snapshot.operations.first?.id == "abc1234")
     }
 
     @Test("conflicts not fetched when status.hasConflicts == false")
@@ -60,7 +67,8 @@ struct JjPanelLoaderTests {
             statusLoader: { _ in status },
             changesLoader: { _ in [] },
             bookmarksLoader: { _ in [] },
-            conflictsLoader: { _ in fatalError("must not be called") }
+            conflictsLoader: { _ in fatalError("must not be called") },
+            operationsLoader: { _ in [] }
         )
         let snapshot = try await loader.load(repoPath: "/tmp/wt")
         #expect(snapshot.conflicts.isEmpty)
@@ -75,7 +83,8 @@ struct JjPanelLoaderTests {
             showLoader: { _ in show },
             statusLoader: { _ in status },
             changesLoader: { _ in [] },
-            bookmarksLoader: { _ in [] }
+            bookmarksLoader: { _ in [] },
+            operationsLoader: { _ in [] }
         )
         let snapshot = try await loader.load(repoPath: "/tmp/wt")
         #expect(snapshot.status.entries.isEmpty)

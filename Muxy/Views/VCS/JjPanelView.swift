@@ -12,7 +12,10 @@ struct JjPanelView: View {
     @State private var filesCollapsed = false
     @State private var changesCollapsed = false
     @State private var bookmarksCollapsed = true
+    @State private var operationsCollapsed = true
     @State private var conflictsCollapsed = false
+    @State private var showRestoreOperationAlert = false
+    @State private var pendingRestoreOperation: JjOperation?
 
     private let mutator = JjMutationService(queue: JjProcessQueue.shared)
     private let bookmarkService = JjBookmarkService(queue: JjProcessQueue.shared)
@@ -129,6 +132,24 @@ struct JjPanelView: View {
                 )
             }
         }
+        .alert("Restore Repository State?", isPresented: $showRestoreOperationAlert, presenting: pendingRestoreOperation) { operation in
+            Button("Cancel", role: .cancel) {
+                pendingRestoreOperation = nil
+            }
+            Button("Restore", role: .destructive) {
+                pendingRestoreOperation = nil
+                runMutation {
+                    try await mutator.restoreOperation(repoPath: state.repoPath, id: operation.id)
+                }
+            }
+        } message: { operation in
+            Text("Restore repository state to operation \(operation.id). Remote-tracking bookmarks will not be restored.")
+        }
+        .onChange(of: showRestoreOperationAlert) { _, isPresented in
+            if !isPresented {
+                pendingRestoreOperation = nil
+            }
+        }
     }
 
     private func sectionLayout(snapshot: JjPanelSnapshot) -> some View {
@@ -168,6 +189,9 @@ struct JjPanelView: View {
 
     private func sections(for snapshot: JjPanelSnapshot) -> [JjPanelSection] {
         var sections: [JjPanelSection] = [.files, .changes, .bookmarks]
+        if !snapshot.operations.isEmpty {
+            sections.append(.operations)
+        }
         if !snapshot.conflicts.isEmpty {
             sections.append(.conflicts)
         }
@@ -183,6 +207,8 @@ struct JjPanelView: View {
             changeGraphContent(entries: snapshot.changes, bookmarks: snapshot.bookmarks)
         case .bookmarks:
             bookmarkListContent(bookmarks: snapshot.bookmarks)
+        case .operations:
+            operationLogContent(operations: snapshot.operations)
         case .conflicts:
             conflictListContent(conflicts: snapshot.conflicts)
         }
@@ -193,6 +219,7 @@ struct JjPanelView: View {
         case .files: snapshot.status.entries.count
         case .changes: snapshot.changes.count
         case .bookmarks: snapshot.bookmarks.count
+        case .operations: snapshot.operations.count
         case .conflicts: snapshot.conflicts.count
         }
     }
@@ -255,6 +282,7 @@ struct JjPanelView: View {
         case .files: filesCollapsed
         case .changes: changesCollapsed
         case .bookmarks: bookmarksCollapsed
+        case .operations: operationsCollapsed
         case .conflicts: conflictsCollapsed
         }
     }
@@ -264,6 +292,7 @@ struct JjPanelView: View {
         case .files: filesCollapsed.toggle()
         case .changes: changesCollapsed.toggle()
         case .bookmarks: bookmarksCollapsed.toggle()
+        case .operations: operationsCollapsed.toggle()
         case .conflicts: conflictsCollapsed.toggle()
         }
     }
@@ -530,6 +559,46 @@ struct JjPanelView: View {
         }
     }
 
+    private func operationLogContent(operations: [JjOperation]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if operations.isEmpty {
+                Text("No operations")
+                    .font(.system(size: 11))
+                    .foregroundStyle(MuxyTheme.fgDim)
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(operations, id: \.id) { operation in
+                        HStack(spacing: 6) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 9))
+                                .foregroundStyle(MuxyTheme.accent)
+                                .frame(width: 12)
+                            Text(operation.id)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(MuxyTheme.accent)
+                            Text(operation.description.isEmpty ? "(no description)" : operation.description)
+                                .font(.system(size: 11))
+                                .foregroundStyle(MuxyTheme.fg)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                            Spacer(minLength: 0)
+                            Text(relativeDate(operation.timestamp))
+                                .font(.system(size: 10))
+                                .foregroundStyle(MuxyTheme.fgDim)
+                        }
+                        .contentShape(Rectangle())
+                        .contextMenu {
+                            Button("Restore Repository to This Operation", role: .destructive) {
+                                pendingRestoreOperation = operation
+                                showRestoreOperationAlert = true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private func errorBanner(message: String) -> some View {
         HStack(alignment: .top, spacing: 6) {
             Image(systemName: "exclamationmark.octagon.fill")
@@ -592,6 +661,7 @@ private enum JjPanelSection: CaseIterable {
     case files
     case changes
     case bookmarks
+    case operations
     case conflicts
 
     var title: String {
@@ -599,6 +669,7 @@ private enum JjPanelSection: CaseIterable {
         case .files: "Files"
         case .changes: "Changes"
         case .bookmarks: "Bookmarks"
+        case .operations: "Operation Log"
         case .conflicts: "Conflicts"
         }
     }
@@ -1192,6 +1263,10 @@ private struct JjChangeBookmarkBadge: View {
 private func relativeDate(_ isoString: String) -> String {
     let formatter = ISO8601DateFormatter()
     let date = formatter.date(from: isoString) ?? Date()
+    return relativeDate(date)
+}
+
+private func relativeDate(_ date: Date) -> String {
     let interval = Date().timeIntervalSince(date)
 
     guard interval > 0 else { return "just now" }

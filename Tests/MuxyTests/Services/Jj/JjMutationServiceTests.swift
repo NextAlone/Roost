@@ -202,6 +202,17 @@ struct JjMutationServiceTests {
         #expect(recorder.commands == [["rebase", "-b", "@", "-d", "abc"]])
     }
 
+    @Test("restore operation restores repo state only")
+    func restoreOperation() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.restoreOperation(repoPath: "/tmp/wt", id: "abc123")
+        #expect(recorder.commands == [["op", "restore", "--what", "repo", "abc123"]])
+    }
+
     @Test("non-zero exit throws")
     func nonZeroExit() async {
         let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, _, _, _ in

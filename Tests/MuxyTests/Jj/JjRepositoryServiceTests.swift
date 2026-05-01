@@ -35,6 +35,22 @@ struct JjRepositoryServiceTests {
         #expect(op == "abc1234")
     }
 
+    @Test("operationLog parses limited op log")
+    func operationLog() async throws {
+        let svc = JjRepositoryService { _, cmd, snapshot, _ in
+            #expect(cmd == ["op", "log", "-n", "20", "--no-graph", "-T", JjOpLogParser.template])
+            #expect(snapshot == .ignore)
+            return JjProcessResult(
+                status: 0,
+                stdout: Data("abc1234\t2026-04-27T10:15:30+00:00\tcommit\n".utf8),
+                stderr: ""
+            )
+        }
+        let ops = try await svc.operationLog(repoPath: "/repo", limit: 20)
+        #expect(ops.count == 1)
+        #expect(ops[0].id == "abc1234")
+    }
+
     @Test("show returns parsed change + stat")
     func show() async throws {
         let stub = """

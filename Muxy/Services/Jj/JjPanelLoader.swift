@@ -7,19 +7,22 @@ struct JjPanelLoader {
     private let changesLoader: @Sendable (String) async throws -> [JjLogEntry]
     private let bookmarksLoader: @Sendable (String) async throws -> [JjBookmark]
     private let conflictsLoader: @Sendable (String) async throws -> [JjConflict]
+    private let operationsLoader: @Sendable (String) async throws -> [JjOperation]
 
     init(
         showLoader: @escaping @Sendable (String) async throws -> JjShowOutput = Self.defaultShow,
         statusLoader: @escaping @Sendable (String) async throws -> JjStatus = Self.defaultStatus,
         changesLoader: @escaping @Sendable (String) async throws -> [JjLogEntry] = Self.defaultChanges,
         bookmarksLoader: @escaping @Sendable (String) async throws -> [JjBookmark] = Self.defaultBookmarks,
-        conflictsLoader: @escaping @Sendable (String) async throws -> [JjConflict] = Self.defaultConflicts
+        conflictsLoader: @escaping @Sendable (String) async throws -> [JjConflict] = Self.defaultConflicts,
+        operationsLoader: @escaping @Sendable (String) async throws -> [JjOperation] = Self.defaultOperations
     ) {
         self.showLoader = showLoader
         self.statusLoader = statusLoader
         self.changesLoader = changesLoader
         self.bookmarksLoader = bookmarksLoader
         self.conflictsLoader = conflictsLoader
+        self.operationsLoader = operationsLoader
     }
 
     func load(repoPath: String) async throws -> JjPanelSnapshot {
@@ -32,12 +35,14 @@ struct JjPanelLoader {
         } else {
             []
         }
+        let operations = await (try? operationsLoader(repoPath)) ?? []
         return JjPanelSnapshot(
             show: show,
             status: status,
             changes: changes,
             bookmarks: bookmarks,
-            conflicts: conflicts
+            conflicts: conflicts,
+            operations: operations
         )
     }
 
@@ -69,6 +74,10 @@ struct JjPanelLoader {
 
     private static let defaultConflicts: @Sendable (String) async throws -> [JjConflict] = { repoPath in
         try await JjConflictsService(queue: JjProcessQueue.shared).list(repoPath: repoPath)
+    }
+
+    private static let defaultOperations: @Sendable (String) async throws -> [JjOperation] = { repoPath in
+        try await JjRepositoryService().operationLog(repoPath: repoPath)
     }
 }
 

@@ -53,18 +53,10 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build ${{ matrix.arch }} ZIP
+    name: Build arm64 ZIP
     needs: validate
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-26
     timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            runner: macos-26
-          - arch: x86_64
-            runner: macos-26-intel
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -80,7 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           scripts/build-release.sh \
-            --arch "${{ matrix.arch }}" \
+            --arch arm64 \
             --version "${{ needs.validate.outputs.version }}" \
             --build-number "${{ needs.validate.outputs.build_number }}" \
             --zip \
@@ -106,9 +98,9 @@ jobs:
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: roost-${{ needs.validate.outputs.version }}-${{ matrix.arch }}
+          name: roost-${{ needs.validate.outputs.version }}-arm64
           path: |
-            build/Roost-${{ needs.validate.outputs.version }}-${{ matrix.arch }}.zip
+            build/Roost-${{ needs.validate.outputs.version }}-arm64.zip
 
   release:
     name: Create draft GitHub release

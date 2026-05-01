@@ -511,6 +511,13 @@ Later features:
 - The Changes section header has a compact free-form revset field with apply/reset controls. Invalid custom revsets surface as panel errors instead of silently returning an empty graph.
 - Remaining active jj changes backlog: richer DAG navigation/filtering beyond the current graph rendering and an optional embedded three-way conflict editor.
 
+**Follow-up status (2026-05-02): row graph filters and structured conflict preview landed.**
+
+- Changes row context menus can apply ancestor, descendant, around-change, and mutable-stack revsets for the selected row.
+- `JjConflictMarkerParser` splits jj diff-style and diff3 conflict markers into base, current, and incoming sides.
+- `JjConflictContentSheet` renders structured conflict markers as three side-by-side columns and falls back to the raw file content when markers are not recognized.
+- Remaining active jj changes backlog: optional embedded conflict editing with write-back beyond the current read-only structured preview.
+
 Rules:
 
 - jj has no staging area; do not emulate Git staging as a first-class concept.
@@ -727,7 +734,7 @@ Tasks:
 
 ## Active Backlog After Current Landed Phases
 
-- jj changes: richer DAG navigation/filtering beyond the current graph rendering and an optional embedded three-way conflict editor.
+- jj changes: optional embedded conflict editing with write-back beyond the current read-only structured preview.
 - sessions: richer lifecycle states beyond running/exited when reliable terminal lifecycle signals exist.
 - hostd: real cross-process XPC service extraction with signing, sandbox, PTY ownership, and attach/release protocol.
 - release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design.

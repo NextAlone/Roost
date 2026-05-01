@@ -47,6 +47,18 @@ struct JjBookmarkService: Sendable {
         try await runMutating(repoPath: repoPath, command: ["bookmark", "forget", name])
     }
 
+    func rename(repoPath: String, oldName: String, newName: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["bookmark", "rename", oldName, newName])
+    }
+
+    func fetchTracked(repoPath: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["git", "fetch", "--tracked"])
+    }
+
+    func push(repoPath: String, name: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["git", "push", "--bookmark", name])
+    }
+
     private func runMutating(repoPath: String, command: [String]) async throws {
         let runner = self.runner
         try await queue.run(repoPath: repoPath, isMutating: true) {

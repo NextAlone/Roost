@@ -75,6 +75,42 @@ struct JjBookmarkServiceTests {
         let cmd = await captured.cmd
         #expect(cmd == ["bookmark", "forget", "feat-x"])
     }
+
+    @Test("rename invokes bookmark rename")
+    func rename() async throws {
+        let captured = BookmarkCapturedCall()
+        let svc = JjBookmarkService(queue: JjProcessQueue()) { repo, cmd, _, _ in
+            await captured.set(repo: repo, cmd: cmd, snapshot: .allow)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        }
+        try await svc.rename(repoPath: "/repo", oldName: "old", newName: "new")
+        let cmd = await captured.cmd
+        #expect(cmd == ["bookmark", "rename", "old", "new"])
+    }
+
+    @Test("fetch tracked bookmarks invokes git fetch tracked")
+    func fetchTracked() async throws {
+        let captured = BookmarkCapturedCall()
+        let svc = JjBookmarkService(queue: JjProcessQueue()) { repo, cmd, _, _ in
+            await captured.set(repo: repo, cmd: cmd, snapshot: .allow)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        }
+        try await svc.fetchTracked(repoPath: "/repo")
+        let cmd = await captured.cmd
+        #expect(cmd == ["git", "fetch", "--tracked"])
+    }
+
+    @Test("push bookmark invokes git push bookmark")
+    func pushBookmark() async throws {
+        let captured = BookmarkCapturedCall()
+        let svc = JjBookmarkService(queue: JjProcessQueue()) { repo, cmd, _, _ in
+            await captured.set(repo: repo, cmd: cmd, snapshot: .allow)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        }
+        try await svc.push(repoPath: "/repo", name: "main")
+        let cmd = await captured.cmd
+        #expect(cmd == ["git", "push", "--bookmark", "main"])
+    }
 }
 
 actor BookmarkCapturedCall {

@@ -19,6 +19,8 @@ struct JjPanelView: View {
 
     @State private var showCreateBookmarkSheet = false
     @State private var pendingCreateBookmarkRevset: String?
+    @State private var showRenameBookmarkSheet = false
+    @State private var pendingRenameBookmark: JjBookmark?
     private static let sectionHeaderHeight: CGFloat = 30
 
     var body: some View {
@@ -99,6 +101,33 @@ struct JjPanelView: View {
                     showCreateBookmarkSheet = false
                 }
             )
+        }
+        .sheet(isPresented: $showRenameBookmarkSheet) {
+            if let bookmark = pendingRenameBookmark {
+                JjBookmarkCreateSheet(
+                    title: "Rename Bookmark",
+                    confirmLabel: "Rename",
+                    initialName: bookmark.name,
+                    targetLabel: nil,
+                    onConfirm: { name in
+                        let oldName = bookmark.name
+                        pendingRenameBookmark = nil
+                        showRenameBookmarkSheet = false
+                        guard name != oldName else { return }
+                        runMutation {
+                            try await bookmarkService.rename(
+                                repoPath: state.repoPath,
+                                oldName: oldName,
+                                newName: name
+                            )
+                        }
+                    },
+                    onCancel: {
+                        pendingRenameBookmark = nil
+                        showRenameBookmarkSheet = false
+                    }
+                )
+            }
         }
     }
 
@@ -195,6 +224,17 @@ struct JjPanelView: View {
             Spacer(minLength: 0)
 
             if section == .bookmarks {
+                Button {
+                    runMutation {
+                        try await bookmarkService.fetchTracked(repoPath: state.repoPath)
+                    }
+                } label: {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 10))
+                }
+                .buttonStyle(.borderless)
+                .help("Fetch tracked bookmarks")
+
                 Button {
                     pendingCreateBookmarkRevset = nil
                     showCreateBookmarkSheet = true
@@ -427,6 +467,24 @@ struct JjPanelView: View {
                         }
                         .contentShape(Rectangle())
                         .contextMenu {
+                            Button("Push") {
+                                runMutation {
+                                    try await bookmarkService.push(
+                                        repoPath: state.repoPath,
+                                        name: bookmark.name
+                                    )
+                                }
+                            }
+                            .disabled(!bookmark.isLocal)
+
+                            Button("Rename...") {
+                                pendingRenameBookmark = bookmark
+                                showRenameBookmarkSheet = true
+                            }
+                            .disabled(!bookmark.isLocal)
+
+                            Divider()
+
                             Button("Move to current change") {
                                 runMutation {
                                     try await bookmarkService.setTarget(

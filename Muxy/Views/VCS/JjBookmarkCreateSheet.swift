@@ -1,30 +1,54 @@
 import SwiftUI
 
 struct JjBookmarkCreateSheet: View {
+    let title: String
+    let confirmLabel: String
+    let placeholder: String
+    let targetLabel: String?
     let onConfirm: (String) -> Void
     let onCancel: () -> Void
 
-    @State private var name: String = ""
+    @State private var name: String
+
+    init(
+        title: String = "New Bookmark",
+        confirmLabel: String = "Create",
+        placeholder: String = "feature-x",
+        initialName: String = "",
+        targetLabel: String? = "Target: current change (@)",
+        onConfirm: @escaping (String) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.title = title
+        self.confirmLabel = confirmLabel
+        self.placeholder = placeholder
+        self.targetLabel = targetLabel
+        self.onConfirm = onConfirm
+        self.onCancel = onCancel
+        self._name = State(initialValue: initialName)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("New Bookmark")
+            Text(title)
                 .font(.system(size: 14, weight: .semibold))
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Name").font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
-                TextField("feature-x", text: $name)
+                TextField(placeholder, text: $name)
                     .textFieldStyle(.roundedBorder)
             }
-            Text("Target: current change (@)")
-                .font(.system(size: 10))
-                .foregroundStyle(MuxyTheme.fgDim)
+            if let targetLabel {
+                Text(targetLabel)
+                    .font(.system(size: 10))
+                    .foregroundStyle(MuxyTheme.fgDim)
+            }
 
             HStack {
                 Spacer()
                 Button("Cancel") { onCancel() }
                     .keyboardShortcut(.cancelAction)
-                Button("Create") {
+                Button(confirmLabel) {
                     onConfirm(name.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
                 .keyboardShortcut(.defaultAction)

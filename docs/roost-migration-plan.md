@@ -473,7 +473,7 @@ Later features:
 - "+" button in the bookmarks section header opens `JjBookmarkCreateSheet` to create a bookmark targeting `@`.
 - Right-click context menu on each bookmark row: "Move to current change" and "Delete" actions.
 - All actions route through the existing `runMutation` helper for serialized execution + error surfacing + state refresh.
-- **Phase 5 complete.** Future enhancements (deferred): per-action revset pickers, push/pull bookmarks, rename bookmark, conflict resolution UI, advanced DAG navigation, op log / undo.
+- **Phase 5 complete.** Future enhancements (deferred): per-action revset pickers, bookmark remote sync, rename bookmark, conflict resolution UI, advanced DAG navigation, op log / undo.
 - Conflict content viewer.
 - Revset search.
 - Side-by-side diff improvements.
@@ -481,7 +481,14 @@ Later features:
 **Audit status (2026-05-02): Phase 5 backlog narrowed after code review.**
 
 - Already landed: `JjPanelView` renders a `jj log` changes graph with bookmark badges, context actions on graph rows, bookmark create / move / delete, conflict listing, and selected-change actions for describe / new / duplicate / squash / rebase / abandon / revert.
-- Still active: bookmark push/pull, bookmark rename, conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
+- Still active at audit time: bookmark push/pull, bookmark rename, conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
+
+**Follow-up status (2026-05-02): bookmark remote sync and rename landed.**
+
+- `JjBookmarkService` wraps `jj bookmark rename`, `jj git fetch --tracked`, and `jj git push --bookmark <name>`.
+- The Bookmarks section can fetch tracked bookmarks from the header.
+- Local bookmark rows can push the selected bookmark and open a rename sheet from the context menu.
+- Remaining active jj changes backlog: conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
 
 Rules:
 
@@ -699,7 +706,7 @@ Tasks:
 
 ## Active Backlog After Current Landed Phases
 
-- jj changes: bookmark push/pull, bookmark rename, conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
+- jj changes: conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
 - sessions: richer lifecycle states beyond running/exited when reliable terminal lifecycle signals exist.
 - hostd: real cross-process XPC service extraction with signing, sandbox, PTY ownership, and attach/release protocol.
 - release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design.

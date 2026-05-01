@@ -98,6 +98,53 @@ public enum JjGraphGlyph: Hashable, Sendable {
             }
         }
     }
+
+    public var edges: JjGraphGlyphEdges {
+        switch self {
+        case .horizontal:
+            [.left, .right]
+        case .vertical:
+            [.top, .bottom]
+        case .ancestor:
+            [.bottom]
+        case .bendLeftUp:
+            [.top, .left]
+        case .bendRightUp:
+            [.top, .right]
+        case .horizontalUp:
+            [.left, .right, .top]
+        case .bendLeftDown:
+            [.left, .bottom]
+        case .bendRightDown:
+            [.right, .bottom]
+        case .horizontalDown:
+            [.left, .right, .bottom]
+        case .verticalLeft:
+            [.top, .bottom, .left]
+        case .verticalRight:
+            [.top, .bottom, .right]
+        case .cross:
+            [.top, .bottom, .left, .right]
+        case .empty,
+             .elided,
+             .node,
+             .unknown:
+            []
+        }
+    }
+}
+
+public struct JjGraphGlyphEdges: OptionSet, Hashable, Sendable {
+    public let rawValue: Int
+
+    public init(rawValue: Int) {
+        self.rawValue = rawValue
+    }
+
+    public static let top = JjGraphGlyphEdges(rawValue: 1 << 0)
+    public static let bottom = JjGraphGlyphEdges(rawValue: 1 << 1)
+    public static let left = JjGraphGlyphEdges(rawValue: 1 << 2)
+    public static let right = JjGraphGlyphEdges(rawValue: 1 << 3)
 }
 
 public extension JjLogEntry {

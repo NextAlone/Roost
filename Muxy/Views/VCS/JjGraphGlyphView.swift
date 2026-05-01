@@ -81,61 +81,23 @@ private struct JjGraphGlyphRenderer {
     }
 
     private mutating func drawConnector(_ glyph: JjGraphGlyph, lineIndex: Int, column: Int, style: StrokeStyle) {
-        switch glyph {
-        case .empty,
-             .node,
-             .unknown:
-            return
-        case .horizontal:
-            drawHorizontal(lineIndex: lineIndex, column: column, left: true, right: true, style: style)
-        case .vertical:
-            drawVertical(lineIndex: lineIndex, column: column, up: true, down: true, style: style)
-        case .ancestor:
-            drawVertical(lineIndex: lineIndex, column: column, up: false, down: true, style: style)
-        case .bendLeftUp:
-            drawCurve(lineIndex: lineIndex, column: column, from: .top, to: .left, style: style)
-        case .bendRightUp:
-            drawCurve(lineIndex: lineIndex, column: column, from: .top, to: .right, style: style)
-        case .horizontalUp:
-            drawHorizontal(lineIndex: lineIndex, column: column, left: true, right: true, style: style)
-            drawVertical(lineIndex: lineIndex, column: column, up: true, down: false, style: style)
-        case .bendLeftDown:
-            drawCurve(lineIndex: lineIndex, column: column, from: .left, to: .bottom, style: style)
-        case .bendRightDown:
-            drawCurve(lineIndex: lineIndex, column: column, from: .bottom, to: .right, style: style)
-        case .horizontalDown:
-            drawHorizontal(lineIndex: lineIndex, column: column, left: true, right: true, style: style)
-            drawVertical(lineIndex: lineIndex, column: column, up: false, down: true, style: style)
-        case .verticalLeft:
-            drawVertical(lineIndex: lineIndex, column: column, up: true, down: true, style: style)
-            drawHorizontal(lineIndex: lineIndex, column: column, left: true, right: false, style: style)
-        case .verticalRight:
-            drawVertical(lineIndex: lineIndex, column: column, up: true, down: true, style: style)
-            drawHorizontal(lineIndex: lineIndex, column: column, left: false, right: true, style: style)
-        case .cross:
-            drawVertical(lineIndex: lineIndex, column: column, up: true, down: true, style: style)
-            drawHorizontal(lineIndex: lineIndex, column: column, left: true, right: true, style: style)
-        case .elided:
+        if case .elided = glyph {
             drawElided(lineIndex: lineIndex, column: column, style: style)
+            return
         }
+
+        let edges = glyph.edges
+        guard !edges.isEmpty else { return }
+        if drawCorner(edges: edges, lineIndex: lineIndex, column: column, style: style) {
+            return
+        }
+        drawStraightEdges(edges, lineIndex: lineIndex, column: column, style: style)
     }
 
     private mutating func drawNode(_ glyph: JjGraphGlyph, lineIndex: Int, column: Int, style: StrokeStyle) {
         guard case let .node(label) = glyph else { return }
         let center = point(lineIndex: lineIndex, column: column)
         let radius = JjGraphMetrics.nodeRadius
-        if connectsAbove(lineIndex: lineIndex, column: column) {
-            var path = Path()
-            path.move(to: CGPoint(x: center.x, y: topY(lineIndex: lineIndex)))
-            path.addLine(to: CGPoint(x: center.x, y: center.y - radius))
-            context.stroke(path, with: .color(lineColor), style: style)
-        }
-        if connectsBelow(lineIndex: lineIndex, column: column) {
-            var path = Path()
-            path.move(to: CGPoint(x: center.x, y: center.y + radius))
-            path.addLine(to: CGPoint(x: center.x, y: bottomY(lineIndex: lineIndex)))
-            context.stroke(path, with: .color(lineColor), style: style)
-        }
 
         switch label {
         case "@":
@@ -156,58 +118,70 @@ private struct JjGraphGlyphRenderer {
         }
     }
 
-    private enum Edge {
-        case top
-        case bottom
-        case left
-        case right
-    }
-
-    private mutating func drawVertical(lineIndex: Int, column: Int, up: Bool, down: Bool, style: StrokeStyle) {
+    private mutating func drawStraightEdges(
+        _ edges: JjGraphGlyphEdges,
+        lineIndex: Int,
+        column: Int,
+        style: StrokeStyle
+    ) {
         let center = point(lineIndex: lineIndex, column: column)
         var path = Path()
-        path.move(to: CGPoint(x: center.x, y: up ? topY(lineIndex: lineIndex) : center.y))
-        path.addLine(to: CGPoint(x: center.x, y: down ? bottomY(lineIndex: lineIndex) : center.y))
+
+        if edges.contains(.top) {
+            path.move(to: center)
+            path.addLine(to: CGPoint(x: center.x, y: topY(lineIndex: lineIndex)))
+        }
+        if edges.contains(.bottom) {
+            path.move(to: center)
+            path.addLine(to: CGPoint(x: center.x, y: bottomY(lineIndex: lineIndex)))
+        }
+        if edges.contains(.left) {
+            path.move(to: center)
+            path.addLine(to: CGPoint(x: leftX(column: column), y: center.y))
+        }
+        if edges.contains(.right) {
+            path.move(to: center)
+            path.addLine(to: CGPoint(x: rightX(column: column), y: center.y))
+        }
+
         context.stroke(path, with: .color(lineColor), style: style)
     }
 
-    private mutating func drawHorizontal(lineIndex: Int, column: Int, left: Bool, right: Bool, style: StrokeStyle) {
-        let center = point(lineIndex: lineIndex, column: column)
-        var path = Path()
-        path.move(to: CGPoint(x: left ? leftX(column: column) : center.x, y: center.y))
-        path.addLine(to: CGPoint(x: right ? rightX(column: column) : center.x, y: center.y))
-        context.stroke(path, with: .color(lineColor), style: style)
-    }
-
-    private mutating func drawCurve(lineIndex: Int, column: Int, from: Edge, to: Edge, style: StrokeStyle) {
+    private mutating func drawCorner(
+        edges: JjGraphGlyphEdges,
+        lineIndex: Int,
+        column: Int,
+        style: StrokeStyle
+    ) -> Bool {
         let center = point(lineIndex: lineIndex, column: column)
         let radius = JjGraphMetrics.cornerRadius
         var path = Path()
-        switch (from, to) {
-        case (.left, .bottom):
+        switch edges {
+        case [.left, .bottom]:
             path.move(to: CGPoint(x: leftX(column: column), y: center.y))
             path.addLine(to: CGPoint(x: center.x - radius, y: center.y))
             path.addQuadCurve(to: CGPoint(x: center.x, y: center.y + radius), control: center)
             path.addLine(to: CGPoint(x: center.x, y: bottomY(lineIndex: lineIndex)))
-        case (.bottom, .right):
+        case [.right, .bottom]:
             path.move(to: CGPoint(x: center.x, y: bottomY(lineIndex: lineIndex)))
             path.addLine(to: CGPoint(x: center.x, y: center.y + radius))
             path.addQuadCurve(to: CGPoint(x: center.x + radius, y: center.y), control: center)
             path.addLine(to: CGPoint(x: rightX(column: column), y: center.y))
-        case (.top, .left):
+        case [.top, .left]:
             path.move(to: CGPoint(x: center.x, y: topY(lineIndex: lineIndex)))
             path.addLine(to: CGPoint(x: center.x, y: center.y - radius))
             path.addQuadCurve(to: CGPoint(x: center.x - radius, y: center.y), control: center)
             path.addLine(to: CGPoint(x: leftX(column: column), y: center.y))
-        case (.top, .right):
+        case [.top, .right]:
             path.move(to: CGPoint(x: center.x, y: topY(lineIndex: lineIndex)))
             path.addLine(to: CGPoint(x: center.x, y: center.y - radius))
             path.addQuadCurve(to: CGPoint(x: center.x + radius, y: center.y), control: center)
             path.addLine(to: CGPoint(x: rightX(column: column), y: center.y))
         default:
-            return
+            return false
         }
         context.stroke(path, with: .color(lineColor), style: style)
+        return true
     }
 
     private mutating func drawElided(lineIndex: Int, column: Int, style: StrokeStyle) {
@@ -216,18 +190,6 @@ private struct JjGraphGlyphRenderer {
         path.move(to: CGPoint(x: center.x - 3, y: center.y + 2))
         path.addQuadCurve(to: CGPoint(x: center.x + 3, y: center.y - 2), control: center)
         context.stroke(path, with: .color(lineSoftColor), style: style)
-    }
-
-    private func connectsAbove(lineIndex: Int, column: Int) -> Bool {
-        guard lineIndex > 0 else { return false }
-        guard let glyph = layout.lines[lineIndex - 1].cells.first(where: { $0.column == column })?.glyph else { return false }
-        return glyph.connectsDown
-    }
-
-    private func connectsBelow(lineIndex: Int, column: Int) -> Bool {
-        guard lineIndex + 1 < layout.lines.count else { return false }
-        guard let glyph = layout.lines[lineIndex + 1].cells.first(where: { $0.column == column })?.glyph else { return false }
-        return glyph.connectsUp
     }
 
     private func point(lineIndex: Int, column: Int) -> CGPoint {
@@ -246,58 +208,10 @@ private struct JjGraphGlyphRenderer {
     }
 
     private func leftX(column: Int) -> CGFloat {
-        max(0, JjGraphMetrics.leftInset + CGFloat(column - 1) * JjGraphMetrics.columnWidth)
+        max(0, JjGraphMetrics.leftInset + CGFloat(column) * JjGraphMetrics.columnWidth - JjGraphMetrics.columnWidth / 2)
     }
 
     private func rightX(column: Int) -> CGFloat {
-        min(size.width, JjGraphMetrics.leftInset + CGFloat(column + 1) * JjGraphMetrics.columnWidth)
-    }
-}
-
-private extension JjGraphGlyph {
-    var connectsUp: Bool {
-        switch self {
-        case .vertical,
-             .bendLeftUp,
-             .bendRightUp,
-             .horizontalUp,
-             .verticalLeft,
-             .verticalRight,
-             .cross:
-            return true
-        case .empty,
-             .horizontal,
-             .ancestor,
-             .bendLeftDown,
-             .bendRightDown,
-             .horizontalDown,
-             .elided,
-             .node,
-             .unknown:
-            return false
-        }
-    }
-
-    var connectsDown: Bool {
-        switch self {
-        case .vertical,
-             .ancestor,
-             .bendLeftDown,
-             .bendRightDown,
-             .horizontalDown,
-             .verticalLeft,
-             .verticalRight,
-             .cross:
-            return true
-        case .empty,
-             .horizontal,
-             .bendLeftUp,
-             .bendRightUp,
-             .horizontalUp,
-             .elided,
-             .node,
-             .unknown:
-            return false
-        }
+        min(size.width, JjGraphMetrics.leftInset + CGFloat(column) * JjGraphMetrics.columnWidth + JjGraphMetrics.columnWidth / 2)
     }
 }

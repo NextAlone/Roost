@@ -34,4 +34,12 @@ struct JjGraphGlyphLayoutTests {
         #expect(layout.lines[0].cells.map(\.glyph) == [.node("○"), .vertical])
         #expect(layout.lines[1].cells.map(\.glyph) == [.verticalRight, .bendLeftUp])
     }
+
+    @Test("glyph edges keep nodes gapped and bends isolated")
+    func glyphEdgesKeepNodesGappedAndBendsIsolated() {
+        #expect(JjGraphGlyph(rawText: "○ ").edges == [])
+        #expect(JjGraphGlyph(rawText: "├─").edges == [.top, .bottom, .right])
+        #expect(JjGraphGlyph(rawText: "╮ ").edges == [.left, .bottom])
+        #expect(JjGraphGlyph(rawText: "╯ ").edges == [.top, .left])
+    }
 }

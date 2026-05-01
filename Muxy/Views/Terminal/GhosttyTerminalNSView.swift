@@ -62,6 +62,10 @@ final class GhosttyTerminalNSView: NSView {
         readSelectionText()
     }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
     private func readSelectionText() -> String? {
         guard let surface, ghostty_surface_has_selection(surface) else { return nil }
         var text = ghostty_text_s()
@@ -486,10 +490,18 @@ final class GhosttyTerminalNSView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard let surface else { return }
         let alreadyFirstResponder = window?.firstResponder === self
+        let shouldRequestFocus = !isFocused || !alreadyFirstResponder
         window?.makeFirstResponder(self)
-        if alreadyFirstResponder {
+        guard let surface else {
+            if shouldRequestFocus {
+                DispatchQueue.main.async { [weak self] in
+                    self?.onFocus?()
+                }
+            }
+            return
+        }
+        if shouldRequestFocus {
             ghostty_surface_set_focus(surface, true)
             DispatchQueue.main.async { [weak self] in
                 self?.onFocus?()

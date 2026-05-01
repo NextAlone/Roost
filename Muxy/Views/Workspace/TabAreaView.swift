@@ -20,6 +20,14 @@ struct TabAreaView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.roostHostdClient) private var hostdClient
 
+    private var showsActiveBorder: Bool {
+        isFocused && isActiveProject
+    }
+
+    private var activeBorderColor: Color {
+        MuxyTheme.accent.opacity(0.4)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if showTabStrip {
@@ -102,6 +110,38 @@ struct TabAreaView: View {
                 }
             }
         }
+        .overlay(alignment: .top) {
+            if showsActiveBorder {
+                Rectangle()
+                    .fill(activeBorderColor)
+                    .frame(height: 1)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .leading) {
+            if showsActiveBorder {
+                Rectangle()
+                    .fill(activeBorderColor)
+                    .frame(width: 1)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .trailing) {
+            if showsActiveBorder {
+                Rectangle()
+                    .fill(activeBorderColor)
+                    .frame(width: 1)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showsActiveBorder {
+                Rectangle()
+                    .fill(activeBorderColor)
+                    .frame(height: 1)
+                    .allowsHitTesting(false)
+            }
+        }
         .background {
             if dragCoordinator.activeDrag != nil {
                 GeometryReader { geo in
@@ -158,10 +198,22 @@ private struct TabContentView: View {
             )
         case let .vcs(vcsState):
             VCSTabView(state: vcsState, focused: focused, onFocus: onFocus)
+                .overlay {
+                    InactiveWindowClickView(action: onFocus)
+                        .accessibilityHidden(true)
+                }
         case let .editor(editorState):
             EditorPane(state: editorState, focused: focused, onFocus: onFocus)
+                .overlay {
+                    InactiveWindowClickView(action: onFocus)
+                        .accessibilityHidden(true)
+                }
         case let .diffViewer(diffState):
             DiffViewerPane(state: diffState, focused: focused, onFocus: onFocus)
+                .overlay {
+                    InactiveWindowClickView(action: onFocus)
+                        .accessibilityHidden(true)
+                }
         }
     }
 }

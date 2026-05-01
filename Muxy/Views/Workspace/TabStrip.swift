@@ -124,7 +124,7 @@ struct PaneTabStrip: View {
                     paneFocused: isFocused,
                     hasUnread: NotificationStore.shared.hasUnread(tabID: tab.id),
                     isAnyDragging: dragState.draggedID != nil,
-                    shortcutIndex: index < 9 ? index + 1 : nil,
+                    shortcutIndex: isFocused && index < 9 ? index + 1 : nil,
                     onSelect: { onSelectTab(tab.id) },
                     onClose: { onCloseTab(tab.id) },
                     onCreateLeft: { onCreateTabAdjacent(tab.id, .left) },
@@ -420,6 +420,10 @@ private struct TabCell: View {
                     MiddleClickView(action: onClose)
                         .accessibilityHidden(true)
                 }
+            }
+            .overlay {
+                InactiveWindowClickView(action: onSelect)
+                    .accessibilityHidden(true)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(tabAccessibilityLabel)

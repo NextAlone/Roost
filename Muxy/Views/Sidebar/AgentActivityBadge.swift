@@ -86,7 +86,8 @@ struct AgentActivityBadge: View {
         case .needsInput: MuxyTheme.diffRemoveFg.opacity(0.22)
         case .completed: MuxyTheme.diffAddFg.opacity(0.2)
         case .running: MuxyTheme.accent.opacity(0.18)
-        case .idle, .exited: MuxyTheme.border
+        case .idle,
+             .exited: MuxyTheme.border
         }
     }
 

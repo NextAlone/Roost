@@ -79,7 +79,11 @@ struct SessionRow: View {
         if isActive {
             MuxyTheme.accentSoft
         } else if showsActivityBadge, activityState == .needsInput {
-            hovered ? MuxyTheme.diffRemoveBg.opacity(0.72) : MuxyTheme.diffRemoveBg.opacity(0.48)
+            if hovered {
+                MuxyTheme.diffRemoveBg.opacity(0.72)
+            } else {
+                MuxyTheme.diffRemoveBg.opacity(0.48)
+            }
         } else if hovered {
             MuxyTheme.hover
         } else {

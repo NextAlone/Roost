@@ -24,6 +24,7 @@ struct AgentTabCreationTests {
         area.createAgentTab(kind: .claudeCode)
         let pane = area.activeTab?.content.pane
         #expect(pane?.agentKind == .claudeCode)
+        #expect(pane?.activityState == .running)
         #expect(pane?.startupCommand == "claude")
         #expect(pane?.projectPath == "/tmp/wt")
     }

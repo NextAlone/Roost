@@ -15,6 +15,7 @@ final class TerminalPaneState: Identifiable {
     let agentKind: AgentKind
     let createdAt: Date
     var lastState: SessionLifecycleState = .running
+    var activityState: AgentActivityState = .running
     let searchState = TerminalSearchState()
     @ObservationIgnored private var titleDebounceTask: Task<Void, Never>?
 

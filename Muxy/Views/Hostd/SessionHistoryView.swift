@@ -71,9 +71,7 @@ struct SessionHistoryView: View {
 
     private func row(record: SessionRecord) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: record.agentKind.iconSystemName)
-                .font(.system(size: 11))
-                .foregroundStyle(MuxyTheme.fgDim)
+            AgentKindIconView(kind: record.agentKind, size: 12, color: MuxyTheme.fgDim)
                 .frame(width: 14)
             VStack(alignment: .leading, spacing: 1) {
                 Text(record.agentKind.displayName)

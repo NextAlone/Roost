@@ -26,4 +26,14 @@ public enum AgentKind: String, Sendable, Codable, Hashable, CaseIterable {
         case .openCode: "hammer"
         }
     }
+
+    public var providerIconName: String? {
+        switch self {
+        case .terminal: nil
+        case .claudeCode: "claude"
+        case .codex: "codex"
+        case .geminiCli: "gemini"
+        case .openCode: "opencode"
+        }
+    }
 }

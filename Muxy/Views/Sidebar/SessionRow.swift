@@ -28,10 +28,12 @@ struct SessionRow: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 6) {
-                Image(systemName: agentKind.iconSystemName)
-                    .font(.system(size: 10))
-                    .foregroundStyle(isActive ? MuxyTheme.accent : MuxyTheme.fgDim)
-                    .frame(width: 12)
+                AgentKindIconView(
+                    kind: agentKind,
+                    size: 11,
+                    color: isActive ? MuxyTheme.accent : MuxyTheme.fgDim
+                )
+                .frame(width: 12)
 
                 Text(tab.title)
                     .font(.system(size: 11, weight: isActive ? .semibold : .regular))

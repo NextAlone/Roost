@@ -91,7 +91,7 @@ struct PaneTabStrip: View {
                 }
                 .help(shortcutTooltip("New Tab", for: .newTab))
                 ForEach(AgentToolbarSettings.visibleAgentKinds(from: visibleAgentsRaw), id: \.self) { kind in
-                    IconButton(symbol: kind.iconSystemName, accessibilityLabel: "New \(kind.displayName) Tab") {
+                    AgentToolbarButton(kind: kind, accessibilityLabel: "New \(kind.displayName) Tab") {
                         onCreateAgentTab(kind)
                     }
                     .help(agentTooltip(for: kind))
@@ -289,6 +289,28 @@ struct PaneTabStrip: View {
         if hoveredTargetID == nil {
             dragState.lastReorderTargetID = nil
         }
+    }
+}
+
+private struct AgentToolbarButton: View {
+    let kind: AgentKind
+    let accessibilityLabel: String
+    let action: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: action) {
+            AgentKindIconView(
+                kind: kind,
+                size: 14,
+                color: hovered ? MuxyTheme.fg : MuxyTheme.fgMuted
+            )
+            .frame(width: 24, height: 24)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovered = $0 }
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 

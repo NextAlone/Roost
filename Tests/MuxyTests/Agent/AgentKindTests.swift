@@ -58,4 +58,13 @@ struct AgentKindTests {
         #expect(AgentKind.geminiCli.iconSystemName == "star.circle")
         #expect(AgentKind.openCode.iconSystemName == "hammer")
     }
+
+    @Test("provider icon mapping uses bundled brand logos")
+    func providerIconMapping() {
+        #expect(AgentKind.terminal.providerIconName == nil)
+        #expect(AgentKind.claudeCode.providerIconName == "claude")
+        #expect(AgentKind.codex.providerIconName == "codex")
+        #expect(AgentKind.geminiCli.providerIconName == "gemini")
+        #expect(AgentKind.openCode.providerIconName == "opencode")
+    }
 }

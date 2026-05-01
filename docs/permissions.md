@@ -27,7 +27,7 @@ Install flow:
 
 Roost reads and writes files in project directories you open. Project config lives at `<project>/.roost/config.json`. Roost creates `.roost/` with `0700` permissions and `config.json` with `0600` permissions when it writes the file.
 
-Roost also stores app state under your Application Support directory.
+Roost also stores app state under `~/Library/Application Support/Roost/`.
 
 ## Subprocesses
 

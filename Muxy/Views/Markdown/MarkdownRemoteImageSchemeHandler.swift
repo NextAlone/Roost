@@ -224,7 +224,7 @@ final class MarkdownRemoteImageSchemeHandler: NSObject, WKURLSchemeHandler {
         guard let baseURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
             return nil
         }
-        let directory = baseURL.appendingPathComponent("Muxy", isDirectory: true).appendingPathComponent(
+        let directory = baseURL.appendingPathComponent("Roost", isDirectory: true).appendingPathComponent(
             cacheDirectoryName,
             isDirectory: true
         )

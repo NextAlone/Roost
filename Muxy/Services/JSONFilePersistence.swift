@@ -14,7 +14,11 @@ enum MuxyFileStorage {
         else {
             fatalError("Application Support directory unavailable")
         }
-        let dir = appSupport.appendingPathComponent("Muxy", isDirectory: true)
+        return appSupportDirectory(baseDirectory: appSupport)
+    }
+
+    static func appSupportDirectory(baseDirectory: URL) -> URL {
+        let dir = baseDirectory.appendingPathComponent("Roost", isDirectory: true)
         try? FileManager.default.createDirectory(
             at: dir,
             withIntermediateDirectories: true,

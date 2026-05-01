@@ -140,8 +140,8 @@ struct ExpandedProjectRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
-                if isVcsRepo, let worktree = activeWorktree {
-                    Text(worktree.isPrimary ? "primary" : worktree.name)
+                if isVcsRepo, let worktree = activeWorktree, !worktree.isPrimary {
+                    Text(worktree.name)
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(MuxyTheme.fgDim)
                         .lineLimit(1)
@@ -590,9 +590,6 @@ private struct ExpandedWorktreeRow: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
 
-                        if worktree.isPrimary {
-                            PrimaryBadge()
-                        }
                         if let label = worktree.vcsKind.sidebarWarningBadgeLabel {
                             VcsWarningBadge(label: label)
                         }
@@ -704,18 +701,6 @@ private struct ExpandedNewWorktreeButton: View {
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
         .accessibilityLabel("New Workspace")
-    }
-}
-
-private struct PrimaryBadge: View {
-    var body: some View {
-        Text("PRIMARY")
-            .font(.system(size: 8, weight: .bold))
-            .tracking(0.4)
-            .foregroundStyle(MuxyTheme.fgDim)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .background(MuxyTheme.surface, in: Capsule())
     }
 }
 

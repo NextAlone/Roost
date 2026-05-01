@@ -24,6 +24,34 @@ public struct JjBookmark: Hashable, Sendable, Codable {
     }
 }
 
+public struct JjLogEntry: Hashable, Sendable, Codable {
+    public let graphPrefix: String
+    public let change: JjChangeId
+    public let commitId: String
+    public let isEmpty: Bool
+    public let authorName: String
+    public let authorTimestamp: String
+    public let description: String
+
+    public init(
+        graphPrefix: String,
+        change: JjChangeId,
+        commitId: String,
+        isEmpty: Bool,
+        authorName: String,
+        authorTimestamp: String,
+        description: String
+    ) {
+        self.graphPrefix = graphPrefix
+        self.change = change
+        self.commitId = commitId
+        self.isEmpty = isEmpty
+        self.authorName = authorName
+        self.authorTimestamp = authorTimestamp
+        self.description = description
+    }
+}
+
 public struct JjOperation: Hashable, Sendable, Codable {
     public let id: String
     public let timestamp: Date

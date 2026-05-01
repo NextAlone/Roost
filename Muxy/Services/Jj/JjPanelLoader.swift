@@ -4,20 +4,20 @@ import MuxyShared
 struct JjPanelLoader {
     private let showLoader: @Sendable (String) async throws -> JjShowOutput
     private let statusLoader: @Sendable (String) async throws -> JjStatus
-    private let summaryLoader: @Sendable (String, String) async throws -> [JjStatusEntry]
+    private let changesLoader: @Sendable (String) async throws -> [JjLogEntry]
     private let bookmarksLoader: @Sendable (String) async throws -> [JjBookmark]
     private let conflictsLoader: @Sendable (String) async throws -> [JjConflict]
 
     init(
         showLoader: @escaping @Sendable (String) async throws -> JjShowOutput = Self.defaultShow,
         statusLoader: @escaping @Sendable (String) async throws -> JjStatus = Self.defaultStatus,
-        summaryLoader: @escaping @Sendable (String, String) async throws -> [JjStatusEntry] = Self.defaultSummary,
+        changesLoader: @escaping @Sendable (String) async throws -> [JjLogEntry] = Self.defaultChanges,
         bookmarksLoader: @escaping @Sendable (String) async throws -> [JjBookmark] = Self.defaultBookmarks,
         conflictsLoader: @escaping @Sendable (String) async throws -> [JjConflict] = Self.defaultConflicts
     ) {
         self.showLoader = showLoader
         self.statusLoader = statusLoader
-        self.summaryLoader = summaryLoader
+        self.changesLoader = changesLoader
         self.bookmarksLoader = bookmarksLoader
         self.conflictsLoader = conflictsLoader
     }
@@ -25,7 +25,7 @@ struct JjPanelLoader {
     func load(repoPath: String) async throws -> JjPanelSnapshot {
         let show = try await showLoader(repoPath)
         let status = try await statusLoader(repoPath)
-        let parentDiff = await (try? summaryLoader(repoPath, "@-")) ?? []
+        let changes = await (try? changesLoader(repoPath)) ?? []
         let bookmarks = await (try? bookmarksLoader(repoPath)) ?? []
         let conflicts: [JjConflict] = if status.hasConflicts {
             await (try? conflictsLoader(repoPath)) ?? []
@@ -34,8 +34,8 @@ struct JjPanelLoader {
         }
         return JjPanelSnapshot(
             show: show,
-            parentDiff: parentDiff,
             status: status,
+            changes: changes,
             bookmarks: bookmarks,
             conflicts: conflicts
         )
@@ -59,8 +59,8 @@ struct JjPanelLoader {
         return try JjStatusParser.parse(raw)
     }
 
-    private static let defaultSummary: @Sendable (String, String) async throws -> [JjStatusEntry] = { repoPath, revset in
-        try await JjDiffService().summary(repoPath: repoPath, revset: revset)
+    private static let defaultChanges: @Sendable (String) async throws -> [JjLogEntry] = { repoPath in
+        try await JjRepositoryService().log(repoPath: repoPath)
     }
 
     private static let defaultBookmarks: @Sendable (String) async throws -> [JjBookmark] = { repoPath in

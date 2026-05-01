@@ -26,6 +26,17 @@ struct JjMutationServiceTests {
         #expect(recorder.commands == [["describe", "-m", "hello world"]])
     }
 
+    @Test("describe selected sends jj describe <revset> -m <message>")
+    func describeSelected() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.describe(repoPath: "/tmp/wt", revset: "abc", message: "hello")
+        #expect(recorder.commands == [["describe", "abc", "-m", "hello"]])
+    }
+
     @Test("new sends jj new")
     func newChange() async throws {
         let recorder = CommandRecorder()
@@ -35,6 +46,39 @@ struct JjMutationServiceTests {
         })
         try await service.newChange(repoPath: "/tmp/wt")
         #expect(recorder.commands == [["new"]])
+    }
+
+    @Test("new at sends jj new <revset>")
+    func newAt() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.newAt(repoPath: "/tmp/wt", revset: "abc")
+        #expect(recorder.commands == [["new", "abc"]])
+    }
+
+    @Test("new after sends jj new --insert-after <revset>")
+    func newAfter() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.newAfter(repoPath: "/tmp/wt", revset: "abc")
+        #expect(recorder.commands == [["new", "--insert-after", "abc"]])
+    }
+
+    @Test("new before sends jj new --insert-before <revset>")
+    func newBefore() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.newBefore(repoPath: "/tmp/wt", revset: "abc")
+        #expect(recorder.commands == [["new", "--insert-before", "abc"]])
     }
 
     @Test("commit sends jj commit -m <message>")
@@ -59,6 +103,17 @@ struct JjMutationServiceTests {
         #expect(recorder.commands == [["squash"]])
     }
 
+    @Test("squash into sends jj squash --into <revset> --use-destination-message")
+    func squashInto() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.squashInto(repoPath: "/tmp/wt", revset: "abc")
+        #expect(recorder.commands == [["squash", "--into", "abc", "--use-destination-message"]])
+    }
+
     @Test("abandon sends jj abandon")
     func abandon() async throws {
         let recorder = CommandRecorder()
@@ -68,6 +123,17 @@ struct JjMutationServiceTests {
         })
         try await service.abandon(repoPath: "/tmp/wt")
         #expect(recorder.commands == [["abandon"]])
+    }
+
+    @Test("abandon selected sends jj abandon <revset>")
+    func abandonSelected() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.abandon(repoPath: "/tmp/wt", revset: "abc")
+        #expect(recorder.commands == [["abandon", "abc"]])
     }
 
     @Test("duplicate sends jj duplicate")
@@ -81,15 +147,59 @@ struct JjMutationServiceTests {
         #expect(recorder.commands == [["duplicate"]])
     }
 
-    @Test("backout sends jj backout -r @")
-    func backout() async throws {
+    @Test("duplicate selected sends jj duplicate <revset>")
+    func duplicateSelected() async throws {
         let recorder = CommandRecorder()
         let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
             recorder.record(cmd)
             return JjProcessResult(status: 0, stdout: Data(), stderr: "")
         })
-        try await service.backout(repoPath: "/tmp/wt")
-        #expect(recorder.commands == [["backout", "-r", "@"]])
+        try await service.duplicate(repoPath: "/tmp/wt", revset: "abc")
+        #expect(recorder.commands == [["duplicate", "abc"]])
+    }
+
+    @Test("revert sends jj revert -r @ --insert-after @")
+    func revert() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.revert(repoPath: "/tmp/wt")
+        #expect(recorder.commands == [["revert", "-r", "@", "--insert-after", "@"]])
+    }
+
+    @Test("revert selected sends jj revert -r <revset> --insert-after @")
+    func revertSelected() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.revert(repoPath: "/tmp/wt", revset: "abc")
+        #expect(recorder.commands == [["revert", "-r", "abc", "--insert-after", "@"]])
+    }
+
+    @Test("edit sends jj edit <revset>")
+    func edit() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.edit(repoPath: "/tmp/wt", revset: "abc")
+        #expect(recorder.commands == [["edit", "abc"]])
+    }
+
+    @Test("rebase working copy onto selected sends jj rebase -b @ -d <revset>")
+    func rebaseWorkingCopyOnto() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.rebaseWorkingCopyOnto(repoPath: "/tmp/wt", revset: "abc")
+        #expect(recorder.commands == [["rebase", "-b", "@", "-d", "abc"]])
     }
 
     @Test("non-zero exit throws")

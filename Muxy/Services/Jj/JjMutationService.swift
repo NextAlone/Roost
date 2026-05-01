@@ -21,8 +21,24 @@ struct JjMutationService {
         try await runMutating(repoPath: repoPath, command: ["describe", "-m", message])
     }
 
+    func describe(repoPath: String, revset: String, message: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["describe", revset, "-m", message])
+    }
+
     func newChange(repoPath: String) async throws {
         try await runMutating(repoPath: repoPath, command: ["new"])
+    }
+
+    func newAt(repoPath: String, revset: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["new", revset])
+    }
+
+    func newAfter(repoPath: String, revset: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["new", "--insert-after", revset])
+    }
+
+    func newBefore(repoPath: String, revset: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["new", "--insert-before", revset])
     }
 
     func commit(repoPath: String, message: String) async throws {
@@ -33,16 +49,40 @@ struct JjMutationService {
         try await runMutating(repoPath: repoPath, command: ["squash"])
     }
 
+    func squashInto(repoPath: String, revset: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["squash", "--into", revset, "--use-destination-message"])
+    }
+
     func abandon(repoPath: String) async throws {
         try await runMutating(repoPath: repoPath, command: ["abandon"])
+    }
+
+    func abandon(repoPath: String, revset: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["abandon", revset])
     }
 
     func duplicate(repoPath: String) async throws {
         try await runMutating(repoPath: repoPath, command: ["duplicate"])
     }
 
-    func backout(repoPath: String) async throws {
-        try await runMutating(repoPath: repoPath, command: ["backout", "-r", "@"])
+    func duplicate(repoPath: String, revset: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["duplicate", revset])
+    }
+
+    func revert(repoPath: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["revert", "-r", "@", "--insert-after", "@"])
+    }
+
+    func revert(repoPath: String, revset: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["revert", "-r", revset, "--insert-after", "@"])
+    }
+
+    func edit(repoPath: String, revset: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["edit", revset])
+    }
+
+    func rebaseWorkingCopyOnto(repoPath: String, revset: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["rebase", "-b", "@", "-d", revset])
     }
 
     private func runMutating(repoPath: String, command: [String]) async throws {

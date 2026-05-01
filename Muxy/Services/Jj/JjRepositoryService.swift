@@ -63,4 +63,18 @@ struct JjRepositoryService: Sendable {
         let raw = String(data: result.stdout, encoding: .utf8) ?? ""
         return try JjShowParser.parse(raw)
     }
+
+    func log(repoPath: String, limit: Int = 30) async throws -> [JjLogEntry] {
+        let result = try await runner(
+            repoPath,
+            ["log", "-n", "\(limit)", "-T", JjLogParser.template],
+            .ignore,
+            nil
+        )
+        guard result.status == 0 else {
+            throw JjProcessError.nonZeroExit(status: result.status, stderr: result.stderr)
+        }
+        let raw = String(data: result.stdout, encoding: .utf8) ?? ""
+        return JjLogParser.parseLenient(raw)
+    }
 }

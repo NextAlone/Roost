@@ -8,7 +8,7 @@ struct JjActionBar: View {
     let onSquash: () -> Void
     let onAbandon: () -> Void
     let onDuplicate: () -> Void
-    let onBackout: () -> Void
+    let onRevert: () -> Void
 
     var body: some View {
         HStack(spacing: 6) {
@@ -19,12 +19,14 @@ struct JjActionBar: View {
             Divider().frame(height: 16)
             actionButton(systemImage: "trash", label: "Abandon", action: onAbandon)
             actionButton(systemImage: "doc.on.doc", label: "Duplicate", action: onDuplicate)
-            actionButton(systemImage: "arrow.uturn.backward", label: "Backout", action: onBackout)
+            actionButton(systemImage: "arrow.uturn.backward", label: "Revert", action: onRevert)
             Spacer()
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 4)
         .background(MuxyTheme.surface, in: RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
     }
 
     private func actionButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {

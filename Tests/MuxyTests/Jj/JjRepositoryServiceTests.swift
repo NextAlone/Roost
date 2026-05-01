@@ -58,4 +58,18 @@ struct JjRepositoryServiceTests {
         #expect(result.diffStat?.files.count == 1)
         #expect(result.diffStat?.files[0].path == "docs/new.md")
     }
+
+    @Test("log returns parsed changes")
+    func log() async throws {
+        let stub = """
+        @  mu\td8e0f8759610\tnonempty\tNext Alone\t2026-05-01T15:49:43+08:00\t
+        malformed
+        """
+        let svc = JjRepositoryService { _, _, _, _ in
+            JjProcessResult(status: 0, stdout: Data(stub.utf8), stderr: "")
+        }
+        let result = try await svc.log(repoPath: "/repo", limit: 3)
+        #expect(result.count == 1)
+        #expect(result[0].change.prefix == "mu")
+    }
 }

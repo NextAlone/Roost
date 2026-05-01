@@ -23,7 +23,7 @@ struct JjPanelStateTests {
         let loader = JjPanelLoader(
             showLoader: { _ in show },
             statusLoader: { _ in status },
-            summaryLoader: { _, _ in [] }
+            changesLoader: { _ in [] }
         )
         let state = JjPanelState(repoPath: "/tmp/wt", loader: loader)
         await state.refresh()
@@ -39,7 +39,7 @@ struct JjPanelStateTests {
         let loader = JjPanelLoader(
             showLoader: { _ in throw Boom() },
             statusLoader: { _ in fatalError() },
-            summaryLoader: { _, _ in fatalError() }
+            changesLoader: { _ in fatalError() }
         )
         let state = JjPanelState(repoPath: "/tmp/wt", loader: loader)
         await state.refresh()

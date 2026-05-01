@@ -35,6 +35,26 @@ struct JjLogParserTests {
         #expect(entries[1].graphLinesAfter == ["~"])
     }
 
+    @Test("parses conflicted bookmark labels from graph rows")
+    func parsesConflictedBookmarkLabels() throws {
+        let raw = """
+        @    m\td71ff9432bb8\tempty\tNext Alone\t2026-05-01T22:46:14+08:00\t\tmerge both heads
+        ├─╮
+        │ ◆  o\t51b60cff39a0\tnonempty\tNext Alone\t2026-05-01T22:45:27+08:00\tmain?? main@origin\tsource main advance
+        ○ │  r\tcba4f8ab3f17\tnonempty\tNext Alone\t2026-05-01T22:45:27+08:00\tmain?? main@git\tclone main advance
+        ├─╯
+        ◆  v\t0e6673414350\tnonempty\tNext Alone\t2026-05-01T22:45:26+08:00\t\tbase
+        │
+        ~
+        """
+        let entries = try JjLogParser.parse(raw)
+        #expect(entries.count == 4)
+        #expect(entries[0].graphLinesAfter == ["├─╮"])
+        #expect(entries[1].bookmarkLabels == ["main??", "main@origin"])
+        #expect(entries[2].bookmarkLabels == ["main??", "main@git"])
+        #expect(entries[2].graphLinesAfter == ["├─╯"])
+    }
+
     @Test("rejects malformed rows")
     func rejectsMalformedRows() {
         #expect(throws: JjLogParseError.self) {

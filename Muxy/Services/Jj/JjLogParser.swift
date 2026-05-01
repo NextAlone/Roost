@@ -6,12 +6,19 @@ enum JjLogParseError: Error, Sendable {
 }
 
 enum JjLogParser {
+    private static let bookmarkLabelsTemplate = [
+        #"self.bookmarks().map(|ref|"#,
+        #"ref.name() ++ if(ref.conflict(), "??", "")"#,
+        #"++ if(ref.remote(), "@" ++ ref.remote(), "")).join(" ")"#,
+    ].joined(separator: " ")
+
     static let template = [
         #"self.change_id().shortest()"#,
         #""\t" ++ self.commit_id().short()"#,
         #""\t" ++ if(self.empty(), "empty", "nonempty")"#,
         #""\t" ++ self.author().name()"#,
         #""\t" ++ self.author().timestamp().format("%Y-%m-%dT%H:%M:%S%:z")"#,
+        #""\t" ++ "# + bookmarkLabelsTemplate,
         #""\t" ++ self.description().first_line() ++ "\n\n""#,
     ].joined(separator: " ++ ")
 
@@ -42,13 +49,22 @@ enum JjLogParser {
     }
 
     static func parseLine(_ line: String) throws -> JjLogEntry {
-        let parts = line.split(separator: "\t", maxSplits: 5, omittingEmptySubsequences: false).map(String.init)
+        let parts = line.split(separator: "\t", maxSplits: 6, omittingEmptySubsequences: false).map(String.init)
         guard parts.count >= 5 else {
             throw JjLogParseError.malformedLine(line)
         }
         let prefixAndChange = parseGraphPrefixAndChange(parts[0])
         guard !prefixAndChange.changePrefix.isEmpty else {
             throw JjLogParseError.malformedLine(line)
+        }
+        let bookmarkLabels: [String]
+        let description: String
+        if parts.count >= 7 {
+            bookmarkLabels = parseBookmarkLabels(parts[5])
+            description = parts[6]
+        } else {
+            bookmarkLabels = []
+            description = parts.count > 5 ? parts[5] : ""
         }
         return JjLogEntry(
             graphPrefix: prefixAndChange.graphPrefix,
@@ -57,7 +73,8 @@ enum JjLogParser {
             isEmpty: parts[2] == "empty",
             authorName: parts[3],
             authorTimestamp: parts[4],
-            description: parts.count > 5 ? parts[5] : ""
+            bookmarkLabels: bookmarkLabels,
+            description: description
         )
     }
 
@@ -86,9 +103,14 @@ enum JjLogParser {
             isEmpty: last.isEmpty,
             authorName: last.authorName,
             authorTimestamp: last.authorTimestamp,
+            bookmarkLabels: last.bookmarkLabels,
             description: last.description,
             graphLinesAfter: last.graphLinesAfter + [line]
         ))
+    }
+
+    private static func parseBookmarkLabels(_ raw: String) -> [String] {
+        raw.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
     }
 
     private static func isGraphOnlyLine(_ line: String) -> Bool {

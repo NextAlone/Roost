@@ -31,6 +31,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
     public let isEmpty: Bool
     public let authorName: String
     public let authorTimestamp: String
+    public let bookmarkLabels: [String]
     public let description: String
     public let graphLinesAfter: [String]
 
@@ -41,6 +42,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         isEmpty: Bool,
         authorName: String,
         authorTimestamp: String,
+        bookmarkLabels: [String] = [],
         description: String,
         graphLinesAfter: [String] = []
     ) {
@@ -50,8 +52,47 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         self.isEmpty = isEmpty
         self.authorName = authorName
         self.authorTimestamp = authorTimestamp
+        self.bookmarkLabels = bookmarkLabels
         self.description = description
         self.graphLinesAfter = graphLinesAfter
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case graphPrefix
+        case change
+        case commitId
+        case isEmpty
+        case authorName
+        case authorTimestamp
+        case bookmarkLabels
+        case description
+        case graphLinesAfter
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        graphPrefix = try container.decode(String.self, forKey: .graphPrefix)
+        change = try container.decode(JjChangeId.self, forKey: .change)
+        commitId = try container.decode(String.self, forKey: .commitId)
+        isEmpty = try container.decode(Bool.self, forKey: .isEmpty)
+        authorName = try container.decode(String.self, forKey: .authorName)
+        authorTimestamp = try container.decode(String.self, forKey: .authorTimestamp)
+        bookmarkLabels = try container.decodeIfPresent([String].self, forKey: .bookmarkLabels) ?? []
+        description = try container.decode(String.self, forKey: .description)
+        graphLinesAfter = try container.decodeIfPresent([String].self, forKey: .graphLinesAfter) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(graphPrefix, forKey: .graphPrefix)
+        try container.encode(change, forKey: .change)
+        try container.encode(commitId, forKey: .commitId)
+        try container.encode(isEmpty, forKey: .isEmpty)
+        try container.encode(authorName, forKey: .authorName)
+        try container.encode(authorTimestamp, forKey: .authorTimestamp)
+        try container.encode(bookmarkLabels, forKey: .bookmarkLabels)
+        try container.encode(description, forKey: .description)
+        try container.encode(graphLinesAfter, forKey: .graphLinesAfter)
     }
 }
 

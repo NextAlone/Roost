@@ -196,6 +196,20 @@ final class AppState {
         return root.allAreas().flatMap(\.tabs)
     }
 
+    @discardableResult
+    func updateAgentActivity(paneID: UUID, state: AgentActivityState) -> Bool {
+        for root in workspaceRoots.values {
+            for area in root.allAreas() {
+                for tab in area.tabs {
+                    guard let pane = tab.content.pane, pane.id == paneID else { continue }
+                    pane.activityState = state
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
     func splitFocusedArea(direction: SplitDirection, projectID: UUID) {
         guard let area = focusedArea(for: projectID) else { return }
         dispatch(.splitArea(.init(

@@ -7,12 +7,30 @@ import Testing
 @MainActor
 @Suite("JjPanelState")
 struct JjPanelStateTests {
+    private final class RevsetRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var values: [String?] = []
+
+        func record(_ value: String?) {
+            lock.lock()
+            defer { lock.unlock() }
+            values.append(value)
+        }
+
+        func snapshot() -> [String?] {
+            lock.lock()
+            defer { lock.unlock() }
+            return values
+        }
+    }
+
     @Test("starts with no snapshot and not loading")
     func initialState() {
         let state = JjPanelState(repoPath: "/tmp/wt")
         #expect(state.snapshot == nil)
         #expect(state.isLoading == false)
         #expect(state.errorMessage == nil)
+        #expect(state.activeChangesRevset == "")
     }
 
     @Test("refresh populates snapshot")
@@ -23,7 +41,7 @@ struct JjPanelStateTests {
         let loader = JjPanelLoader(
             showLoader: { _ in show },
             statusLoader: { _ in status },
-            changesLoader: { _ in [] }
+            changesLoader: { _, _ in [] }
         )
         let state = JjPanelState(repoPath: "/tmp/wt", loader: loader)
         await state.refresh()
@@ -39,12 +57,59 @@ struct JjPanelStateTests {
         let loader = JjPanelLoader(
             showLoader: { _ in throw Boom() },
             statusLoader: { _ in fatalError() },
-            changesLoader: { _ in fatalError() }
+            changesLoader: { _, _ in fatalError() }
         )
         let state = JjPanelState(repoPath: "/tmp/wt", loader: loader)
         await state.refresh()
         #expect(state.snapshot == nil)
         #expect(state.errorMessage == "boom")
         #expect(state.isLoading == false)
+    }
+
+    @Test("apply changes revset trims and refreshes")
+    func applyChangesRevset() async {
+        let recorder = RevsetRecorder()
+        let change = JjChangeId(prefix: "ab", full: "abcdef")
+        let show = JjShowOutput(change: change, parents: [], description: "x", diffStat: nil)
+        let status = JjStatus(workingCopy: change, parent: nil, workingCopySummary: "", entries: [], hasConflicts: false)
+        let loader = JjPanelLoader(
+            showLoader: { _ in show },
+            statusLoader: { _ in status },
+            changesLoader: { _, revset in
+                recorder.record(revset)
+                return []
+            },
+            bookmarksLoader: { _ in [] },
+            operationsLoader: { _ in [] }
+        )
+        let state = JjPanelState(repoPath: "/tmp/wt", loader: loader)
+        await state.applyChangesRevset("  ancestors(@)  ")
+
+        #expect(state.activeChangesRevset == "ancestors(@)")
+        #expect(recorder.snapshot() == ["ancestors(@)"])
+    }
+
+    @Test("reset changes revset refreshes default graph")
+    func resetChangesRevset() async {
+        let recorder = RevsetRecorder()
+        let change = JjChangeId(prefix: "ab", full: "abcdef")
+        let show = JjShowOutput(change: change, parents: [], description: "x", diffStat: nil)
+        let status = JjStatus(workingCopy: change, parent: nil, workingCopySummary: "", entries: [], hasConflicts: false)
+        let loader = JjPanelLoader(
+            showLoader: { _ in show },
+            statusLoader: { _ in status },
+            changesLoader: { _, revset in
+                recorder.record(revset)
+                return []
+            },
+            bookmarksLoader: { _ in [] },
+            operationsLoader: { _ in [] }
+        )
+        let state = JjPanelState(repoPath: "/tmp/wt", loader: loader)
+        await state.applyChangesRevset("ancestors(@)")
+        await state.resetChangesRevset()
+
+        #expect(state.activeChangesRevset == "")
+        #expect(recorder.snapshot() == ["ancestors(@)", nil])
     }
 }

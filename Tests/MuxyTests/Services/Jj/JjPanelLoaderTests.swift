@@ -43,12 +43,15 @@ struct JjPanelLoaderTests {
         let loader = JjPanelLoader(
             showLoader: { _ in show },
             statusLoader: { _ in status },
-            changesLoader: { _ in [logEntry] },
+            changesLoader: { _, revset in
+                #expect(revset == "ancestors(@)")
+                return [logEntry]
+            },
             bookmarksLoader: { _ in [bookmark] },
             conflictsLoader: { _ in [conflict] },
             operationsLoader: { _ in [operation] }
         )
-        let snapshot = try await loader.load(repoPath: "/tmp/wt")
+        let snapshot = try await loader.load(repoPath: "/tmp/wt", changesRevset: "ancestors(@)")
         #expect(snapshot.show.description == "demo")
         #expect(snapshot.status.entries.count == 1)
         #expect(snapshot.changes.count == 1)
@@ -65,7 +68,7 @@ struct JjPanelLoaderTests {
         let loader = JjPanelLoader(
             showLoader: { _ in show },
             statusLoader: { _ in status },
-            changesLoader: { _ in [] },
+            changesLoader: { _, _ in [] },
             bookmarksLoader: { _ in [] },
             conflictsLoader: { _ in fatalError("must not be called") },
             operationsLoader: { _ in [] }
@@ -82,12 +85,30 @@ struct JjPanelLoaderTests {
         let loader = JjPanelLoader(
             showLoader: { _ in show },
             statusLoader: { _ in status },
-            changesLoader: { _ in [] },
+            changesLoader: { _, _ in [] },
             bookmarksLoader: { _ in [] },
             operationsLoader: { _ in [] }
         )
         let snapshot = try await loader.load(repoPath: "/tmp/wt")
         #expect(snapshot.status.entries.isEmpty)
+    }
+
+    @Test("custom changes revset propagates changes errors")
+    func customRevsetPropagatesChangesErrors() async {
+        struct BadRevset: Error {}
+        let change = JjChangeId(prefix: "ab", full: "abcdef")
+        let show = JjShowOutput(change: change, parents: [], description: "x", diffStat: nil)
+        let status = JjStatus(workingCopy: change, parent: nil, workingCopySummary: "", entries: [], hasConflicts: false)
+        let loader = JjPanelLoader(
+            showLoader: { _ in show },
+            statusLoader: { _ in status },
+            changesLoader: { _, _ in throw BadRevset() },
+            bookmarksLoader: { _ in [] },
+            operationsLoader: { _ in [] }
+        )
+        await #expect(throws: BadRevset.self) {
+            try await loader.load(repoPath: "/tmp/wt", changesRevset: "bad(")
+        }
     }
 
     @Test("propagates show errors")
@@ -96,7 +117,7 @@ struct JjPanelLoaderTests {
         let loader = JjPanelLoader(
             showLoader: { _ in throw Boom() },
             statusLoader: { _ in fatalError("not reached") },
-            changesLoader: { _ in fatalError("not reached") },
+            changesLoader: { _, _ in fatalError("not reached") },
             bookmarksLoader: { _ in fatalError("not reached") },
             conflictsLoader: { _ in fatalError("not reached") }
         )

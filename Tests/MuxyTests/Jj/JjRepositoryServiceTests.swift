@@ -88,4 +88,20 @@ struct JjRepositoryServiceTests {
         #expect(result.count == 1)
         #expect(result[0].change.prefix == "mu")
     }
+
+    @Test("log sends revset when provided")
+    func logWithRevset() async throws {
+        let svc = JjRepositoryService { _, cmd, snapshot, _ in
+            #expect(cmd == ["log", "-r", "ancestors(@)", "-n", "3", "-T", JjLogParser.template])
+            #expect(snapshot == .ignore)
+            return JjProcessResult(
+                status: 0,
+                stdout: Data("@  mu\td8e0f8759610\tnonempty\tNext Alone\t2026-05-01T15:49:43+08:00\t\n".utf8),
+                stderr: ""
+            )
+        }
+        let result = try await svc.log(repoPath: "/repo", limit: 3, revset: "ancestors(@)")
+        #expect(result.count == 1)
+        #expect(result[0].change.prefix == "mu")
+    }
 }

@@ -4,7 +4,7 @@ import MuxyShared
 struct JjPanelLoader {
     private let showLoader: @Sendable (String) async throws -> JjShowOutput
     private let statusLoader: @Sendable (String) async throws -> JjStatus
-    private let changesLoader: @Sendable (String) async throws -> [JjLogEntry]
+    private let changesLoader: @Sendable (String, String?) async throws -> [JjLogEntry]
     private let bookmarksLoader: @Sendable (String) async throws -> [JjBookmark]
     private let conflictsLoader: @Sendable (String) async throws -> [JjConflict]
     private let operationsLoader: @Sendable (String) async throws -> [JjOperation]
@@ -12,7 +12,7 @@ struct JjPanelLoader {
     init(
         showLoader: @escaping @Sendable (String) async throws -> JjShowOutput = Self.defaultShow,
         statusLoader: @escaping @Sendable (String) async throws -> JjStatus = Self.defaultStatus,
-        changesLoader: @escaping @Sendable (String) async throws -> [JjLogEntry] = Self.defaultChanges,
+        changesLoader: @escaping @Sendable (String, String?) async throws -> [JjLogEntry] = Self.defaultChanges,
         bookmarksLoader: @escaping @Sendable (String) async throws -> [JjBookmark] = Self.defaultBookmarks,
         conflictsLoader: @escaping @Sendable (String) async throws -> [JjConflict] = Self.defaultConflicts,
         operationsLoader: @escaping @Sendable (String) async throws -> [JjOperation] = Self.defaultOperations
@@ -25,10 +25,20 @@ struct JjPanelLoader {
         self.operationsLoader = operationsLoader
     }
 
-    func load(repoPath: String) async throws -> JjPanelSnapshot {
+    func load(repoPath: String, changesRevset: String? = nil) async throws -> JjPanelSnapshot {
         let show = try await showLoader(repoPath)
         let status = try await statusLoader(repoPath)
-        let changes = await (try? changesLoader(repoPath)) ?? []
+        let trimmedChangesRevset = changesRevset?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedChangesRevset: String? = if let trimmedChangesRevset, !trimmedChangesRevset.isEmpty {
+            trimmedChangesRevset
+        } else {
+            nil
+        }
+        let changes = if let normalizedChangesRevset {
+            try await changesLoader(repoPath, normalizedChangesRevset)
+        } else {
+            await (try? changesLoader(repoPath, nil)) ?? []
+        }
         let bookmarks = await (try? bookmarksLoader(repoPath)) ?? []
         let conflicts: [JjConflict] = if status.hasConflicts {
             await (try? conflictsLoader(repoPath)) ?? []
@@ -64,8 +74,8 @@ struct JjPanelLoader {
         return try JjStatusParser.parse(raw)
     }
 
-    private static let defaultChanges: @Sendable (String) async throws -> [JjLogEntry] = { repoPath in
-        try await JjRepositoryService().log(repoPath: repoPath)
+    private static let defaultChanges: @Sendable (String, String?) async throws -> [JjLogEntry] = { repoPath, revset in
+        try await JjRepositoryService().log(repoPath: repoPath, revset: revset)
     }
 
     private static let defaultBookmarks: @Sendable (String) async throws -> [JjBookmark] = { repoPath in

@@ -10,6 +10,7 @@ struct JjPanelView: View {
     @State private var showCommitSheet = false
     @State private var actionError: String?
     @State private var pendingDescribeChange: JjLogEntry?
+    @State private var changesRevsetDraft = ""
     @State private var filesCollapsed = false
     @State private var changesCollapsed = false
     @State private var bookmarksCollapsed = true
@@ -44,8 +45,8 @@ struct JjPanelView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             actionBar
-            if let actionError {
-                Text(actionError)
+            if let inlineError {
+                Text(inlineError)
                     .font(.system(size: 11))
                     .foregroundStyle(MuxyTheme.diffRemoveFg)
                     .padding(.horizontal, 12)
@@ -67,7 +68,10 @@ struct JjPanelView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .task { await state.refresh() }
+        .task {
+            changesRevsetDraft = state.activeChangesRevset
+            await state.refresh()
+        }
         .sheet(isPresented: $showDescribeSheet) {
             JjMessageSheet(
                 title: "Describe Change",
@@ -178,6 +182,10 @@ struct JjPanelView: View {
         }
     }
 
+    private var inlineError: String? {
+        actionError ?? (state.snapshot == nil ? nil : state.errorMessage)
+    }
+
     private func sectionLayout(snapshot: JjPanelSnapshot) -> some View {
         GeometryReader { geo in
             let sections = sections(for: snapshot)
@@ -276,7 +284,9 @@ struct JjPanelView: View {
 
             Spacer(minLength: 0)
 
-            if section == .bookmarks {
+            if section == .changes {
+                changesRevsetControls
+            } else if section == .bookmarks {
                 Button {
                     runMutation {
                         try await bookmarkService.fetchTracked(repoPath: state.repoPath)
@@ -301,6 +311,45 @@ struct JjPanelView: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 30)
+    }
+
+    private var changesRevsetControls: some View {
+        HStack(spacing: 5) {
+            TextField("Revset", text: $changesRevsetDraft)
+                .font(.system(size: 10, design: .monospaced))
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 6)
+                .frame(width: 150, height: 20)
+                .background(MuxyTheme.surface, in: RoundedRectangle(cornerRadius: 4))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(MuxyTheme.border, lineWidth: 1)
+                )
+                .disabled(state.isLoading)
+                .onSubmit(applyChangesRevset)
+
+            Button(action: applyChangesRevset) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .font(.system(size: 10))
+            }
+            .buttonStyle(.borderless)
+            .disabled(state.isLoading || changesRevsetDraftTrimmed == state.activeChangesRevset)
+            .help("Apply revset")
+            .accessibilityLabel("Apply revset")
+
+            Button(action: resetChangesRevset) {
+                Image(systemName: "xmark.circle")
+                    .font(.system(size: 10))
+            }
+            .buttonStyle(.borderless)
+            .disabled(state.isLoading || (state.activeChangesRevset.isEmpty && changesRevsetDraft.isEmpty))
+            .help("Reset revset")
+            .accessibilityLabel("Reset revset")
+        }
+    }
+
+    private var changesRevsetDraftTrimmed: String {
+        changesRevsetDraft.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func isCollapsed(_ section: JjPanelSection) -> Bool {
@@ -811,6 +860,20 @@ struct JjPanelView: View {
             } catch {
                 actionError = String(describing: error)
             }
+        }
+    }
+
+    private func applyChangesRevset() {
+        Task {
+            await state.applyChangesRevset(changesRevsetDraft)
+            changesRevsetDraft = state.activeChangesRevset
+        }
+    }
+
+    private func resetChangesRevset() {
+        Task {
+            await state.resetChangesRevset()
+            changesRevsetDraft = state.activeChangesRevset
         }
     }
 

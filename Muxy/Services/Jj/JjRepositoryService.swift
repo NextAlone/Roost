@@ -68,10 +68,16 @@ struct JjRepositoryService: Sendable {
         return try JjShowParser.parse(raw)
     }
 
-    func log(repoPath: String, limit: Int = 30) async throws -> [JjLogEntry] {
+    func log(repoPath: String, limit: Int = 30, revset: String? = nil) async throws -> [JjLogEntry] {
+        var command = ["log"]
+        if let revset, !revset.isEmpty {
+            command.append(contentsOf: ["-r", revset])
+        }
+        command.append(contentsOf: ["-n", "\(limit)", "-T", JjLogParser.template])
+
         let result = try await runner(
             repoPath,
-            ["log", "-n", "\(limit)", "-T", JjLogParser.template],
+            command,
             .ignore,
             nil
         )

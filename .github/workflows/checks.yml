@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Read tool versions
         run: |
@@ -29,9 +29,9 @@ jobs:
       - name: Install SwiftFormat
         run: |
           set -euo pipefail
-          curl -sL "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.artifactbundle.zip" -o /tmp/swiftformat.zip
+          curl -sL "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.zip" -o /tmp/swiftformat.zip
           unzip -o /tmp/swiftformat.zip -d /tmp/swiftformat
-          sudo install -m 755 /tmp/swiftformat/swiftformat.artifactbundle/swiftformat-$SWIFTFORMAT_VERSION-macos/bin/swiftformat /usr/local/bin/swiftformat
+          sudo install -m 755 /tmp/swiftformat/swiftformat /usr/local/bin/swiftformat
           swiftformat --version
 
       - name: Install SwiftLint

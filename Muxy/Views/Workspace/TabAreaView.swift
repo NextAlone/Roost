@@ -40,6 +40,9 @@ struct TabAreaView: View {
                     projectID: projectID,
                     onSelectTab: onSelectTab,
                     onCreateTab: onCreateTab,
+                    onCreateAgentTab: { kind in
+                        appState.createAgentTab(kind, projectID: projectID, areaID: area.id, hostdClient: hostdClient)
+                    },
                     onCreateVCSTab: onCreateVCSTab,
                     onCloseTab: onCloseTab,
                     onSplit: onSplit,

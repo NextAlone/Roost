@@ -7,6 +7,7 @@ struct MainWindow: View {
     @Environment(WorktreeStore.self) private var worktreeStore
     @Environment(WorkspaceStatusStore.self) private var statusStore
     @Environment(GhosttyService.self) private var ghostty
+    @Environment(\.roostHostdClient) private var hostdClient
     @Environment(\.openWindow) private var openWindow
     @State private var dragCoordinator = TabDragCoordinator()
     private enum AttachedVCSLayout {
@@ -356,6 +357,9 @@ struct MainWindow: View {
                 },
                 onCreateTab: {
                     appState.dispatch(.createTab(projectID: project.id, areaID: area.id))
+                },
+                onCreateAgentTab: { kind in
+                    appState.createAgentTab(kind, projectID: project.id, areaID: area.id, hostdClient: hostdClient)
                 },
                 onCreateVCSTab: {
                     openVCS(for: project, preferredAreaID: area.id)

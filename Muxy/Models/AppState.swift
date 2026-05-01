@@ -227,8 +227,13 @@ final class AppState {
         dispatch(.createVCSTab(projectID: projectID, areaID: nil))
     }
 
-    func createAgentTab(_ kind: AgentKind, projectID: UUID, hostdClient: (any RoostHostdClient)? = nil) {
-        dispatch(.createAgentTab(projectID: projectID, areaID: nil, kind: kind))
+    func createAgentTab(
+        _ kind: AgentKind,
+        projectID: UUID,
+        areaID: UUID? = nil,
+        hostdClient: (any RoostHostdClient)? = nil
+    ) {
+        dispatch(.createAgentTab(projectID: projectID, areaID: areaID, kind: kind))
         guard let hostdClient,
               let area = focusedArea(for: projectID),
               let tab = area.activeTab,

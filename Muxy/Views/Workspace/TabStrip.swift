@@ -24,6 +24,7 @@ struct PaneTabStrip: View {
     let projectID: UUID
     let onSelectTab: (UUID) -> Void
     let onCreateTab: () -> Void
+    let onCreateAgentTab: (AgentKind) -> Void
     let onCreateVCSTab: () -> Void
     let onCloseTab: (UUID) -> Void
     let onSplit: (SplitDirection) -> Void
@@ -34,6 +35,8 @@ struct PaneTabStrip: View {
     let onSetColorID: (UUID, String?) -> Void
     let onReorderTab: (IndexSet, Int) -> Void
     @Environment(TabDragCoordinator.self) private var dragCoordinator
+    @AppStorage(AgentToolbarSettings.visibleAgentsKey)
+    private var visibleAgentsRaw = AgentToolbarSettings.defaultVisibleAgentsRaw
     @State private var dragState = TabDragState()
 
     static func snapshots(from tabs: [TerminalTab]) -> [TabSnapshot] {
@@ -83,8 +86,16 @@ struct PaneTabStrip: View {
                     .help(shortcutTooltip("Split Right", for: .splitRight))
                 IconButton(symbol: "square.split.1x2", accessibilityLabel: "Split Down") { onSplit(.vertical) }
                     .help(shortcutTooltip("Split Down", for: .splitDown))
-                IconButton(symbol: "plus", accessibilityLabel: "New Tab") { onCreateTab() }
-                    .help(shortcutTooltip("New Tab", for: .newTab))
+                IconButton(symbol: AgentKind.terminal.iconSystemName, accessibilityLabel: "New Terminal Tab") {
+                    onCreateTab()
+                }
+                .help(shortcutTooltip("New Tab", for: .newTab))
+                ForEach(AgentToolbarSettings.visibleAgentKinds(from: visibleAgentsRaw), id: \.self) { kind in
+                    IconButton(symbol: kind.iconSystemName, accessibilityLabel: "New \(kind.displayName) Tab") {
+                        onCreateAgentTab(kind)
+                    }
+                    .help(agentTooltip(for: kind))
+                }
                 if showVCSButton {
                     IconButton(symbol: "doc.text", size: 12, accessibilityLabel: "Quick Open") {
                         NotificationCenter.default.post(name: .quickOpen, object: nil)
@@ -167,6 +178,28 @@ struct PaneTabStrip: View {
 
     private func shortcutTooltip(_ name: String, for action: ShortcutAction) -> String {
         "\(name) (\(KeyBindingStore.shared.displayString(for: action)))"
+    }
+
+    private func agentTooltip(for kind: AgentKind) -> String {
+        guard let action = newAgentAction(for: kind) else {
+            return "New \(kind.displayName) Tab"
+        }
+        return shortcutTooltip("New \(kind.displayName) Tab", for: action)
+    }
+
+    private func newAgentAction(for kind: AgentKind) -> ShortcutAction? {
+        switch kind {
+        case .terminal:
+            .newTab
+        case .claudeCode:
+            .newClaudeCodeTab
+        case .codex:
+            .newCodexTab
+        case .geminiCli:
+            .newGeminiCliTab
+        case .openCode:
+            .newOpenCodeTab
+        }
     }
 
     private var developmentBadge: some View {

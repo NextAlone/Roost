@@ -35,7 +35,12 @@ jobs:
           swift build -c release --package-path /tmp/swiftformat-src
           SWIFTFORMAT_BIN="$(swift build -c release --package-path /tmp/swiftformat-src --show-bin-path)/swiftformat"
           sudo install -m 755 "$SWIFTFORMAT_BIN" /usr/local/bin/swiftformat
-          swiftformat --version
+          ACTUAL_SWIFTFORMAT_VERSION="$(swiftformat --version)"
+          echo "$ACTUAL_SWIFTFORMAT_VERSION"
+          if [ "$ACTUAL_SWIFTFORMAT_VERSION" != "$SWIFTFORMAT_VERSION" ] && [ "$SWIFTFORMAT_VERSION:$ACTUAL_SWIFTFORMAT_VERSION" != "0.61.1:0.61.0" ]; then
+            echo "swiftformat version mismatch: installed $ACTUAL_SWIFTFORMAT_VERSION, expected $SWIFTFORMAT_VERSION"
+            exit 1
+          fi
 
       - name: Install SwiftLint
         run: |
@@ -43,7 +48,12 @@ jobs:
           curl -sL "https://github.com/realm/SwiftLint/releases/download/$SWIFTLINT_VERSION/portable_swiftlint.zip" -o /tmp/swiftlint.zip
           unzip -o /tmp/swiftlint.zip -d /tmp/swiftlint
           sudo install -m 755 /tmp/swiftlint/swiftlint /usr/local/bin/swiftlint
-          swiftlint version
+          ACTUAL_SWIFTLINT_VERSION="$(swiftlint version)"
+          echo "$ACTUAL_SWIFTLINT_VERSION"
+          if [ "$ACTUAL_SWIFTLINT_VERSION" != "$SWIFTLINT_VERSION" ]; then
+            echo "swiftlint version mismatch: installed $ACTUAL_SWIFTLINT_VERSION, expected $SWIFTLINT_VERSION"
+            exit 1
+          fi
 
       - name: Setup GhosttyKit
         run: scripts/setup.sh
@@ -52,3 +62,5 @@ jobs:
 
       - name: Run checks
         run: scripts/checks.sh
+        env:
+          ROOST_SKIP_TOOL_VERSION_CHECKS: "1"

@@ -4,17 +4,9 @@ import SwiftUI
 struct AgentActivityBadge: View {
     let state: AgentActivityState
 
-    @State private var spinning = false
-
     var body: some View {
         HStack(spacing: 3) {
-            Image(systemName: symbolName)
-                .font(.system(size: iconSize, weight: .bold))
-                .rotationEffect(.degrees(state == .running && spinning ? 360 : 0))
-                .animation(
-                    state == .running ? .linear(duration: 1.1).repeatForever(autoreverses: false) : .default,
-                    value: spinning
-                )
+            icon
 
             Text(state.sidebarLabel)
                 .font(.system(size: 8, weight: .semibold, design: .monospaced))
@@ -31,8 +23,16 @@ struct AgentActivityBadge: View {
         }
         .accessibilityLabel(state.accessibilityLabel)
         .help(state.accessibilityLabel)
-        .onAppear(perform: syncAnimation)
-        .onChange(of: state) { _, _ in syncAnimation() }
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        if state == .running {
+            AgentRunningActivityIcon()
+        } else {
+            Image(systemName: symbolName)
+                .font(.system(size: iconSize, weight: .bold))
+        }
     }
 
     private var symbolName: String {
@@ -90,8 +90,18 @@ struct AgentActivityBadge: View {
              .exited: MuxyTheme.border
         }
     }
+}
 
-    private func syncAnimation() {
-        spinning = state == .running
+private struct AgentRunningActivityIcon: View {
+    @State private var spinning = false
+
+    var body: some View {
+        Image(systemName: "arrow.triangle.2.circlepath")
+            .font(.system(size: 7, weight: .bold))
+            .rotationEffect(.degrees(spinning ? 360 : 0))
+            .animation(.linear(duration: 1.1).repeatForever(autoreverses: false), value: spinning)
+            .onAppear {
+                spinning = true
+            }
     }
 }

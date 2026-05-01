@@ -5,6 +5,7 @@ import SwiftUI
 
 struct JjPanelView: View {
     @Bindable var state: JjPanelState
+    let onOpenFile: (String) -> Void
     @State private var showDescribeSheet = false
     @State private var showCommitSheet = false
     @State private var actionError: String?
@@ -16,19 +17,28 @@ struct JjPanelView: View {
     @State private var conflictsCollapsed = false
     @State private var contextTargetChangeID: String?
     @State private var contextTargetOperationID: String?
+    @State private var contextTargetConflictPath: String?
     @State private var hoveredChangeID: String?
     @State private var hoveredOperationID: String?
+    @State private var hoveredConflictPath: String?
     @State private var showRestoreOperationAlert = false
     @State private var pendingRestoreOperation: JjOperation?
+    @State private var conflictContent: JjConflictContent?
 
     private let mutator = JjMutationService(queue: JjProcessQueue.shared)
     private let bookmarkService = JjBookmarkService(queue: JjProcessQueue.shared)
+    private let conflictContentLoader = JjConflictContentLoader()
 
     @State private var showCreateBookmarkSheet = false
     @State private var pendingCreateBookmarkRevset: String?
     @State private var showRenameBookmarkSheet = false
     @State private var pendingRenameBookmark: JjBookmark?
     private static let sectionHeaderHeight: CGFloat = 30
+
+    init(state: JjPanelState, onOpenFile: @escaping (String) -> Void = { _ in }) {
+        self.state = state
+        self.onOpenFile = onOpenFile
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -135,6 +145,18 @@ struct JjPanelView: View {
                     }
                 )
             }
+        }
+        .sheet(item: $conflictContent) { content in
+            JjConflictContentSheet(
+                content: content,
+                onOpenInEditor: {
+                    onOpenFile(content.path)
+                    conflictContent = nil
+                },
+                onClose: {
+                    conflictContent = nil
+                }
+            )
         }
         .alert("Restore Repository State?", isPresented: $showRestoreOperationAlert, presenting: pendingRestoreOperation) { operation in
             Button("Cancel", role: .cancel) {
@@ -401,12 +423,15 @@ struct JjPanelView: View {
                                 onRightMouseDown: {
                                     hoveredChangeID = nil
                                     hoveredOperationID = nil
+                                    hoveredConflictPath = nil
                                     contextTargetChangeID = entry.change.prefix
                                     contextTargetOperationID = nil
+                                    contextTargetConflictPath = nil
                                 },
                                 onContextMenuAppear: {
                                     contextTargetChangeID = entry.change.prefix
                                     contextTargetOperationID = nil
+                                    contextTargetConflictPath = nil
                                 },
                                 onContextMenuDisappear: {
                                     if contextTargetChangeID == entry.change.prefix {
@@ -575,12 +600,85 @@ struct JjPanelView: View {
             } else {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(conflicts, id: \.path) { conflict in
-                        Text(conflict.path)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(MuxyTheme.fg)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 9))
+                                .foregroundStyle(MuxyTheme.diffRemoveFg)
+                                .frame(width: 12)
+                            Text(conflict.path)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(MuxyTheme.fg)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 10)
+                        .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
+                        .background(
+                            JjRowHighlight.resolve(
+                                isHovered: hoveredConflictPath == conflict.path,
+                                isContextTarget: contextTargetConflictPath == conflict.path
+                            ).background
+                        )
+                        .contentShape(Rectangle())
+                        .onHover { isHovered in
+                            if isHovered {
+                                hoveredConflictPath = conflict.path
+                            } else if hoveredConflictPath == conflict.path {
+                                hoveredConflictPath = nil
+                            }
+                        }
+                        .background(
+                            JjRightClickObserver {
+                                hoveredChangeID = nil
+                                hoveredOperationID = nil
+                                hoveredConflictPath = nil
+                                contextTargetChangeID = nil
+                                contextTargetOperationID = nil
+                                contextTargetConflictPath = conflict.path
+                            }
+                        )
+                        .contextMenu {
+                            JjContextMenuLifecycle(
+                                onAppear: {
+                                    contextTargetChangeID = nil
+                                    contextTargetOperationID = nil
+                                    contextTargetConflictPath = conflict.path
+                                },
+                                onDisappear: {
+                                    if contextTargetConflictPath == conflict.path {
+                                        contextTargetConflictPath = nil
+                                    }
+                                }
+                            )
+                            Button("View Content…") {
+                                loadConflictContent(conflict)
+                            }
+                            Button("Open in Editor") {
+                                onOpenFile(conflict.path)
+                            }
+
+                            Divider()
+
+                            Button("Use Ours", role: .destructive) {
+                                runMutation {
+                                    try await mutator.resolveConflict(
+                                        repoPath: state.repoPath,
+                                        path: conflict.path,
+                                        tool: .ours
+                                    )
+                                }
+                            }
+                            Button("Use Theirs", role: .destructive) {
+                                runMutation {
+                                    try await mutator.resolveConflict(
+                                        repoPath: state.repoPath,
+                                        path: conflict.path,
+                                        tool: .theirs
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -634,8 +732,10 @@ struct JjPanelView: View {
                             JjRightClickObserver {
                                 hoveredChangeID = nil
                                 hoveredOperationID = nil
+                                hoveredConflictPath = nil
                                 contextTargetChangeID = nil
                                 contextTargetOperationID = operation.id
+                                contextTargetConflictPath = nil
                             }
                         )
                         .contextMenu {
@@ -643,6 +743,7 @@ struct JjPanelView: View {
                                 onAppear: {
                                     contextTargetOperationID = operation.id
                                     contextTargetChangeID = nil
+                                    contextTargetConflictPath = nil
                                 },
                                 onDisappear: {
                                     if contextTargetOperationID == operation.id {
@@ -707,6 +808,17 @@ struct JjPanelView: View {
                 try await work()
                 actionError = nil
                 await state.refresh()
+            } catch {
+                actionError = String(describing: error)
+            }
+        }
+    }
+
+    private func loadConflictContent(_ conflict: JjConflict) {
+        Task {
+            do {
+                conflictContent = try await conflictContentLoader.load(repoPath: state.repoPath, path: conflict.path)
+                actionError = nil
             } catch {
                 actionError = String(describing: error)
             }

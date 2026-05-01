@@ -33,17 +33,7 @@ struct VCSTabView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if state.vcsKind == .jj {
-                if let jjState = state.jjState {
-                    JjPanelView(state: jjState)
-                } else {
-                    jjPlaceholder
-                }
-            } else {
-                header
-                Rectangle().fill(MuxyTheme.border).frame(height: 1)
-                content
-            }
+            tabContent
         }
         .background(MuxyTheme.bg)
         .contentShape(Rectangle())
@@ -108,6 +98,28 @@ struct VCSTabView: View {
             if let message = state.statusMessage {
                 Text(message)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var tabContent: some View {
+        if state.vcsKind == .jj {
+            jjContent
+        } else {
+            header
+            Rectangle().fill(MuxyTheme.border).frame(height: 1)
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var jjContent: some View {
+        if let jjState = state.jjState {
+            JjPanelView(state: jjState, onOpenFile: { path in
+                openFileInEditor(path)
+            })
+        } else {
+            jjPlaceholder
         }
     }
 

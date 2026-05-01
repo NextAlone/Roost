@@ -406,9 +406,9 @@ For jj projects, `VCSTabView` renders `JjPanelView` instead of the Git panel. `J
 - `jj op log` for recent repository operations.
 - `JjConflictsService.list` when status reports conflicts.
 
-`JjPanelView` renders Files, Changes, Bookmarks, Operation Log, and Conflicts sections. The Changes section renders the `jj log` graph with bookmark badges and per-change context actions. Mutating actions serialize through `JjProcessQueue.shared` via `JjMutationService` and refresh the panel after success. Current actions include describe, new, commit, squash, abandon, duplicate, backout, edit, rebase working copy, bookmark create, bookmark move, bookmark rename, bookmark delete, fetch tracked bookmarks, push a selected bookmark, and restore repository state to a selected operation via `jj op restore --what repo`.
+`JjPanelView` renders Files, Changes, Bookmarks, Operation Log, and Conflicts sections. The Changes section renders the `jj log` graph with bookmark badges and per-change context actions. Mutating actions serialize through `JjProcessQueue.shared` via `JjMutationService` and refresh the panel after success. Current actions include describe, new, commit, squash, abandon, duplicate, backout, edit, rebase working copy, bookmark create, bookmark move, bookmark rename, bookmark delete, fetch tracked bookmarks, push a selected bookmark, conflict content viewing, conflict open-in-editor handoff, conflict resolution through `jj resolve --tool :ours/:theirs`, and restore repository state to a selected operation via `jj op restore --what repo`.
 
-The jj panel intentionally does not expose every legacy Git operation. Remaining future work includes conflict resolution UI, optional revset pickers, and richer DAG navigation beyond the current graph rendering.
+The jj panel intentionally does not expose every legacy Git operation. Remaining future work includes an optional embedded three-way conflict editor, optional revset pickers, and richer DAG navigation beyond the current graph rendering.
 
 ## Navigation History
 

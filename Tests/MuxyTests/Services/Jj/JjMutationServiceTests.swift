@@ -213,6 +213,28 @@ struct JjMutationServiceTests {
         #expect(recorder.commands == [["op", "restore", "--what", "repo", "abc123"]])
     }
 
+    @Test("resolve conflict with ours uses built-in ours tool")
+    func resolveConflictOurs() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.resolveConflict(repoPath: "/tmp/wt", path: "README.md", tool: .ours)
+        #expect(recorder.commands == [["resolve", "--tool", ":ours", "--", "README.md"]])
+    }
+
+    @Test("resolve conflict with theirs uses built-in theirs tool")
+    func resolveConflictTheirs() async throws {
+        let recorder = CommandRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, _, _ in
+            recorder.record(cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+        try await service.resolveConflict(repoPath: "/tmp/wt", path: "README.md", tool: .theirs)
+        #expect(recorder.commands == [["resolve", "--tool", ":theirs", "--", "README.md"]])
+    }
+
     @Test("non-zero exit throws")
     func nonZeroExit() async {
         let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, _, _, _ in

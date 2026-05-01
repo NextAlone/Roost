@@ -473,7 +473,7 @@ Later features:
 - "+" button in the bookmarks section header opens `JjBookmarkCreateSheet` to create a bookmark targeting `@`.
 - Right-click context menu on each bookmark row: "Move to current change" and "Delete" actions.
 - All actions route through the existing `runMutation` helper for serialized execution + error surfacing + state refresh.
-- **Phase 5 complete.** Future enhancements (deferred): per-action revset pickers, bookmark remote sync, rename bookmark, conflict resolution UI, advanced DAG navigation, op log / undo.
+- **Phase 5 complete at that checkpoint.** Future enhancements then deferred: per-action revset pickers, bookmark remote sync, rename bookmark, conflict resolution UI, advanced DAG navigation, op log / undo.
 - Conflict content viewer.
 - Revset search.
 - Side-by-side diff improvements.
@@ -496,6 +496,13 @@ Later features:
 - `JjMutationService.restoreOperation` wraps `jj op restore --what repo <id>`, intentionally restoring repository state only and leaving remote-tracking bookmarks untouched.
 - `JjPanelView` shows a recent Operation Log section and requires confirmation before restoring to a selected operation.
 - Remaining active jj changes backlog: conflict resolution actions / content viewer, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
+
+**Follow-up status (2026-05-02): conflict content actions landed.**
+
+- `JjConflictContentLoader` safely reads repo-relative conflicted file content, rejects absolute paths, rejects paths escaping the repo, and rejects symlink escapes outside the repo.
+- `JjMutationService.resolveConflict` wraps `jj resolve --tool :ours/:theirs -- <path>` for non-interactive conflict resolution.
+- Conflict rows can view content, open the file in the editor, and resolve with the built-in ours/theirs tools from the row context menu.
+- Remaining active jj changes backlog: optional free-form revset picker, richer DAG navigation/filtering beyond the current graph rendering, and an optional embedded three-way conflict editor.
 
 Rules:
 
@@ -713,7 +720,7 @@ Tasks:
 
 ## Active Backlog After Current Landed Phases
 
-- jj changes: conflict resolution actions / content viewer, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
+- jj changes: optional free-form revset picker, richer DAG navigation/filtering beyond the current graph rendering, and an optional embedded three-way conflict editor.
 - sessions: richer lifecycle states beyond running/exited when reliable terminal lifecycle signals exist.
 - hostd: real cross-process XPC service extraction with signing, sandbox, PTY ownership, and attach/release protocol.
 - release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design.

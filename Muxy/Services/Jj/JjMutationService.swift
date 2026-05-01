@@ -89,6 +89,10 @@ struct JjMutationService {
         try await runMutating(repoPath: repoPath, command: ["op", "restore", "--what", "repo", id])
     }
 
+    func resolveConflict(repoPath: String, path: String, tool: JjConflictResolveTool) async throws {
+        try await runMutating(repoPath: repoPath, command: ["resolve", "--tool", tool.rawValue, "--", path])
+    }
+
     private func runMutating(repoPath: String, command: [String]) async throws {
         let runner = self.runner
         try await queue.run(repoPath: repoPath, isMutating: true) {
@@ -98,4 +102,9 @@ struct JjMutationService {
             }
         }
     }
+}
+
+enum JjConflictResolveTool: String, Sendable {
+    case ours = ":ours"
+    case theirs = ":theirs"
 }

@@ -451,13 +451,15 @@ struct JjPanelView: View {
                     .foregroundStyle(MuxyTheme.fgDim)
             } else {
                 let graphColumnWidth = graphColumnWidth(entries: entries)
+                let rows = JjLogDisplayRows.build(from: entries)
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(entries, id: \.rowIdentity) { entry in
-                        let rowID = entry.rowIdentity
-                        let actionRevset = entry.actionRevset
-                        VStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows, id: \.id) { row in
+                        if let entry = row.entry {
+                            let rowID = entry.rowIdentity
+                            let actionRevset = entry.actionRevset
                             JjChangeRow(
                                 entry: entry,
+                                graphText: row.graphText,
                                 bookmarks: bookmarks,
                                 graphColumnWidth: graphColumnWidth,
                                 isHovered: hoveredChangeID == rowID,
@@ -541,6 +543,11 @@ struct JjPanelView: View {
                                 onRevert: {
                                     runMutation { try await mutator.revert(repoPath: state.repoPath, revset: actionRevset) }
                                 }
+                            )
+                        } else {
+                            JjGraphContinuationRow(
+                                graphText: row.graphText,
+                                graphColumnWidth: graphColumnWidth
                             )
                         }
                     }
@@ -1025,6 +1032,7 @@ private struct JjRightClickObserver: NSViewRepresentable {
 
 private struct JjChangeRow: View {
     let entry: JjLogEntry
+    let graphText: String
     let bookmarks: [JjBookmark]
     let graphColumnWidth: CGFloat
     let isHovered: Bool
@@ -1049,10 +1057,6 @@ private struct JjChangeRow: View {
     let onAbandon: () -> Void
     let onRevert: () -> Void
 
-    private var isCurrent: Bool {
-        entry.graphPrefix.contains("@")
-    }
-
     private var title: String {
         if !entry.description.isEmpty { return entry.description }
         return entry.isEmpty ? "(empty)" : "(no description)"
@@ -1063,55 +1067,32 @@ private struct JjChangeRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            primaryRow
-
-            ForEach(Array(entry.graphLinesAfter.enumerated()), id: \.offset) { _, line in
-                HStack(spacing: 8) {
-                    JjGraphTextLine(text: line, graphColumnWidth: graphColumnWidth)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 10)
-                .frame(height: JjGraphTextMetrics.continuationLineHeight)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(entry.change.prefix), \(entry.authorName), \(relativeDate(entry.authorTimestamp))")
-    }
-
-    private var primaryRow: some View {
         HStack(spacing: 8) {
-            JjGraphTextLine(text: entry.graphPrefix, graphColumnWidth: graphColumnWidth)
+            JjGraphTextLine(text: graphText, graphColumnWidth: graphColumnWidth)
 
-            VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text(entry.change.prefix)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(MuxyTheme.accent)
+
                 Text(title)
                     .font(.system(size: 12))
                     .foregroundStyle(entry.isEmpty ? MuxyTheme.fgMuted : MuxyTheme.fg)
                     .lineLimit(1)
                     .truncationMode(.tail)
+                    .layoutPriority(1)
 
-                HStack(spacing: 6) {
-                    if isCurrent {
-                        Text("@")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(MuxyTheme.accent)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(MuxyTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
-                    }
-                    Text(entry.change.prefix)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(MuxyTheme.accent)
-                    Text(entry.authorName)
-                        .font(.system(size: 10))
-                        .foregroundStyle(MuxyTheme.fgDim)
-                        .lineLimit(1)
-                    Text(relativeDate(entry.authorTimestamp))
-                        .font(.system(size: 10))
-                        .foregroundStyle(MuxyTheme.fgDim)
-                    ForEach(entry.bookmarkLabels, id: \.self) { label in
-                        JjChangeBookmarkBadge(label: label)
-                    }
+                Text(entry.authorName)
+                    .font(.system(size: 10))
+                    .foregroundStyle(MuxyTheme.fgDim)
+                    .lineLimit(1)
+
+                Text(relativeDate(entry.authorTimestamp))
+                    .font(.system(size: 10))
+                    .foregroundStyle(MuxyTheme.fgDim)
+
+                ForEach(entry.bookmarkLabels, id: \.self) { label in
+                    JjChangeBookmarkBadge(label: label)
                 }
             }
 
@@ -1125,7 +1106,7 @@ private struct JjChangeRow: View {
             }
         }
         .padding(.horizontal, 10)
-        .frame(height: JjGraphTextMetrics.changeRowHeight)
+        .frame(height: JjGraphTextMetrics.lineHeight)
         .background(JjRowHighlight.resolve(isHovered: isHovered, isContextTarget: isContextTarget).background)
         .contentShape(Rectangle())
         .onHover(perform: onHoverChange)
@@ -1175,13 +1156,28 @@ private struct JjChangeRow: View {
             Button("Revert Change", action: onRevert)
             Button("Abandon Change", role: .destructive, action: onAbandon)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(entry.change.prefix), \(entry.authorName), \(relativeDate(entry.authorTimestamp))")
     }
 }
 
 private enum JjGraphTextMetrics {
     static let characterWidth: CGFloat = 9
-    static let changeRowHeight: CGFloat = 40
-    static let continuationLineHeight: CGFloat = 14
+    static let lineHeight: CGFloat = 24
+}
+
+private struct JjGraphContinuationRow: View {
+    let graphText: String
+    let graphColumnWidth: CGFloat
+
+    var body: some View {
+        HStack(spacing: 8) {
+            JjGraphTextLine(text: graphText, graphColumnWidth: graphColumnWidth)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: JjGraphTextMetrics.lineHeight)
+    }
 }
 
 private struct JjGraphTextLine: View {
@@ -1194,7 +1190,7 @@ private struct JjGraphTextLine: View {
             .foregroundStyle(MuxyTheme.fgDim)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .frame(width: graphColumnWidth, alignment: .leading)
+            .frame(width: graphColumnWidth, height: JjGraphTextMetrics.lineHeight, alignment: .leading)
     }
 }
 

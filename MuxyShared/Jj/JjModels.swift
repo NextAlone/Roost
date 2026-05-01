@@ -108,6 +108,33 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
     }
 }
 
+public struct JjLogDisplayRow: Hashable, Sendable {
+    public let id: String
+    public let graphText: String
+    public let entry: JjLogEntry?
+
+    public init(id: String, graphText: String, entry: JjLogEntry?) {
+        self.id = id
+        self.graphText = graphText
+        self.entry = entry
+    }
+}
+
+public enum JjLogDisplayRows {
+    public static func build(from entries: [JjLogEntry]) -> [JjLogDisplayRow] {
+        entries.flatMap { entry in
+            [JjLogDisplayRow(id: entry.rowIdentity, graphText: entry.graphPrefix, entry: entry)]
+                + entry.graphLinesAfter.enumerated().map { offset, line in
+                    JjLogDisplayRow(
+                        id: "\(entry.rowIdentity):graph:\(offset)",
+                        graphText: line,
+                        entry: nil
+                    )
+                }
+        }
+    }
+}
+
 public struct JjOperation: Hashable, Sendable, Codable {
     public let id: String
     public let timestamp: Date

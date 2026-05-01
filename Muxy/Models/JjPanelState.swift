@@ -54,6 +54,33 @@ enum JjChangesRevsetPreset: String, CaseIterable, Identifiable {
     }
 }
 
+enum JjChangeGraphFilter: String, CaseIterable, Identifiable {
+    case ancestors
+    case descendants
+    case around
+    case mutableStack
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .ancestors: "Show Ancestors"
+        case .descendants: "Show Descendants"
+        case .around: "Show Around This Change"
+        case .mutableStack: "Show Mutable Stack to This"
+        }
+    }
+
+    func revset(for targetRevset: String) -> String {
+        switch self {
+        case .ancestors: "::\(targetRevset)"
+        case .descendants: "\(targetRevset)::"
+        case .around: "::\(targetRevset) | \(targetRevset)::"
+        case .mutableStack: "reachable(\(targetRevset), mutable())"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class JjPanelState {
@@ -93,6 +120,14 @@ final class JjPanelState {
         guard preset.canApply else { return }
         activeChangesRevset = preset.revset ?? ""
         changesRevsetPreset = preset
+        await refresh()
+    }
+
+    func applyChangeGraphFilter(_ filter: JjChangeGraphFilter, targetRevset: String) async {
+        let trimmedTarget = targetRevset.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTarget.isEmpty else { return }
+        activeChangesRevset = filter.revset(for: trimmedTarget)
+        changesRevsetPreset = .custom
         await refresh()
     }
 

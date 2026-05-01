@@ -45,6 +45,14 @@ struct JjPanelStateTests {
         #expect(JjChangesRevsetPreset.custom.canApply == false)
     }
 
+    @Test("change graph filter revsets are stable")
+    func changeGraphFilterRevsets() {
+        #expect(JjChangeGraphFilter.ancestors.revset(for: "abc123") == "::abc123")
+        #expect(JjChangeGraphFilter.descendants.revset(for: "abc123") == "abc123::")
+        #expect(JjChangeGraphFilter.around.revset(for: "abc123") == "::abc123 | abc123::")
+        #expect(JjChangeGraphFilter.mutableStack.revset(for: "abc123") == "reachable(abc123, mutable())")
+    }
+
     @Test("refresh populates snapshot")
     func refreshPopulates() async {
         let change = JjChangeId(prefix: "ab", full: "abcdef")
@@ -124,6 +132,30 @@ struct JjPanelStateTests {
         #expect(state.activeChangesRevset == "::@ & mutable()")
         #expect(state.changesRevsetPreset == .currentStack)
         #expect(recorder.snapshot() == ["::@ & mutable()"])
+    }
+
+    @Test("apply change graph filter uses target revset and refreshes")
+    func applyChangeGraphFilter() async {
+        let recorder = RevsetRecorder()
+        let change = JjChangeId(prefix: "ab", full: "abcdef")
+        let show = JjShowOutput(change: change, parents: [], description: "x", diffStat: nil)
+        let status = JjStatus(workingCopy: change, parent: nil, workingCopySummary: "", entries: [], hasConflicts: false)
+        let loader = JjPanelLoader(
+            showLoader: { _ in show },
+            statusLoader: { _ in status },
+            changesLoader: { _, revset in
+                recorder.record(revset)
+                return []
+            },
+            bookmarksLoader: { _ in [] },
+            operationsLoader: { _ in [] }
+        )
+        let state = JjPanelState(repoPath: "/tmp/wt", loader: loader)
+        await state.applyChangeGraphFilter(.around, targetRevset: "abc123")
+
+        #expect(state.activeChangesRevset == "::abc123 | abc123::")
+        #expect(state.changesRevsetPreset == .custom)
+        #expect(recorder.snapshot() == ["::abc123 | abc123::"])
     }
 
     @Test("reset changes revset refreshes default graph")

@@ -585,6 +585,9 @@ struct JjPanelView: View {
                                     )
                                 }
                             },
+                            onGraphFilter: { filter in
+                                applyChangeGraphFilter(filter, targetRevset: actionRevset)
+                            },
                             onAbandon: {
                                 runMutation { try await mutator.abandon(repoPath: state.repoPath, revset: actionRevset) }
                             },
@@ -945,6 +948,13 @@ struct JjPanelView: View {
         }
     }
 
+    private func applyChangeGraphFilter(_ filter: JjChangeGraphFilter, targetRevset: String) {
+        Task {
+            await state.applyChangeGraphFilter(filter, targetRevset: targetRevset)
+            changesRevsetDraft = state.activeChangesRevset
+        }
+    }
+
     private func resetChangesRevset() {
         Task {
             await state.resetChangesRevset()
@@ -1268,6 +1278,7 @@ private struct JjChangeRow: View {
     let onRebaseOnto: () -> Void
     let onCreateBookmark: () -> Void
     let onMoveBookmark: (String) -> Void
+    let onGraphFilter: (JjChangeGraphFilter) -> Void
     let onAbandon: () -> Void
     let onRevert: () -> Void
 
@@ -1358,6 +1369,16 @@ private struct JjChangeRow: View {
 
             Button("Squash @ Into This Change", action: onSquashInto)
             Button("Rebase @ Onto This Change", action: onRebaseOnto)
+
+            Divider()
+
+            Menu("Graph Filter") {
+                ForEach(JjChangeGraphFilter.allCases) { filter in
+                    Button(filter.title) {
+                        onGraphFilter(filter)
+                    }
+                }
+            }
 
             Divider()
 

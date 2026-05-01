@@ -106,6 +106,9 @@ check_tool() {
     printf "  ${RED}${FAIL}${RESET} %s not found. Install with: brew install %s\n" "$tool" "$tool"
     exit 1
   fi
+  if [ "${ROOST_SKIP_TOOL_VERSION_CHECKS:-0}" = "1" ]; then
+    return
+  fi
   local actual
   if [ "$tool" = "swiftlint" ]; then
     actual=$("$tool" version)

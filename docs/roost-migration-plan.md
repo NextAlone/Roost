@@ -741,7 +741,7 @@ Tasks:
 
 ## Active Backlog After Current Landed Phases
 
-- sessions: richer lifecycle states beyond running/exited when reliable terminal lifecycle signals exist.
+- sessions: terminal lifecycle remains running/exited; agent activity states are hook-driven and visible in the sidebar. Future work is real-time agent running/idle detection if provider CLIs expose reliable streaming state.
 - hostd: real cross-process XPC service extraction with signing, sandbox, PTY ownership, and attach/release protocol.
 - release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design.
 - upstream integration: keep Muxy lineage mergeable and avoid large source-directory renames until the upstream strategy changes.

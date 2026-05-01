@@ -29,15 +29,27 @@ The `MUXY_*` names are the current integration contract for inherited hook scrip
 One message per connection. The payload is a single UTF-8 line with four pipe-separated fields:
 
 ```text
-<type>|<paneID>|<title>|<body>
+<type>[:<activity>]|<paneID>|<title>|<body>
 ```
 
 | Field | Required | Description |
 | --- | --- | --- |
-| `type` | yes | Identifier for the source. Unknown values are accepted and shown generically. Built-in values include `claude_hook`, `codex`, `cursor`, and `opencode`. |
+| `type` | yes | Identifier for the source. Unknown values are accepted and shown generically. Built-in values include `claude_hook`, `codex_hook`, `cursor_hook`, and `opencode`. |
 | `paneID` | yes | The pane the event belongs to. Use `$MUXY_PANE_ID` from inside a Roost terminal. Leave empty to attach the notification to the currently active pane. |
 | `title` | yes | Shown as the notification title. If empty, Roost uses a default completion title. |
 | `body` | no | Notification body. Must not contain `|` or newlines. Replace them first. |
+
+Optional activity suffixes update the matching sidebar agent state before the notification is delivered:
+
+| Suffix | Sidebar state |
+| --- | --- |
+| `running` | Running |
+| `needs_input` | Needs input |
+| `idle` | Idle |
+| `completed` | Completed |
+| `exited` | Exited |
+
+Built-in provider hooks use these suffixes. Custom integrations can omit the suffix and keep legacy notification-only behavior.
 
 Constraints:
 
@@ -51,7 +63,7 @@ From inside a Roost terminal pane:
 
 ```bash
 printf '%s|%s|%s|%s' \
-    "custom" "$MUXY_PANE_ID" "Build finished" "All tests passed" \
+    "custom:completed" "$MUXY_PANE_ID" "Build finished" "All tests passed" \
     | nc -U "$MUXY_SOCKET_PATH"
 ```
 
@@ -64,7 +76,7 @@ roost_notify() {
     local body="${2:-}"
     local safe_body
     safe_body=$(printf '%s' "$body" | tr '|\n\r' '   ' | head -c 500)
-    printf '%s|%s|%s|%s' "custom" "${MUXY_PANE_ID:-}" "$title" "$safe_body" \
+    printf '%s|%s|%s|%s' "custom:completed" "${MUXY_PANE_ID:-}" "$title" "$safe_body" \
         | nc -U "$MUXY_SOCKET_PATH" 2>/dev/null || true
 }
 
@@ -81,7 +93,7 @@ function roostNotify(title, body = "") {
   const paneID = process.env.MUXY_PANE_ID || ""
   if (!socketPath) return
   const safeBody = String(body).replace(/[\n\r|]+/g, " ").slice(0, 500)
-  const payload = `custom|${paneID}|${title}|${safeBody}`
+  const payload = `custom:completed|${paneID}|${title}|${safeBody}`
   const conn = createConnection({ path: socketPath })
   conn.on("error", () => {})
   conn.write(payload, () => conn.end())
@@ -100,7 +112,7 @@ def roost_notify(title: str, body: str = "") -> None:
     if not path:
         return
     safe_body = body.replace("|", " ").replace("\n", " ")[:500]
-    payload = f"custom|{pane}|{title}|{safe_body}".encode("utf-8")
+    payload = f"custom:completed|{pane}|{title}|{safe_body}".encode("utf-8")
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         s.connect(path)
         s.sendall(payload)

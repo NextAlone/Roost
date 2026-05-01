@@ -210,6 +210,23 @@ final class AppState {
         return false
     }
 
+    @discardableResult
+    func clearCompletedAgentActivity(for key: WorktreeKey) -> Bool {
+        guard let root = workspaceRoots[key] else { return false }
+        var cleared = false
+        for area in root.allAreas() {
+            for tab in area.tabs {
+                guard let pane = tab.content.pane,
+                      pane.agentKind != .terminal,
+                      pane.activityState == .completed
+                else { continue }
+                pane.activityState = .idle
+                cleared = true
+            }
+        }
+        return cleared
+    }
+
     func splitFocusedArea(direction: SplitDirection, projectID: UUID) {
         guard let area = focusedArea(for: projectID) else { return }
         dispatch(.splitArea(.init(

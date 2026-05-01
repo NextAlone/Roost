@@ -29,6 +29,36 @@ struct AppStateAgentActivityTests {
         #expect(updated == false)
     }
 
+    @Test("clears completed agent activity in workspace")
+    func clearsCompletedAgentActivityInWorkspace() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        area.activeTab?.content.pane?.activityState = .completed
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let cleared = appState.clearCompletedAgentActivity(for: key)
+
+        #expect(cleared == true)
+        #expect(area.activeTab?.content.pane?.activityState == .idle)
+    }
+
+    @Test("does not clear running agent activity in workspace")
+    func doesNotClearRunningAgentActivityInWorkspace() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        area.activeTab?.content.pane?.activityState = .running
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let cleared = appState.clearCompletedAgentActivity(for: key)
+
+        #expect(cleared == false)
+        #expect(area.activeTab?.content.pane?.activityState == .running)
+    }
+
     private func makeAppState() -> AppState {
         AppState(
             selectionStore: AgentActivitySelectionStoreStub(),

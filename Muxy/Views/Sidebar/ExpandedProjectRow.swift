@@ -232,18 +232,24 @@ struct ExpandedProjectRow: View {
         VStack(spacing: 1) {
             ForEach(worktrees) { worktree in
                 VStack(alignment: .leading, spacing: 0) {
+                    let selected = Self.isWorktreeSelected(
+                        projectID: project.id,
+                        worktreeID: worktree.id,
+                        activeProjectID: appState.activeProjectID,
+                        activeWorktreeID: activeWorktreeID
+                    )
+                    let key = WorktreeKey(projectID: project.id, worktreeID: worktree.id)
+                    let agentActivitySummary = agentActivitySummary(for: worktree, selected: selected)
                     ExpandedWorktreeRow(
                         projectID: project.id,
                         worktree: worktree,
-                        selected: Self.isWorktreeSelected(
-                            projectID: project.id,
-                            worktreeID: worktree.id,
-                            activeProjectID: appState.activeProjectID,
-                            activeWorktreeID: activeWorktreeID
-                        ),
-                        agentActivityState: agentActivityState(for: worktree),
+                        selected: selected,
+                        agentActivitySummary: agentActivitySummary,
                         onSelect: {
                             appState.selectWorktree(projectID: project.id, worktree: worktree)
+                            if agentActivitySummary?.dominantState == .completed {
+                                appState.clearCompletedAgentActivity(for: key)
+                            }
                         },
                         onRename: { newName in
                             worktreeStore.rename(
@@ -280,15 +286,9 @@ struct ExpandedProjectRow: View {
         .padding(.bottom, 4)
     }
 
-    private func agentActivityState(for worktree: Worktree) -> AgentActivityState? {
-        let selected = Self.isWorktreeSelected(
-            projectID: project.id,
-            worktreeID: worktree.id,
-            activeProjectID: appState.activeProjectID,
-            activeWorktreeID: activeWorktreeID
-        )
+    private func agentActivitySummary(for worktree: Worktree, selected: Bool) -> SidebarAgentActivitySummary? {
         let key = WorktreeKey(projectID: project.id, worktreeID: worktree.id)
-        return SidebarAgentActivityResolver.activityState(
+        return SidebarAgentActivityResolver.summary(
             tabs: appState.allTabs(forKey: key),
             activeTabID: selected ? appState.focusedArea(for: project.id)?.activeTabID : nil
         )
@@ -545,7 +545,7 @@ private struct ExpandedWorktreeRow: View {
     let projectID: UUID
     let worktree: Worktree
     let selected: Bool
-    let agentActivityState: AgentActivityState?
+    let agentActivitySummary: SidebarAgentActivitySummary?
     let onSelect: () -> Void
     let onRename: (String) -> Void
     let onRemove: (() -> Void)?
@@ -568,9 +568,10 @@ private struct ExpandedWorktreeRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Circle()
-                .fill(selected ? MuxyTheme.accent : MuxyTheme.fgDim.opacity(0.35))
-                .frame(width: 5, height: 5)
+            WorkspaceAgentActivityIndicator(
+                state: agentActivitySummary?.dominantState,
+                selected: selected
+            )
 
             if isRenaming {
                 TextField("", text: $renameText)
@@ -607,8 +608,8 @@ private struct ExpandedWorktreeRow: View {
 
             Spacer(minLength: 2)
 
-            if let agentActivityState {
-                AgentActivityBadge(state: agentActivityState)
+            if let agentActivitySummary, agentActivitySummary.agentCount > 1 {
+                AgentActivityDotStack(dots: agentActivitySummary.dots)
             }
 
             worktreeUnreadBadge
@@ -616,6 +617,14 @@ private struct ExpandedWorktreeRow: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 5)
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 6))
+        .overlay(alignment: .leading) {
+            if selected {
+                Capsule()
+                    .fill(MuxyTheme.accent)
+                    .frame(width: 3)
+                    .padding(.vertical, 4)
+            }
+        }
         .contentShape(RoundedRectangle(cornerRadius: 6))
         .onHover { hovered = $0 }
         .onTapGesture {
@@ -644,6 +653,9 @@ private struct ExpandedWorktreeRow: View {
     private var worktreeAccessibilityLabel: String {
         var label = displayName
         if let branch = branchLabel { label += ", branch: \(branch)" }
+        if let agentActivitySummary {
+            label += ", \(agentActivitySummary.accessibilityLabel)"
+        }
         return label
     }
 
@@ -656,7 +668,37 @@ private struct ExpandedWorktreeRow: View {
     }
 
     private var rowBackground: AnyShapeStyle {
+        if agentActivitySummary?.dominantState == .needsInput {
+            return AnyShapeStyle(LinearGradient(
+                colors: [
+                    MuxyTheme.diffRemoveFg.opacity(0.16),
+                    MuxyTheme.diffRemoveFg.opacity(0.06),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            ))
+        }
+        if agentActivitySummary?.dominantState == .completed {
+            return AnyShapeStyle(LinearGradient(
+                colors: [
+                    MuxyTheme.diffAddFg.opacity(0.13),
+                    MuxyTheme.diffAddFg.opacity(0.04),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            ))
+        }
         if selected { return AnyShapeStyle(MuxyTheme.accentSoft) }
+        if agentActivitySummary?.dominantState == .running {
+            return AnyShapeStyle(LinearGradient(
+                colors: [
+                    MuxyTheme.accent.opacity(0.12),
+                    MuxyTheme.accent.opacity(0.04),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            ))
+        }
         if hovered { return AnyShapeStyle(MuxyTheme.hover) }
         return AnyShapeStyle(Color.clear)
     }
@@ -699,6 +741,121 @@ private struct ExpandedNewWorktreeButton: View {
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
         .accessibilityLabel("New Workspace")
+    }
+}
+
+private struct WorkspaceAgentActivityIndicator: View {
+    let state: AgentActivityState?
+    let selected: Bool
+
+    var body: some View {
+        ZStack {
+            switch state {
+            case .running:
+                AgentActivityRunningDot(size: 12)
+            case .needsInput:
+                AgentActivityWaitingDot(size: 8)
+            case .completed:
+                Circle()
+                    .fill(MuxyTheme.diffAddFg)
+                    .frame(width: 8, height: 8)
+            case .exited:
+                Circle()
+                    .fill(MuxyTheme.fgDim)
+                    .frame(width: 8, height: 8)
+            case .idle:
+                Circle()
+                    .fill(selected ? MuxyTheme.accent : MuxyTheme.fgDim.opacity(0.45))
+                    .frame(width: 8, height: 8)
+            case nil:
+                Circle()
+                    .fill(selected ? MuxyTheme.accent : MuxyTheme.fgDim.opacity(0.35))
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .frame(width: 16, height: 16)
+    }
+}
+
+private struct AgentActivityDotStack: View {
+    let dots: [SidebarAgentActivityDot]
+
+    var body: some View {
+        HStack(spacing: -3) {
+            ForEach(dots) { dot in
+                Circle()
+                    .fill(color(for: dot.state))
+                    .frame(width: 11, height: 11)
+                    .overlay {
+                        Circle()
+                            .stroke(MuxyTheme.surface, lineWidth: 1.5)
+                    }
+            }
+        }
+        .frame(height: 18)
+        .help(helpText)
+        .accessibilityLabel(helpText)
+    }
+
+    private var helpText: String {
+        let parts: [String] = AgentActivityState.allCases.compactMap { state in
+            let count = dots.count { $0.state == state }
+            guard count > 0 else { return nil }
+            return "\(count) \(state.accessibilityLabel.lowercased())"
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    private func color(for state: AgentActivityState) -> Color {
+        switch state {
+        case .running: MuxyTheme.accent
+        case .needsInput: MuxyTheme.diffRemoveFg
+        case .idle: MuxyTheme.fgDim.opacity(0.45)
+        case .completed: MuxyTheme.diffAddFg
+        case .exited: MuxyTheme.fgDim
+        }
+    }
+}
+
+private struct AgentActivityRunningDot: View {
+    let size: CGFloat
+    @State private var spinning = false
+
+    var body: some View {
+        Circle()
+            .trim(from: 0.18, to: 0.82)
+            .stroke(
+                MuxyTheme.accent,
+                style: StrokeStyle(lineWidth: 2, lineCap: .round)
+            )
+            .frame(width: size, height: size)
+            .rotationEffect(.degrees(spinning ? 360 : 0))
+            .animation(.linear(duration: 1.0).repeatForever(autoreverses: false), value: spinning)
+            .onAppear {
+                spinning = true
+            }
+    }
+}
+
+private struct AgentActivityWaitingDot: View {
+    let size: CGFloat
+    @State private var pulsing = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(MuxyTheme.diffRemoveFg.opacity(0.18))
+                .frame(width: size * 2.6, height: size * 2.6)
+                .scaleEffect(pulsing ? 1.2 : 0.72)
+                .opacity(pulsing ? 0.18 : 0.55)
+                .animation(.easeInOut(duration: 1.25).repeatForever(autoreverses: true), value: pulsing)
+            Circle()
+                .fill(MuxyTheme.diffRemoveFg)
+                .frame(width: size, height: size)
+        }
+        .onAppear {
+            pulsing = true
+        }
     }
 }
 

@@ -2,6 +2,58 @@ import Foundation
 import MuxyShared
 import Observation
 
+enum JjChangesRevsetPreset: String, CaseIterable, Identifiable {
+    case `default`
+    case currentStack
+    case bookmarks
+    case all
+    case conflicts
+    case custom
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .default: "Default"
+        case .currentStack: "Current Stack"
+        case .bookmarks: "Bookmarks"
+        case .all: "All"
+        case .conflicts: "Conflicts"
+        case .custom: "Custom"
+        }
+    }
+
+    var shortTitle: String {
+        switch self {
+        case .default: "Default"
+        case .currentStack: "Stack"
+        case .bookmarks: "Marks"
+        case .all: "All"
+        case .conflicts: "Conflicts"
+        case .custom: "Custom"
+        }
+    }
+
+    var revset: String? {
+        switch self {
+        case .default: nil
+        case .currentStack: "::@ & mutable()"
+        case .bookmarks: "bookmarks()"
+        case .all: "all()"
+        case .conflicts: "conflicts()"
+        case .custom: nil
+        }
+    }
+
+    var canApply: Bool {
+        self != .custom
+    }
+
+    static var menuPresets: [JjChangesRevsetPreset] {
+        allCases.filter(\.canApply)
+    }
+}
+
 @MainActor
 @Observable
 final class JjPanelState {
@@ -10,6 +62,7 @@ final class JjPanelState {
     private(set) var isLoading: Bool = false
     private(set) var errorMessage: String?
     private(set) var activeChangesRevset: String = ""
+    private(set) var changesRevsetPreset: JjChangesRevsetPreset = .default
 
     private let loader: JjPanelLoader
 
@@ -32,11 +85,20 @@ final class JjPanelState {
 
     func applyChangesRevset(_ revset: String) async {
         activeChangesRevset = revset.trimmingCharacters(in: .whitespacesAndNewlines)
+        changesRevsetPreset = activeChangesRevset.isEmpty ? .default : .custom
+        await refresh()
+    }
+
+    func applyChangesRevsetPreset(_ preset: JjChangesRevsetPreset) async {
+        guard preset.canApply else { return }
+        activeChangesRevset = preset.revset ?? ""
+        changesRevsetPreset = preset
         await refresh()
     }
 
     func resetChangesRevset() async {
         activeChangesRevset = ""
+        changesRevsetPreset = .default
         await refresh()
     }
 

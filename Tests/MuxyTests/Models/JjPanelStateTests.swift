@@ -31,6 +31,18 @@ struct JjPanelStateTests {
         #expect(state.isLoading == false)
         #expect(state.errorMessage == nil)
         #expect(state.activeChangesRevset == "")
+        #expect(state.changesRevsetPreset == .default)
+    }
+
+    @Test("changes preset revsets are stable")
+    func changesPresetRevsets() {
+        #expect(JjChangesRevsetPreset.menuPresets == [.default, .currentStack, .bookmarks, .all, .conflicts])
+        #expect(JjChangesRevsetPreset.default.revset == nil)
+        #expect(JjChangesRevsetPreset.currentStack.revset == "::@ & mutable()")
+        #expect(JjChangesRevsetPreset.bookmarks.revset == "bookmarks()")
+        #expect(JjChangesRevsetPreset.all.revset == "all()")
+        #expect(JjChangesRevsetPreset.conflicts.revset == "conflicts()")
+        #expect(JjChangesRevsetPreset.custom.canApply == false)
     }
 
     @Test("refresh populates snapshot")
@@ -86,7 +98,32 @@ struct JjPanelStateTests {
         await state.applyChangesRevset("  ancestors(@)  ")
 
         #expect(state.activeChangesRevset == "ancestors(@)")
+        #expect(state.changesRevsetPreset == .custom)
         #expect(recorder.snapshot() == ["ancestors(@)"])
+    }
+
+    @Test("apply changes preset uses preset revset and refreshes")
+    func applyChangesRevsetPreset() async {
+        let recorder = RevsetRecorder()
+        let change = JjChangeId(prefix: "ab", full: "abcdef")
+        let show = JjShowOutput(change: change, parents: [], description: "x", diffStat: nil)
+        let status = JjStatus(workingCopy: change, parent: nil, workingCopySummary: "", entries: [], hasConflicts: false)
+        let loader = JjPanelLoader(
+            showLoader: { _ in show },
+            statusLoader: { _ in status },
+            changesLoader: { _, revset in
+                recorder.record(revset)
+                return []
+            },
+            bookmarksLoader: { _ in [] },
+            operationsLoader: { _ in [] }
+        )
+        let state = JjPanelState(repoPath: "/tmp/wt", loader: loader)
+        await state.applyChangesRevsetPreset(.currentStack)
+
+        #expect(state.activeChangesRevset == "::@ & mutable()")
+        #expect(state.changesRevsetPreset == .currentStack)
+        #expect(recorder.snapshot() == ["::@ & mutable()"])
     }
 
     @Test("reset changes revset refreshes default graph")
@@ -110,6 +147,7 @@ struct JjPanelStateTests {
         await state.resetChangesRevset()
 
         #expect(state.activeChangesRevset == "")
+        #expect(state.changesRevsetPreset == .default)
         #expect(recorder.snapshot() == ["ancestors(@)", nil])
     }
 }

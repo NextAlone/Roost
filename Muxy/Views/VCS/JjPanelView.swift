@@ -316,11 +316,13 @@ struct JjPanelView: View {
 
     private var changesRevsetControls: some View {
         HStack(spacing: 5) {
+            changesRevsetPresetMenu
+
             TextField("Revset", text: $changesRevsetDraft)
                 .font(.system(size: 10, design: .monospaced))
                 .textFieldStyle(.plain)
                 .padding(.horizontal, 6)
-                .frame(width: 150, height: 20)
+                .frame(width: 126, height: 20)
                 .background(MuxyTheme.surface, in: RoundedRectangle(cornerRadius: 4))
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
@@ -330,7 +332,7 @@ struct JjPanelView: View {
                 .onSubmit(applyChangesRevset)
 
             Button(action: applyChangesRevset) {
-                Image(systemName: "line.3.horizontal.decrease.circle")
+                Image(systemName: "checkmark.circle")
                     .font(.system(size: 10))
             }
             .buttonStyle(.borderless)
@@ -347,6 +349,50 @@ struct JjPanelView: View {
             .help("Reset revset")
             .accessibilityLabel("Reset revset")
         }
+    }
+
+    private var changesRevsetPresetMenu: some View {
+        Menu {
+            ForEach(JjChangesRevsetPreset.menuPresets) { preset in
+                Button {
+                    applyChangesRevsetPreset(preset)
+                } label: {
+                    if state.changesRevsetPreset == preset {
+                        Label(preset.title, systemImage: "checkmark")
+                    } else {
+                        Text(preset.title)
+                    }
+                }
+            }
+
+            if state.changesRevsetPreset == .custom {
+                Divider()
+                Text(JjChangesRevsetPreset.custom.title)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .font(.system(size: 10))
+                Text(state.changesRevsetPreset.shortTitle)
+                    .font(.system(size: 10))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
+            }
+            .foregroundStyle(MuxyTheme.fgMuted)
+            .padding(.horizontal, 6)
+            .frame(width: 78, height: 20)
+            .background(MuxyTheme.surface, in: RoundedRectangle(cornerRadius: 4))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(MuxyTheme.border, lineWidth: 1)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .disabled(state.isLoading)
+        .help("Changes filter")
+        .accessibilityLabel("Changes filter")
     }
 
     private var changesRevsetDraftTrimmed: String {
@@ -888,6 +934,13 @@ struct JjPanelView: View {
     private func applyChangesRevset() {
         Task {
             await state.applyChangesRevset(changesRevsetDraft)
+            changesRevsetDraft = state.activeChangesRevset
+        }
+    }
+
+    private func applyChangesRevsetPreset(_ preset: JjChangesRevsetPreset) {
+        Task {
+            await state.applyChangesRevsetPreset(preset)
             changesRevsetDraft = state.activeChangesRevset
         }
     }

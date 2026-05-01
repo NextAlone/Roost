@@ -1,10 +1,10 @@
-# Contributing to Muxy
+# Contributing to Roost
 
-Thank you for your interest in contributing to Muxy! This guide will help you get started.
+Thank you for your interest in contributing to Roost. This guide covers the current Roost fork, which intentionally keeps several source directories named `Muxy/`, `MuxyShared/`, and `MuxyServer/` to reduce upstream merge conflicts.
 
 ## Humans Only Policy
 
-Muxy is a community project and we want communication to stay between humans. **AI-generated text is not allowed** in:
+Roost is a community project and we want communication to stay between humans. **AI-generated text is not allowed** in:
 
 - Issue descriptions and comments
 - Pull request titles, descriptions, summaries, and comments
@@ -22,81 +22,60 @@ You are welcome to use AI to help you write code, but the text you post on GitHu
 
 ### Setup
 
-```bash
-git clone https://github.com/muxy-app/muxy.git
-cd muxy
-scripts/setup.sh          # downloads GhosttyKit.xcframework
-swift build               # verify everything compiles
-```
-
-### Running
+Clone the Roost repository URL used by the project maintainers, then run:
 
 ```bash
-swift run Muxy
+scripts/setup.sh
+swift build
+swift run Roost
 ```
 
 ## Development Workflow
 
-1. Fork the repository and create a branch from `main`
-2. Make your changes
-3. Run checks before committing:
+Roost development uses jj locally. GitHub may still be used as the hosting and review layer, but local history work should follow the repository's jj workflow.
+
+1. Start from the current main change.
+2. Make a focused change.
+3. Run checks before describing or submitting the change:
 
 ```bash
-scripts/checks.sh --fix   # auto-fix formatting and linting, then build
+scripts/checks.sh --fix
 ```
 
-4. Push your branch and open a pull request
+4. Describe or submit the change using the repository's current jj/GitHub workflow.
 
 ## Code Standards
 
-- **No comments in the codebase** — all code must be self-explanatory and cleanly structured
-- **Early returns** over nested conditionals
-- **Fix root causes**, not symptoms
-- **Follow existing patterns** but suggest refactors if they improve quality
-- **Security first** — no command injection, XSS, or other vulnerabilities
+- **No comments in the codebase** — all code must be self-explanatory and cleanly structured.
+- **Early returns** over nested conditionals.
+- **Fix root causes**, not symptoms.
+- **Follow existing patterns** but suggest refactors if they improve quality.
+- **Security first** — no command injection, XSS, secret leakage, or hidden privilege escalation.
 
 ## Checks
 
-All PRs must pass the full check suite. Run it with a single command:
+All changes must pass the full check suite. Run it with a single command:
 
 ```bash
-scripts/checks.sh          # formatting → linting → build → test
-scripts/checks.sh --fix    # auto-fix formatting and linting, then build and test
+scripts/checks.sh
+scripts/checks.sh --fix
 ```
 
-The script runs the following steps in order, stopping on the first failure:
-
-1. **Formatting** — `swiftformat --lint .` (or `swiftformat .` with `--fix`)
-2. **Linting** — `swiftlint lint --strict --quiet` (or `--fix` first with `--fix`)
-3. **Build** — `swift build`
-4. **Test** — `swift test`
-
-Tool versions are pinned in `.tool-versions` and the script validates them on startup. If your local versions don't match, it will tell you exactly what's expected.
+The script runs formatting, linting, build, and tests, stopping on the first failure. Tool versions are pinned in `.tool-versions` and the script validates them on startup.
 
 ## Pull Request Guidelines
 
-- Keep PRs focused on a single change
-- Write a clear title and description explaining the "why"
-- Ensure all checks pass before requesting review
-- Link any related issues
-
-### Commit & PR Titles
-
-For changes that affect the iOS app (`MuxyMobile/`), prefix the PR title (which becomes the squash commit subject) with `ios:`. Example:
-
-```
-ios: fix ctrl button dropdown
-ios: add git diff viewer tab
-```
-
-The iOS release workflow builds its changelog from commit subjects matching `ios: …` between iOS tags, so any iOS-facing change without this prefix will be missing from the release notes.
+- Keep changes focused.
+- Write a clear human-authored title and description explaining why the change exists.
+- Ensure all checks pass before requesting review.
+- Link related issues when applicable.
 
 ## Reporting Issues
 
-- Use the [Bug Report](.github/ISSUE_TEMPLATE/bug_report.yml) template for bugs
-- Use the [Feature Request](.github/ISSUE_TEMPLATE/feature_request.yml) template for ideas
-- Search existing issues before creating a new one
+- Use the [Bug Report](.github/ISSUE_TEMPLATE/bug_report.yml) template for bugs.
+- Use the [Feature Request](.github/ISSUE_TEMPLATE/feature_request.yml) template for ideas.
+- Search existing issues before creating a new one.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing, you agree that your contributions will be licensed under the project's current license terms.

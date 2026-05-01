@@ -1,8 +1,8 @@
 # Architecture
 
-Muxy is a macOS terminal multiplexer built with SwiftUI that uses libghostty for terminal emulation.
-It is structured as a monorepo with a companion iOS app (MuxyMobile) that connects to the
-desktop app over the local network.
+Roost is a macOS terminal orchestrator built on the upstream Muxy SwiftUI + libghostty foundation. It keeps the upstream source directory names (`Muxy/`, `MuxyShared/`, `MuxyServer/`) to reduce merge conflicts, while adding jj-first workspace semantics, coding-agent sessions, and Roost configuration.
+
+The repository also retains the inherited MuxyMobile source for local remote-server clients.
 
 ## Monorepo Structure
 
@@ -233,14 +233,15 @@ Muxy/
 Project → Worktree → SplitNode (splits/tab areas) → TerminalTab → Pane
 ```
 
-Each project has at least one **primary** worktree pointing at `Project.path`. Git
-projects may add more worktrees via `git worktree add`, each with their own split
-tree, tabs, focus state, and working directory. Secondary worktrees can be either
-Muxy-managed checkouts created from the sidebar or externally created Git worktrees
-that are imported into the sidebar with a manual refresh. Workspace state is keyed by
-`WorktreeKey(projectID, worktreeID)` in `AppState` so every per-project map is
-actually per-worktree. `AppState.activeWorktreeID[projectID]` tracks which
-worktree is currently visible for each project.
+Each project has at least one **primary** workspace slot pointing at `Project.path`.
+The data model still uses the inherited `Worktree` name for compatibility. Git
+projects map secondary slots to Git worktrees; jj projects map them to jj
+workspaces. `Worktree.vcsKind` selects the behavior, and `jjWorkspaceName`
+preserves the jj workspace identifier when needed.
+
+Workspace state is keyed by `WorktreeKey(projectID, worktreeID)` in `AppState` so
+every per-project map is actually per-workspace. `AppState.activeWorktreeID[projectID]`
+tracks which workspace is currently visible for each project.
 
 ## Data Flow
 
@@ -278,7 +279,7 @@ User action → AppState.dispatch() → WorkspaceReducer.reduce()
   line; search highlights (temporary attributes) layer on top without losing syntax colors.
 - **GhosttyKit**: C module wrapping `ghostty.h`. Precompiled xcframework from `muxy-app/ghostty` fork. Surfaces created/destroyed via `TerminalViewRegistry`.
 - **Terminal Working Directory Preservation**: When a user navigates within a terminal (e.g., `cd src/`), libghostty emits `GHOSTTY_ACTION_PWD` events. `GhosttyRuntimeEventAdapter` receives these events and routes them via the `onWorkingDirectoryChange` callback to `TerminalPane`, which updates `TerminalPaneState.currentWorkingDirectory`. This directory is persisted to disk through `TerminalTabSnapshot` in `workspaces.json`. On restore, `TerminalTab` initializes each terminal pane with its saved working directory (or the project root if none was saved), allowing terminals to reopen at their last-used directory instead of always starting at the project root.
-- **Persistence**: All files in `~/Library/Application Support/Muxy/`. Shared directory helper: `MuxyFileStorage`. Shortcuts are stored in `keybindings.json`; custom command shortcuts are stored in `command-shortcuts.json`. Worktrees are persisted per-project at `worktrees/{projectID}.json`, including whether a secondary worktree is Muxy-managed or externally discovered. Git projects can manually refresh this list from `git worktree list --porcelain` to import existing worktrees without deleting absent entries; paths are matched after symlink resolution so a repo opened via a symlinked path still collapses onto a single primary entry. Externally discovered worktrees are never touched by Muxy's `cleanupOnDisk` paths (project removal, post-merge cleanup, manual removal) — they can only be unregistered by the user in the underlying repo. App-wide Roost config lives at `~/Library/Application Support/Roost/config.json`; `RoostAppConfigStore` writes it with `0600` permissions and creates the `Roost/` directory as `0700`. Project config lives in-repo at `{Project.path}/.roost/config.json`; legacy setup commands still fall back to `{Project.path}/.muxy/worktree.json`. Roost writes project config through `RoostConfigStore`, creating `.roost/` as `0700` and the config file as `0600`. New Muxy-managed workspaces use `defaultWorkspaceLocation` from app-wide Roost config when present; `~` expands to the user home directory, absolute paths are used directly, and relative paths resolve from the user home directory. Roost env values may reference macOS Keychain items by service and optional account; setup, teardown, and agent tab launches resolve those references at runtime and do not write secret values back to config. Teardown commands run before managed worktree removal and do not block cleanup when a command fails.
+- **Persistence**: Inherited app state still uses `MuxyFileStorage` under `~/Library/Application Support/Muxy/` for projects, workspace slots, shortcuts, custom command shortcuts, Ghostty config, notifications, and the notification socket. App-wide Roost config lives at `~/Library/Application Support/Roost/config.json`; `RoostAppConfigStore` writes it with `0600` permissions and creates the `Roost/` directory as `0700`. Project config lives in-repo at `{Project.path}/.roost/config.json`; legacy setup commands still fall back to `{Project.path}/.muxy/worktree.json`. Roost writes project config through `RoostConfigStore`, creating `.roost/` as `0700` and the config file as `0600`. New managed workspaces use `defaultWorkspaceLocation` from app-wide Roost config when present; `~` expands to the user home directory, absolute paths are used directly, and relative paths resolve from the user home directory. Roost env values may reference macOS Keychain items by service and optional account; setup, teardown, and agent tab launches resolve those references at runtime and do not write secret values back to config. Teardown commands run before managed workspace removal and do not block cleanup when a command fails. Host/session history lives under `~/Library/Application Support/Roost/hostd/`.
 - **Ghostty Config**: Managed by `MuxyConfig`, stored at `~/Library/Application Support/Muxy/ghostty.conf`. Seeded from `~/.config/ghostty/config` on first run.
 - **App Icons**: User-facing icon variants live as Apple Icon Composer packages under
   `Muxy/Resources/AppIcons/{Graphite,Blueprint,Light,Copper}.icon`. The release bundle
@@ -295,7 +296,7 @@ User action → AppState.dispatch() → WorkspaceReducer.reduce()
 - **Updates**: Sparkle framework via `UpdateService`.
 - **Window Title**: `NSWindow.title` is hidden visually (`titleVisibility = .hidden`) but set
   reactively by `WindowTitleUpdater` in `MainWindow` to `{project name} — {active tab title}`
-  (or just the project name if no tab title is known). This makes Muxy sessions identifiable
+  (or just the project name if no tab title is known). This makes Roost sessions identifiable
   to accessibility readers and activity trackers (e.g., ActivityWatch) that read `AXTitle`.
   Tab titles come from the active tab's `TerminalTab.title`, which follows OSC 0/2 updates
   via `GhosttyRuntimeEventAdapter` → `TerminalPaneState.setTitle`. Users can override the
@@ -359,7 +360,7 @@ operation surface through `ToastState.shared` and are also logged.
 
 Cut / copy / paste is backed by `FileClipboard`, which writes file URLs to
 `NSPasteboard.general` and tags cuts with a private pasteboard type
-(`app.muxy.fileCut`). This lets Muxy round-trip cut state while remaining
+(`app.muxy.fileCut`). This lets Roost round-trip cut state while remaining
 interoperable with Finder (which only sees the file URLs). Paste into a
 file selects that file's parent directory as the destination.
 
@@ -376,36 +377,37 @@ under a moved directory — keeping editors pointed at the same content.
 that opens a new terminal tab rooted at the selected directory rather
 than the project root.
 
-## VCS Tab Layout
+## Source Control
 
-The VCS tab is organized top-to-bottom as:
+`VCSTabState` resolves `VcsKind` for the active project. Git projects use the legacy Git panel. jj projects lazy-create `JjPanelState` and render `JjPanelView`.
+
+### Git Panel
+
+The legacy Git panel is organized top-to-bottom as:
 
 1. **Header** — worktree trigger, branch picker, `PRPill`, settings, refresh.
-2. **Commit area** — commit message field + three first-class buttons: `Commit`, `Pull` (with `↓N` badge when behind), `Push` (with `↑N` badge when ahead). Commit hotkey is `⌘↵`.
+2. **Commit area** — commit message field plus `Commit`, `Pull`, and `Push`.
 3. **Sections** — Staged / Changes / History / Pull Requests resizable split.
 
-Pull request management lives entirely in the header via `PRPill`, not in the commit area. `PRPill` renders one of the states from `VCSTabState.PRLaunchState`:
+Pull request management lives in the header via `PRPill`. `CreatePRSheet` drives the flow through `VCSTabState.openPullRequest`: optional branch create and switch, optional stage, commit with title if anything is staged, `git push -u origin <branch>`, then `gh pr create`. No rollback is attempted on partial failure; errors surface so the user can retry manually from the point where the flow stopped.
 
-- `hidden` — nothing to PR (clean tree on default branch, or loading). Pill is not rendered.
-- `ghMissing` — disabled pill prompting to install `gh`.
-- `canCreate` — "Create PR" button that opens `CreatePRSheet`.
-- `hasPR(info)` — pill opens `PRPopover` showing state, base branch, mergeability, and actions (Open on GitHub, Merge, Close, Refresh).
+The Pull Requests section is independent from the rest of VCS data and never auto-fetches with the file/branch refresh. It exposes search, state filtering, manual sync, and an auto-sync interval persisted per repo. `VCSTabState.loadPullRequests` calls `GitRepositoryService.listPullRequests`, which shells out to `gh pr list --json ...`.
 
-`canCreate` is gated by `VCSTabState.canCreatePR`: shown when `gh` is installed, no PR exists for this branch, and either the working tree has changes OR the current branch differs from the default branch.
+### jj Changes Panel
 
-`CreatePRSheet` drives the end-to-end flow via a `PRCreateRequest` passed to `VCSTabState.openPullRequest`:
+For jj projects, `VCSTabView` renders `JjPanelView` instead of the Git panel. `JjPanelState` is main-actor observable state backed by `JjPanelLoader`.
 
-1. **Target branch** — picked from `GitRepositoryService.listRemoteBranches` (remote-only), pre-selecting the repo's default branch.
-2. **Title + description** — entered by the user; both fields start blank.
-3. **Branch strategy** — radio between "use current branch" (hidden when on the default branch or when current == target) and "create new branch" (starts blank, then auto-slugs from the title until the user edits the name manually).
-4. **Include** — radio between "all changes" (default) and "only staged"; hidden when there are no changes or only one kind.
-5. **Draft** — checkbox that adds `--draft` to `gh pr create`.
+`JjPanelLoader` composes:
 
-On submit, `performPRFlow` runs: optional branch create+switch → optional stage (all if include=all, staged-only otherwise) → commit with title if anything is staged → `git push -u origin <branch>` → `gh pr create`. No rollback on partial failure — errors surface to the sheet with a clear message so the user can retry manually from wherever the flow stopped. Ahead/behind counts are populated by `GitRepositoryService.aheadBehind` during refresh and drive the push/pull badges in the commit area.
+- `jj show @` for the current change card.
+- `jj status` with snapshot suppression for working-copy summary.
+- `jj diff --summary -r @-` for changed files.
+- `JjBookmarkService.list` for local and remote bookmark labels.
+- `JjConflictsService.list` when status reports conflicts.
 
-### Pull Requests Section
+`JjPanelView` renders Files, Changes, Bookmarks, and Conflicts sections. Mutating actions serialize through `JjProcessQueue.shared` via `JjMutationService` and refresh the panel after success. Current actions include describe, new, commit, squash, abandon, duplicate, backout, bookmark create, bookmark move, and bookmark delete.
 
-The Pull Requests section is independent from the rest of VCS data and never auto-fetches with the file/branch refresh. It exposes search, a state filter (Open / Closed / Merged / All), a manual sync button, and an auto-sync interval menu (Off / 5m / 15m / 30m / 1h) persisted per-repo in `UserDefaults` under `vcs.prAutoSyncMinutes.<repoPath>`. `VCSTabState.loadPullRequests` calls `GitRepositoryService.listPullRequests` which shells out to `gh pr list --json …`. Selecting a PR row triggers `gh pr checkout <number>` via `checkoutPullRequest`; if the working tree is dirty, `VCSTabView` first presents an NSAlert confirmation. After checkout, the tab refreshes branches, files, and PR info.
+The jj panel intentionally does not expose every legacy Git operation. Remaining future work includes push/pull bookmarks, rename bookmark, conflict resolution UI, DAG view, and op log / undo.
 
 ## Navigation History
 
@@ -437,22 +439,22 @@ buttons (buttons 3/4), and horizontal swipe gestures (Magic Mouse
 1-finger, 3-finger trackpad) all trigger the same actions. The main
 window's shortcut interceptor installs a local `addLocalMonitorForEvents`
 handler for `[.otherMouseDown, .swipe]`, gated on the monitored window
-being key and identified as a Muxy main window.
+being key and identified as a Roost main window.
 
 ## CLI / URL Scheme Entry Points
 
-External callers can open a project in Muxy through three coordinated paths,
+External callers can open a project in Roost through three coordinated paths,
 all funneled into a single `AppDelegate.handleOpenProjectPath(_:)` choke point
 so persistence, dedupe, and activation behave consistently.
 
-- **`muxy` shell wrapper** (`Muxy/Resources/scripts/muxy-cli`, installed to
-  `/usr/local/bin/muxy` via `CLIAccessor.installCLI`) — resolves the argument to
+- **`roost` shell wrapper** (`Muxy/Resources/scripts/roost-cli`, installed to
+  `/usr/local/bin/roost` via `CLIAccessor.installCLI`) — resolves the argument to
   an absolute directory and tries, in order via `||` chaining: open the
-  `muxy://open?path=<percent-encoded>` URL, fall back to `open -b com.muxy.app`
+  `roost://open?path=<percent-encoded>` URL, fall back to `open -b app.roost.mac`
   Apple Events, and finally pipe `open-project|<path>` to the Unix socket. A
   small `python3`/`python` percent-encoder shells out without taking a
   dependency on `jq`.
-- **`muxy://` URL scheme** — handled by `AppDelegate.application(_:open:)`.
+- **`roost://` URL scheme** — handled by `AppDelegate.application(_:open:)`.
   `AppDelegate.resolveProjectPath(from:)` parses with `URLComponents`,
   prefers a `path` query item, falls back to `host + path`, percent-decodes,
   and standardizes via `URL(fileURLWithPath:).standardizedFileURL.path`. File
@@ -528,7 +530,7 @@ the navigation context in `userInfo` and bring the app to front on click.
 
 ## AI Usage Tracking
 
-Muxy displays live usage quota for the user's AI coding tools in a sidebar
+Roost displays live usage quota for the user's AI coding tools in a sidebar
 popover. Unlike the notification hooks, usage tracking is read-only: it reads
 credentials the user has already configured for each tool and queries the
 vendor's usage endpoint directly. Nothing is written to the tools' settings.
@@ -632,7 +634,7 @@ network (LAN, Tailscale, etc.).
 ### Architecture
 
 ```
-MuxyMobile (iOS)  ◄── WebSocket (JSON) ──►  MuxyRemoteServer (inside Muxy.app)
+MuxyMobile (iOS)  ◄── WebSocket (JSON) ──►  MuxyRemoteServer (inside Roost.app)
                                                     │
                                                     ▼
                                              MuxyRemoteServerDelegate

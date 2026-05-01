@@ -1,12 +1,10 @@
 #!/bin/bash
-# Muxy CLI wrapper - Usage: muxy /path/to/project
-# Opens a folder in Muxy app
 
 TARGET_DIR="$1"
 
 if [ -z "$TARGET_DIR" ]; then
-    echo "Usage: muxy <path>"
-    echo "       muxy ."
+    echo "Usage: roost <path>"
+    echo "       roost ."
     exit 1
 fi
 
@@ -34,8 +32,8 @@ percent_encode() {
 
 ENCODED_PATH="$(percent_encode "$TARGET_DIR")"
 
-open "muxy://open?path=${ENCODED_PATH}" 2>/dev/null \
-    || open -b com.muxy.app "$TARGET_DIR" 2>/dev/null \
+open "roost://open?path=${ENCODED_PATH}" 2>/dev/null \
+    || open -b app.roost.mac "$TARGET_DIR" 2>/dev/null \
     || {
         SOCKET="$HOME/Library/Application Support/Muxy/muxy.sock"
         if [ -e "$SOCKET" ]; then

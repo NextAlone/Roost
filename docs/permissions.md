@@ -45,7 +45,9 @@ Roost does not hide this as a background permission. If a command or agent acces
 }
 ```
 
-Roost reads these values at launch time and passes them only to the configured setup command or agent process. Roost does not write resolved secret values back to config, logs, notifications, or session records.
+Roost resolves these values when launching configured setup commands, teardown commands, or agent processes. Roost does not write resolved secret values back to config, notifications, or session records.
+
+Commands run inside terminal panes with your user privileges. If a shell command or agent echoes environment variables, those values can appear in terminal output or scrollback.
 
 ## Network
 

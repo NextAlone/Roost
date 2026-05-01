@@ -2,47 +2,64 @@
 
 _Effective date: the date this document was first published at its public URL._
 
-Muxy ("the app") is a developer tool that lets your iPhone or iPad connect to a Mac running the Muxy desktop application over your local network or a private VPN. This policy describes what data the app handles and what it does not.
+Roost is a macOS developer tool that hosts terminals, jj workspaces, coding-agent CLIs, optional local remote-server features, and local notification hooks. This policy describes what Roost itself stores and what it does not collect.
 
 ## Summary
 
-- No account, no sign-up, no email required.
-- No analytics, advertising, or third-party tracking SDKs.
-- The app communicates only with the Mac you choose to pair it with.
-- All data stays on your devices.
+- No Roost account, sign-up, or email is required.
+- Roost does not include telemetry, advertising, or third-party tracking SDKs in the current release.
+- Project files, workspace metadata, settings, notifications, and session records are stored locally.
+- Commands, shells, agents, and `jj git` operations you run inside Roost may contact external services under their own configuration.
 
-## What the app stores on your device
+## Local Data
 
-The app stores the following locally on your iOS device. None of it is transmitted to Muxy or any third party.
+Roost may store the following on your Mac:
 
-- **Pairing credentials.** A random device ID and token are generated on first launch and stored in the iOS Keychain (device-locked, this device only). They are used to authenticate the app to a Mac you have paired with.
-- **Saved devices.** The names, hostnames, and ports of Macs you have added are stored in the app's local preferences (UserDefaults). Credentials are not stored here.
-- **Preferences.** Terminal font size and Nerd Font toggle.
-- **Diagnostic log (in memory only).** While the app is running, it keeps a short rolling log of connection events (timestamps, the hostname and port you are connecting to, and request identifiers) to help you troubleshoot connection problems. This log is held in memory, is cleared when the app exits, and is never sent anywhere. If a connection error occurs, the app shows the log inside an error sheet so you can copy or share it yourself if you choose to.
+- **Projects and workspace state.** Opened project paths, workspace/worktree metadata, tabs, splits, editor state, and related app state. Some inherited app-state files still live under `~/Library/Application Support/Muxy/`.
+- **Roost configuration.** App-wide config at `~/Library/Application Support/Roost/config.json` and project config at `<project>/.roost/config.json`.
+- **Session history.** Local host/session records under `~/Library/Application Support/Roost/hostd/`.
+- **Notifications.** In-app notification records, badges, sounds, and toast state. Notification content may include truncated command or agent output.
+- **Remote-server approvals.** If the local remote/mobile server is enabled, approved device records are stored locally.
 
-You can remove a saved device at any time from the device list. Uninstalling the app removes all locally stored data.
+## Keychain References
 
-## What the app sends over the network
+`.roost/config.json` can reference macOS Keychain items by service and optional account. Roost resolves those references when launching configured setup commands, teardown commands, or agent processes. Roost does not write resolved secret values back to config, notifications, or session records.
 
-When you connect to a Mac, the app opens a direct WebSocket connection to the address and port you entered. It sends only the messages required to authenticate, view terminal output, control panes, and perform the version-control actions you initiate (such as staging, committing, pushing, pulling, switching branches, managing worktrees, or opening pull requests).
+Commands launched in terminal panes run under your user account. If a command or shell echoes environment variables, those values can appear in terminal output or scrollback.
 
-The app does not contact any Muxy-operated server. It does not contact any third-party server. It does not perform background networking.
+## Network Activity
 
-## What the app does not collect
+Roost itself does not send analytics or telemetry in the current release.
 
-- No personal information.
-- No contacts, photos, location, microphone, or camera data.
-- No usage analytics or crash analytics.
-- No advertising identifiers.
-- No data sold or shared with third parties.
+Network activity can still happen through:
+
+- Commands you run in terminals
+- Coding-agent CLIs
+- `jj git fetch`, `jj git push`, or other VCS operations
+- Optional local remote/mobile server features when enabled
+- Future update infrastructure if configured in a later release
+
+The remote/mobile server is intended for trusted local networks or private tunnels such as Tailscale or a VPN. It is disabled by default.
+
+## What Roost Does Not Collect
+
+- No Roost account identity.
+- No usage analytics or advertising identifiers.
+- No contacts, photos, location, microphone, or camera data collected by Roost itself.
+- No telemetry or crash-reporting upload in the current release.
+- No sale of personal data.
 
 ## Permissions
 
-- **Local Network.** Required by iOS so the app can reach the Mac you pair with on your LAN or VPN.
+Roost is a terminal host. Commands and agents running inside Roost can trigger macOS privacy prompts under Roost's bundle. See [docs/permissions.md](docs/permissions.md) for the current trust and permission model.
+
+## Updates
+
+The current release uses manual updates. Sparkle is bundled in the codebase, but automatic update delivery is not the current self-signed/ad-hoc release contract.
 
 ## Children
 
-The app is a developer tool and is not directed to children under 13.
+Roost is a developer tool and is not directed to children under 13.
 
 ## Changes to this policy
 

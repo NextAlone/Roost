@@ -1,6 +1,6 @@
 # Remote Server API
 
-Muxy exposes a WebSocket API that lets external clients connect to the desktop app over the local network.
+Roost exposes a WebSocket API that lets external clients connect to the desktop app over the local network.
 
 This API is intended for mobile apps, dashboards, companion tools, and custom integrations.
 
@@ -14,7 +14,7 @@ This API is intended for mobile apps, dashboards, companion tools, and custom in
 - Date format: ISO 8601
 - Identifier format: UUID strings
 
-The server is disabled by default and must be enabled in Muxy's Mobile settings on macOS.
+The server is disabled by default and must be enabled in Roost's Mobile settings on macOS. The settings name is inherited from the Muxy remote-server module.
 
 ## Security Model
 
@@ -39,7 +39,7 @@ Connection flow:
 1. Connect to the WebSocket endpoint.
 2. Send `authenticateDevice`.
 3. If the server returns `401`, send `pairDevice`.
-4. The user approves the device in Muxy on macOS.
+4. The user approves the device in Roost on macOS.
 5. On success, the server returns a `clientID` for the active session.
 
 Until authentication succeeds, all other API methods return `401 Authentication required`.
@@ -293,23 +293,27 @@ Notes:
 
 `subscribe` and `unsubscribe` are accepted for compatibility, but clients should still be prepared to receive all broadcast event types.
 
-### Git and Worktrees
+### VCS and Workspaces
 
-| Method | Parameters | Result |
-| --- | --- | --- |
-| `getVCSStatus` | `projectID` | `vcsStatus` |
-| `vcsCommit` | `projectID`, `message`, `stageAll` | `ok` |
-| `vcsPush` | `projectID` | `ok` |
-| `vcsPull` | `projectID` | `ok` |
-| `vcsStageFiles` | `projectID`, `paths` | `ok` |
-| `vcsUnstageFiles` | `projectID`, `paths` | `ok` |
-| `vcsDiscardFiles` | `projectID`, `paths`, `untrackedPaths` | `ok` |
-| `vcsListBranches` | `projectID` | `vcsBranches` |
-| `vcsSwitchBranch` | `projectID`, `branch` | `ok` |
-| `vcsCreateBranch` | `projectID`, `name` | `ok` |
-| `vcsCreatePR` | `projectID`, `title`, `body`, `baseBranch`, `draft` | `vcsPRCreated` |
-| `vcsAddWorktree` | `projectID`, `name`, `branch`, `createBranch` | `worktrees` |
-| `vcsRemoveWorktree` | `projectID`, `worktreeID` | `ok` |
+Method names retain legacy `vcs*` and `Worktree` terminology for protocol compatibility. Behavior is selected from the project's `vcsKind` where supported.
+
+| Method | Parameters | Result | Support |
+| --- | --- | --- | --- |
+| `getVCSStatus` | `projectID` | `vcsStatus` | Git-only |
+| `vcsCommit` | `projectID`, `message`, `stageAll` | `ok` | Git-only |
+| `vcsPush` | `projectID` | `ok` | Git-only |
+| `vcsPull` | `projectID` | `ok` | Git-only |
+| `vcsStageFiles` | `projectID`, `paths` | `ok` | Git-only |
+| `vcsUnstageFiles` | `projectID`, `paths` | `ok` | Git-only |
+| `vcsDiscardFiles` | `projectID`, `paths`, `untrackedPaths` | `ok` | Git-only |
+| `vcsListBranches` | `projectID` | `vcsBranches` | Git-only |
+| `vcsSwitchBranch` | `projectID`, `branch` | `ok` | Git-only |
+| `vcsCreateBranch` | `projectID`, `name` | `ok` | Git-only |
+| `vcsCreatePR` | `projectID`, `title`, `body`, `baseBranch`, `draft` | `vcsPRCreated` | Git-only |
+| `vcsAddWorktree` | `projectID`, `name`, `branch`, `createBranch` | `worktrees` | Git and jj |
+| `vcsRemoveWorktree` | `projectID`, `worktreeID` | `ok` | Git and jj |
+
+For jj projects, `vcsAddWorktree` creates a jj workspace at Roost's resolved workspace location. `name` becomes the workspace name. The legacy `branch` field is only used when `createBranch` is true, where it becomes the bookmark name Roost creates after adding the workspace; it is not used as the workspace start revision.
 
 ## Events
 
@@ -320,8 +324,8 @@ The server can push these event names:
 | `workspaceChanged` | `workspace` | Full workspace layout update |
 | `tabChanged` | `tab` | Tab created, closed, selected, or retitled |
 | `terminalOutput` | `terminalOutput` | Raw PTY bytes for a pane the client owns. Pushed as the shell/TUI writes. |
-| `terminalSnapshot` | `terminalCells` | Full grid snapshot for a pane the client just took over. |
-| `notificationReceived` | `notification` | New notification emitted by Muxy |
+| `terminalSnapshot` | `terminalSnapshot` | Initial raw PTY byte snapshot for a pane the client just took over. Payload uses the same `paneID` and `bytes` value shape as `terminalOutput`. |
+| `notificationReceived` | `notification` | New notification emitted by Roost |
 | `projectsChanged` | `projects` | Updated project list |
 | `paneOwnershipChanged` | `paneOwnership` | Pane control changed between Mac and remote clients |
 | `themeChanged` | `deviceTheme` | Updated terminal foreground/background colors |
@@ -355,7 +359,7 @@ emulator is expected to buffer partial sequences across chunks.
 ```json
 {
   "id": "uuid",
-  "name": "muxy",
+  "name": "roost",
   "path": "/Users/example/project",
   "sortOrder": 0,
   "createdAt": "2026-04-19T10:00:00Z",
@@ -375,9 +379,12 @@ emulator is expected to buffer partial sequences across chunks.
   "branch": "main",
   "isPrimary": true,
   "canBeRemoved": false,
-  "createdAt": "2026-04-19T10:00:00Z"
+  "createdAt": "2026-04-19T10:00:00Z",
+  "vcsKind": "jj"
 }
 ```
+
+`vcsKind` is `git` or `jj`. Older clients may omit the field when decoding historical payloads; Roost treats missing values as `git`.
 
 ### Workspace
 

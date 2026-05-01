@@ -34,7 +34,7 @@ SOFTWARE.
 
 ## Sparkle
 
-Roost uses [Sparkle](https://github.com/sparkle-project/Sparkle) for in-app updates.
+Roost bundles [Sparkle](https://github.com/sparkle-project/Sparkle). Automatic update delivery is not part of the current self-signed/ad-hoc release contract.
 
 License: MIT
 

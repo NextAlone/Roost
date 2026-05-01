@@ -50,11 +50,11 @@ Recommended flow:
 jj git fetch --remote muxy-upstream
 jj bookmark set vendor/muxy-main -r main@muxy-upstream
 jj new main
-jj rebase -r @ -d vendor/muxy-main
+jj rebase -b @ -d vendor/muxy-main
 swift build
 ```
 
-Use the exact revset appropriate to the active integration change; do not run destructive resets.
+Use `-b @` for the current integration stack. Do not use the single-revision `-r <rev>` rebase form for upstream integration changes because it can move only one revision and leave descendants behind. Use the exact revset appropriate to the active integration change; do not run destructive resets.
 
 ## Phase 0: Baseline Stabilization
 
@@ -154,10 +154,7 @@ Foundation status (as of 2026-04-27):
 
 - Service-layer foundation landed via plan `docs/superpowers/plans/2026-04-27-jj-service-layer-foundation.md`. 11 commits add `JjProcessRunner` (env + args + subprocess), `JjProcessQueue` actor, `JjVersion`, parsers (`JjStatusParser`, `JjOpLogParser`, `JjConflictParser`, `JjWorkspaceParser`), and service shells (`JjRepositoryService`, `JjWorkspaceService`) plus a gated live-jj integration smoke. New Jj suite: 29 tests across 10 suites, all green.
 - Phase 1 services landed (2026-04-27): `JjBookmarkParser`/`Service`, `JjDiffParser`/`Service` (`--stat` + `--summary`), `JjRepositoryService.show`, `JjShowParser`. Refactor pass: `JjProcessQueue.run` is throwing-generic, `JjRunFn` lives in `JjProcessRunner.swift`, all service-layer types narrowed to internal. Plan: `docs/superpowers/plans/2026-04-27-jj-cleanup-and-bookmark-diff-services.md`. Jj suite: 57 tests across 16 suites, all green.
-- Outstanding before Phase 2 worktree adapter: data-migration plan for `projects.json`, Worktree field-mapping decisions (see Phase 2 spec).
-- Outstanding cleanup tracked separately (not blocking Phase 2):
-  - `JjProcessRunner.resolveExecutable` only searches `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`, `/bin`. Nix-profile users (`/etc/profiles/...`) need an env-driven extension.
-  - 5 `MuxyURLOpenTests` cases (`muxy://...` URL parsing) fail at runtime because `AppDelegate.resolveProjectPath` was rebranded to expect `roost://` but tests still use `muxy://`. Pre-existing legacy fallout from the upstream Muxy → Roost rename; orthogonal to jj work.
+Historical note: before Phase 2, data migration, Worktree field mapping, jj executable discovery, and legacy Muxy URL scheme to Roost URL scheme test fallout were still open. The Phase 2 cleanup batch below resolved these items, including Nix-profile jj discovery and `MuxyURLOpenTests` coverage.
 
 ## Phase 2: Worktree to jj Workspace Adapter
 
@@ -253,18 +250,18 @@ Phase 2.2d status (2026-04-28):
 - `WorktreeDTO` carries `vcsKind: VcsKind` with tolerant `decodeIfPresent` defaulting to `.git`; mobile clients on older builds still decode against newer payloads.
 - `Worktree.toDTO` passes through. 3 round-trip tests added (toDTO / legacy decode / full encode-decode).
 - `ExpandedProjectRow` worktree row shows a "JJ" capsule badge next to the name when `worktree.vcsKind == .jj` (mirrors the existing PRIMARY badge style).
-- Outstanding: UI label refinement ("branch" → "bookmark" for jj), broader VCSTabState read-side abstraction.
+- Historical handoff at the time: UI label refinement ("branch" → "bookmark" for jj) and broader VCSTabState read-side abstraction moved to the later sidebar and jj Changes Panel phases.
 
 Phase 2.2e status (2026-04-28):
 
 - `VCSTabState` resolves and stores `vcsKind` at init via `VcsKindDetector.detect(at: projectPath)`. Plan: `docs/superpowers/plans/2026-04-28-phase2-2e-vcstabstate-vcskind-guard.md`.
 - `performRefresh`, `loadBranches`, `loadCommits` early-return when `vcsKind != .git`. UI shows empty state for jj projects rather than spamming git errors.
 - Mutating ops (commit/push/pull/etc.) intentionally not gated — their UI is reachable only after a successful read populates buttons; jj path leaves them dormant. Phase 5 jj Changes Panel will replace VCSTabState's read-side rather than extend it, so deeper abstraction here would be wasted effort.
-- Phase 2 VCS adapter work effectively complete. Outstanding (Phase 5 territory): jj-native branches/commits/status/PR equivalents, conflict viewer, op log undo, dag view, "branch" → "bookmark" labels.
+- Phase 2 VCS adapter work effectively complete. At this point, jj-native branches/commits/status equivalents, conflict viewer, op log undo, DAG view, and "branch" → "bookmark" labels moved to later phases or active backlog.
 
 Phase 2 cleanup batch (2026-04-28):
 
-- Pre-existing test fallout fixed: `MuxyURLOpenTests` 5 failures (`muxy://` → `roost://` URL strings); whole suite now 603/603 green.
+- Pre-existing test fallout fixed: `MuxyURLOpenTests` 5 failures (legacy Muxy URL strings → Roost URL strings); whole suite now 603/603 green.
 - `JjIntegrationTests` gates on git binary in addition to jj (was implicit dep).
 - `JjProcessRunner.resolveExecutable` extends to Nix profiles, `ROOST_JJ_PATH` env override, and `runRaw` supports cwd — `jj git init` integration smoke now actually executes on Nix-installed jj.
 - `JjStatus.description` renamed to `workingCopySummary` for semantic clarity.
@@ -390,7 +387,7 @@ Exit criteria:
 - Wholesale rename — no per-VcsKind branching. Roost is jj-first; "Workspace" is acceptable umbrella terminology for git projects.
 - Internal type names (`Worktree`, `WorktreeStore`, `WorktreeKey`, `WorktreeDTO`, `WorktreeConfig`) and persistence (UserDefaults keys, `.muxy/worktree.json` config path) **kept** for backwards compatibility. Renaming model identifiers and migrating persistence is out of scope.
 - ShortcutAction enum case `.switchWorktree` kept (stable keybinding identifier); only its `displayName` changed.
-- Phase 4b (op_heads watcher + dirty/conflict badges), 4c (session list under workspace), 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
+- Historical handoff at the time: Phase 4b (status watcher + dirty/conflict badges), 4c (session list under workspace), and 4d (`requiresDedicatedWorkspace` enforcement) were next.
 
 **Status (2026-04-28): Phase 4b (status watcher + badges) landed.**
 
@@ -401,7 +398,7 @@ Exit criteria:
 - `WorkspaceStatusWatcher` is a new FSEventStream wrapper that does NOT filter `.jj/` events (purpose-built for status reactivity, separate from `VcsDirectoryWatcher` used by the diff panel).
 - `WorkspaceStatusStore` (@Observable @MainActor) owns per-worktree watchers and `[UUID: WorkspaceStatus]`. Sidebar rows query via environment; `MainWindow.onChange(of: worktreeStore.worktrees, initial: true)` reconciles.
 - Sidebar shows colored dot badges next to workspace names (no badge for `.clean`/`.unknown`; orange for dirty, red for conflicted).
-- Phase 4c (session list under workspace) and Phase 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
+- Historical handoff at the time: Phase 4c (session list under workspace) and Phase 4d (`requiresDedicatedWorkspace` enforcement) were next.
 
 **Status (2026-04-28): Phase 4c (session list) landed.**
 
@@ -410,7 +407,7 @@ Exit criteria:
 - Clicking a session row activates that workspace and selects that tab via `appState.dispatch(.selectTab(...))`.
 - `AppState.allTabs(forKey:)` flattens a workspace's tabs across split panes.
 - Session lifecycle state (running / idle / exited / errored) **deferred** to a Phase 4c.5 follow-up (requires GhosttyTerminalNSView lifecycle hooks). Not blocking Phase 4d.
-- Phase 4d (`requiresDedicatedWorkspace` enforcement) → upcoming.
+- Historical handoff at the time: Phase 4d (`requiresDedicatedWorkspace` enforcement) was next.
 
 **Status (2026-04-28): Phase 4c.5 (session lifecycle badge) landed.**
 
@@ -426,7 +423,7 @@ Exit criteria:
 - When `AgentPreset.requiresDedicatedWorkspace == true`, `performAgentTab` posts `.requestCreateWorkspaceForAgent` (carrying `kind.rawValue` in userInfo) instead of creating the tab in the active workspace.
 - Sidebar rows (`ExpandedProjectRow`, `ProjectRow`) observe the notification, store `pendingAgentKind`, and present `CreateWorktreeSheet`. On successful workspace creation, the new workspace is activated and an agent tab of the pending kind is opened inside it.
 - All built-in presets remain `requiresDedicatedWorkspace = false` — Phase 4d adds the routing scaffold without changing default UX. User-configurable presets land in Phase 7.
-- **Phase 4 complete.** Phase 4c.5 (session lifecycle state badges) remains as an optional follow-up requiring GhosttyTerminalNSView lifecycle hooks.
+- **Phase 4 implementation complete for the planned scope.** Richer lifecycle states beyond running/exited remain active backlog until Ghostty exposes reliable signals.
 
 ## Phase 5: jj Changes Panel
 
@@ -451,7 +448,7 @@ Later features:
 - `JjPanelSnapshot` (value type), `JjPanelLoader` (composes `jj show @` + `jj status` + `jj diff --summary -r @-`), `JjPanelState` (@Observable @MainActor) live in `Muxy/Models` / `Muxy/Services/Jj`.
 - `VCSTabState` lazy-owns `jjState: JjPanelState?` and dispatches `refresh()` by `vcsKind`.
 - `JjPanelView` renders the change card (id + description), file list, conflict banner, and refresh button. Replaces the old `jjPlaceholder` (kept as fallback).
-- Bookmarks (5b), conflicts detail (5b), and mutating actions (5c, 5d) → upcoming.
+- Historical handoff at the time: bookmarks, conflicts detail, and mutating actions were planned for 5b through 5d.
 
 **Status (2026-04-28): Phase 5b (bookmarks + conflicts) landed.**
 
@@ -459,7 +456,7 @@ Later features:
 - `JjPanelSnapshot` adds `bookmarks: [JjBookmark]` + `conflicts: [JjConflict]`.
 - `JjPanelLoader` lazily fetches conflicts only when `status.hasConflicts == true` (avoids extra subprocess in common case). Bookmarks always fetched.
 - `JjPanelView` renders bookmark list (with target prefix + remote markers) and conflict list. The old conflict banner is removed.
-- Mutating actions (5c, 5d) → upcoming.
+- Historical handoff at the time: mutating actions were planned for 5c and 5d.
 
 **Status (2026-04-28): Phase 5c (mutating actions) landed.**
 
@@ -469,7 +466,7 @@ Later features:
 - After each successful mutation, `state.refresh()` reloads the panel.
 - Errors surface inline below the action bar.
 - Defaults: backout/abandon/duplicate operate on `@`; squash collapses `@` into `@-`. No per-action revset picker (deferred).
-- Bookmark CRUD (5d) → upcoming.
+- Historical handoff at the time: bookmark CRUD was planned for 5d.
 
 **Status (2026-04-28): Phase 5d (bookmark CRUD) landed.**
 
@@ -547,7 +544,7 @@ Exit criteria:
 - `RoostHostd` actor is the public API: `createSession`, `markExited`, `listLiveSessions`, `listAllSessions`, `deleteSession`, `pruneExited`. Injected into SwiftUI environment via `\.roostHostd` key.
 - Agent tabs are recorded on creation via `AppState.createAgentTab(_:projectID:hostd:)` and marked exited via `TabAreaView.onProcessExit`.
 - All sessions are still single-process — no XPC handoff yet. Sessions in the DB get marked `exited` if main app is killed (no graceful shutdown signal); Phase 6c needs to address.
-- Phase 6c (XPC service extraction) and 6d (re-attach + history UI) → upcoming.
+- Historical handoff at the time: client abstraction, reattach, and history UI were next. Real XPC service extraction remains active backlog.
 
 **Status (2026-04-28): Phase 6c + 6d (client abstraction + history UI) landed.**
 
@@ -604,7 +601,7 @@ Rules:
 - `RoostConfig` decodes top-level `env`, per-setup `env`, and per-agent preset `env` plain string maps. Object values such as `{ "fromKeychain": "..." }` are tolerated but ignored until Keychain resolution lands.
 - Setup execution merges top-level env with per-command env and prefixes each command with shell-escaped assignments.
 - Agent tabs merge top-level env with per-preset env and pass the result to Ghostty when creating the terminal surface. Roost's own `MUXY_*` env vars still win.
-- Still deferred: none.
+- Historical phase note: no follow-up remained deferred at this checkpoint.
 
 **Follow-up status (2026-04-29): default workspace location landed.**
 
@@ -617,34 +614,35 @@ Rules:
 
 - `env` values can be either plain strings or `{ "fromKeychain": "service", "account": "optional-account" }`.
 - Setup commands and agent presets resolve Keychain references at launch time through macOS `/usr/bin/security`; unresolved entries are skipped and secret values are not persisted into config.
-- Still deferred: config write path / chmod enforcement, teardown, notifications config, and settings UI.
+- Historical phase note: config write path / chmod enforcement, teardown, notifications config, and settings UI were still deferred at this checkpoint.
 
 **Follow-up status (2026-04-29): teardown support landed.**
 
 - `RoostConfig.teardown` decodes the same command shape as `setup`, including `cwd` and env values.
 - Managed worktree cleanup runs teardown commands before VCS removal. Commands execute with the worktree as default cwd; relative `cwd` values resolve under that worktree.
 - Teardown failures are logged but do not block managed worktree cleanup.
-- Still deferred: config write path / chmod enforcement, notifications config, and settings UI.
+- Historical phase note: config write path / chmod enforcement, notifications config, and settings UI were still deferred at this checkpoint.
 
 **Follow-up status (2026-04-29): notifications config landed.**
 
 - `RoostConfig.notifications` supports `enabled`, `toastEnabled`, `sound`, and `toastPosition` as project-level overrides.
 - `NotificationStore` applies global Settings defaults first, then project `.roost/config.json` overrides. `enabled: false` suppresses both saved notifications and delivery for that project.
 - Invalid sound or toast position values fall back to global Settings values.
-- Still deferred: config write path / chmod enforcement and settings UI.
+- Historical phase note: config write path / chmod enforcement and settings UI were still deferred at this checkpoint.
 
 **Follow-up status (2026-04-29): config write path and permissions landed.**
 
 - `RoostConfigStore` provides the write path for `.roost/config.json` and keeps `RoostConfigLoader` focused on read fallback behavior.
 - Writes create `.roost/` with `0700` permissions and `config.json` with `0600` permissions.
 - `fileSecurity` detects missing, secure, overly permissive, and unknown config permission states; `enforceSecurePermissions` fixes existing config files.
-- Still deferred: settings UI.
+- Historical phase note: settings UI was still deferred at this checkpoint.
 
 **Follow-up status (2026-04-29): settings UI landed.**
 
 - Settings has a Roost Config tab with project selection, config file status, open/create, permission repair, default workspace location, and notification override controls.
 - Saving preserves existing env, setup, teardown, and agent preset config while updating the currently exposed fields.
 - Phase 7 implementation work is complete.
+- Earlier deferred bullets in this phase are historical phase notes. Config write path, chmod enforcement, teardown, notifications config, and settings UI have landed.
 
 ## Phase 8: Release Readiness
 
@@ -685,18 +683,26 @@ Tasks:
 - **Swift 6 strict concurrency × blocking subprocess**: every jj call must be off-main, async, and cancellable; designed in Phase 1 as actor + AsyncStream, not retrofitted.
 - **Persisted-state migration**: `projects.json` and any new Roost-side state must carry a schema version from Phase 0; field repurposing in Phase 2 (e.g. `ownsBranch`) is destructive without a migration test.
 - **Upstream divergence**: large renames will make Muxy merges expensive.
-- **Git assumptions**: Muxy's current VCS UI assumes branch/stage semantics in several places.
+- **Legacy Git assumptions**: inherited VCS surfaces and remote protocol names still expose branch/stage terminology in several compatibility paths.
 - **jj semantics**: bookmarks, working-copy commits, conflicts, and operation log need native UI language.
 - **Terminal lifecycle**: Muxy terminal spawning is app-owned; Roost's desired persistent agents need hostd.
 - **libghostty ABI**: a major libghostty bump can break GhosttyKit consumers; pin xcframework versions and gate upgrades behind manual smoke tests.
 - **macOS sandbox + spawn**: hostd implementation choice (Phase 6) interacts with entitlements; XPC services and Unix sockets have different signing/notarization paths.
-- **Sparkle feed migration**: replacing the Muxy feed risks orphaning existing installs; document the plan in Phase 8.
+- **Sparkle feed migration**: automatic updates remain a future distribution decision tracked outside the self-signed/ad-hoc release path.
 - **License attribution**: Muxy MIT license must remain intact.
 - **Build artifacts**: legacy Roost Rust/Xcode artifacts must stay ignored on the Muxy-based mainline.
 
-## Near-Term Task List
+## Active Backlog After Current Landed Phases
 
-This list is the Phase 1 + Phase 2 spike scope; items overlap with later phase docs intentionally and are the bare-minimum surface to start.
+- jj changes: push/pull bookmarks, rename bookmark, conflict resolution UI, DAG view, op log / undo, and optional per-action revset pickers.
+- sessions: richer lifecycle states beyond running/exited when reliable terminal lifecycle signals exist.
+- hostd: real cross-process XPC service extraction with signing, sandbox, PTY ownership, and attach/release protocol.
+- release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design.
+- upstream integration: keep Muxy lineage mergeable and avoid large source-directory renames until the upstream strategy changes.
+
+## Historical Near-Term Task List
+
+This list was the Phase 1 + Phase 2 spike scope. Items overlap with later completed phase docs intentionally and are preserved as historical planning context.
 
 1. Add jj service files behind no UI changes (`JjProcessRunner` actor, env contract, snapshot-default-off read APIs).
 2. Add fixture-driven unit tests for jj output parsers (status, diff, op log) against the pinned minimum jj version.

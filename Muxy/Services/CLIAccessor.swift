@@ -44,7 +44,7 @@ enum CLIAccessor {
 
     static func installCLI() {
         guard let resourceURL = Bundle.appResources.url(
-            forResource: "muxy-cli",
+            forResource: "roost-cli",
             withExtension: ""
         )
         else {
@@ -54,8 +54,8 @@ enum CLIAccessor {
 
         guard confirmInstall() else { return }
 
-        if copyScript(from: resourceURL, to: "/usr/local/bin", label: "/usr/local/bin/muxy") {
-            showInstalledAlert(label: "/usr/local/bin/muxy", pathNote: "")
+        if copyScript(from: resourceURL, to: "/usr/local/bin", label: "/usr/local/bin/roost") {
+            showInstalledAlert(label: "/usr/local/bin/roost", pathNote: "")
             return
         }
 
@@ -63,18 +63,18 @@ enum CLIAccessor {
             let success = runAdminInstall(resourceURL: resourceURL)
             await MainActor.run {
                 if success {
-                    showInstalledAlert(label: "/usr/local/bin/muxy", pathNote: "")
+                    showInstalledAlert(label: "/usr/local/bin/roost", pathNote: "")
                     return
                 }
                 if tryFallbackInstalls(resourceURL: resourceURL) { return }
                 alert(
                     title: "CLI Installation Failed",
                     body: """
-                    Could not install muxy to /usr/local/bin or any fallback directory.
+                    Could not install roost to /usr/local/bin or any fallback directory.
 
                     Try manually:
-                      sudo cp "\(resourceURL.path)" /usr/local/bin/muxy
-                      sudo chmod +x /usr/local/bin/muxy
+                      sudo cp "\(resourceURL.path)" /usr/local/bin/roost
+                      sudo chmod +x /usr/local/bin/roost
                     """
                 )
             }
@@ -82,7 +82,7 @@ enum CLIAccessor {
     }
 
     private static func copyScript(from resourceURL: URL, to binPath: String, label: String) -> Bool {
-        let target = URL(fileURLWithPath: "\(binPath)/muxy")
+        let target = URL(fileURLWithPath: "\(binPath)/roost")
         let dir = URL(fileURLWithPath: binPath)
         if !FileManager.default.fileExists(atPath: binPath) {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -104,7 +104,7 @@ enum CLIAccessor {
 
     nonisolated private static func runAdminInstall(resourceURL: URL) -> Bool {
         let quotedSource = ShellEscaper.escape(resourceURL.path)
-        let shellCommand = "mkdir -p /usr/local/bin && cp \(quotedSource) /usr/local/bin/muxy && chmod +x /usr/local/bin/muxy"
+        let shellCommand = "mkdir -p /usr/local/bin && cp \(quotedSource) /usr/local/bin/roost && chmod +x /usr/local/bin/roost"
         let escapedForAppleScript = shellCommand
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
@@ -118,8 +118,8 @@ enum CLIAccessor {
     private static func tryFallbackInstalls(resourceURL: URL) -> Bool {
         let home = NSHomeDirectory()
         let fallbacks = [
-            (path: "\(home)/bin", label: "~/bin/muxy"),
-            (path: "\(home)/.local/bin", label: "~/.local/bin/muxy"),
+            (path: "\(home)/bin", label: "~/bin/roost"),
+            (path: "\(home)/.local/bin", label: "~/.local/bin/roost"),
         ]
         for fallback in fallbacks {
             guard copyScript(from: resourceURL, to: fallback.path, label: fallback.label) else {
@@ -135,19 +135,19 @@ enum CLIAccessor {
     private static func showInstalledAlert(label: String, pathNote: String) {
         alert(
             title: "CLI Installed",
-            body: "Installed to: \(label)\nRun 'muxy .' or 'muxy /path/to/project'\(pathNote)"
+            body: "Installed to: \(label)\nRun 'roost .' or 'roost /path/to/project'\(pathNote)"
         )
     }
 
     private static func confirmInstall() -> Bool {
         let alert = NSAlert()
-        alert.messageText = "Install Muxy CLI?"
+        alert.messageText = "Install Roost CLI?"
         alert.informativeText = """
-        This will install the 'muxy' command-line tool to /usr/local/bin so you \
-        can launch projects from your terminal (e.g. 'muxy .').
+        This will install the 'roost' command-line tool to /usr/local/bin so you \
+        can launch projects from your terminal (e.g. 'roost .').
 
         If /usr/local/bin is not writable, you will be prompted for your \
-        administrator password. If that is declined, Muxy will fall back to \
+        administrator password. If that is declined, Roost will fall back to \
         ~/bin or ~/.local/bin.
         """
         alert.alertStyle = .informational

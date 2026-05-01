@@ -140,8 +140,8 @@ struct ExpandedProjectRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
-                if isVcsRepo, let worktree = activeWorktree, !worktree.isPrimary {
-                    Text(worktree.name)
+                if isVcsRepo, let worktree = activeWorktree {
+                    Text(worktree.displayWorkspaceName)
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(MuxyTheme.fgDim)
                         .lineLimit(1)
@@ -340,7 +340,7 @@ struct ExpandedProjectRow: View {
     private var projectHeaderAccessibilityLabel: String {
         var label = project.name
         if isVcsRepo, let worktree = activeWorktree {
-            label += ", workspace: \(worktree.isPrimary ? "primary" : worktree.name)"
+            label += ", workspace: \(worktree.displayWorkspaceName)"
         }
         return label
     }
@@ -557,8 +557,7 @@ private struct ExpandedWorktreeRow: View {
     @FocusState private var renameFieldFocused: Bool
 
     private var displayName: String {
-        if worktree.isPrimary, worktree.name.isEmpty { return "main" }
-        return worktree.name
+        worktree.displayWorkspaceName
     }
 
     private var branchLabel: String? {
@@ -625,7 +624,7 @@ private struct ExpandedWorktreeRow: View {
         }
         .contextMenu {
             if worktree.isPrimary {
-                Text("Primary workspace").font(.system(size: 11))
+                Text("Default workspace").font(.system(size: 11))
             } else if let onRemove {
                 Button("Rename") { startRename() }
                 Divider()
@@ -644,7 +643,6 @@ private struct ExpandedWorktreeRow: View {
 
     private var worktreeAccessibilityLabel: String {
         var label = displayName
-        if worktree.isPrimary { label += ", primary" }
         if let branch = branchLabel { label += ", branch: \(branch)" }
         return label
     }

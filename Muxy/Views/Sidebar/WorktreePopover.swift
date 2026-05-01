@@ -26,7 +26,7 @@ struct WorktreePopover: View {
         PopoverPicker(
             items: worktrees,
             filterKey: { worktree in
-                worktree.name + " " + (worktree.branch ?? "")
+                worktree.displayWorkspaceName + " " + (worktree.branch ?? "")
             },
             searchPlaceholder: "Search workspaces…",
             emptyLabel: "No matches",
@@ -136,8 +136,7 @@ private struct WorktreePopoverRow: View {
     @FocusState private var renameFieldFocused: Bool
 
     private var displayName: String {
-        if worktree.isPrimary, worktree.name.isEmpty { return "main" }
-        return worktree.name
+        worktree.displayWorkspaceName
     }
 
     private var branchSubtitle: String? {
@@ -165,15 +164,6 @@ private struct WorktreePopoverRow: View {
                             .foregroundStyle(selected ? MuxyTheme.fg : MuxyTheme.fg.opacity(0.9))
                             .lineLimit(1)
                             .truncationMode(.middle)
-                        if worktree.isPrimary {
-                            Text("PRIMARY")
-                                .font(.system(size: 8, weight: .bold))
-                                .tracking(0.5)
-                                .foregroundStyle(MuxyTheme.fgDim)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(MuxyTheme.surface, in: Capsule())
-                        }
                         WorkspaceStatusBadge(status: statusStore.status(forWorktreeID: worktree.id))
                     }
                 }
@@ -203,7 +193,7 @@ private struct WorktreePopoverRow: View {
         }
         .contextMenu {
             if worktree.isPrimary {
-                Text("Primary workspace").font(.system(size: 11))
+                Text("Default workspace").font(.system(size: 11))
             } else if let onRemove {
                 Button("Rename") { startRename() }
                 Divider()

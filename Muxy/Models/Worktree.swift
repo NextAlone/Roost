@@ -53,6 +53,15 @@ struct Worktree: Identifiable, Codable, Hashable {
         !isPrimary && !isExternallyManaged
     }
 
+    var displayWorkspaceName: String {
+        if isPrimary {
+            return Self.normalizedWorkspaceName(jjWorkspaceName) ?? "default"
+        }
+        return Self.normalizedWorkspaceName(jjWorkspaceName)
+            ?? Self.normalizedWorkspaceName(name)
+            ?? "default"
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case name
@@ -80,5 +89,11 @@ struct Worktree: Identifiable, Codable, Hashable {
         vcsKind = try container.decodeIfPresent(VcsKind.self, forKey: .vcsKind) ?? .git
         currentChangeId = try container.decodeIfPresent(String.self, forKey: .currentChangeId)
         jjWorkspaceName = try container.decodeIfPresent(String.self, forKey: .jjWorkspaceName)
+    }
+
+    private static func normalizedWorkspaceName(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed
     }
 }

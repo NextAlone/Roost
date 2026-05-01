@@ -128,7 +128,8 @@ final class AIProviderRegistry {
     }
 
     func notificationSource(for socketType: String) -> MuxyNotification.Source {
-        for provider in providers where provider.socketTypeKey == socketType {
+        let event = AgentActivitySocketEvent.parse(type: socketType)
+        for provider in providers where provider.socketTypeKey == event.sourceType {
             return .aiProvider(provider.id)
         }
         return .socket

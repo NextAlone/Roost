@@ -40,4 +40,13 @@ struct AgentActivitySocketEventTests {
         #expect(event.sourceType == "custom:build_finished")
         #expect(event.activityState == nil)
     }
+
+    @MainActor
+    @Test("activity suffix does not break provider source lookup")
+    func sourceLookupUsesBaseType() {
+        let codex = AIProviderRegistry.shared.notificationSource(for: "codex_hook:needs_input")
+        let claude = AIProviderRegistry.shared.notificationSource(for: "claude_hook:completed")
+        #expect(codex == .aiProvider("codex"))
+        #expect(claude == .aiProvider("claude"))
+    }
 }

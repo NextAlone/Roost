@@ -3,6 +3,11 @@ import os
 
 private let logger = Logger(subsystem: "app.muxy", category: "NotificationSocketServer")
 
+private struct PaneNotificationContext {
+    let paneID: UUID
+    let context: NavigationContext
+}
+
 final class NotificationSocketServer: @unchecked Sendable {
     static let shared = NotificationSocketServer()
 
@@ -157,9 +162,13 @@ final class NotificationSocketServer: @unchecked Sendable {
     private func dispatchNotification(type: String, title: String, body: String, paneIDString: String?) {
         guard let appState = NotificationStore.shared.appState else { return }
 
-        let source = AIProviderRegistry.shared.notificationSource(for: type)
+        let activityEvent = AgentActivitySocketEvent.parse(type: type)
+        let source = AIProviderRegistry.shared.notificationSource(for: activityEvent.sourceType)
 
         if let paneIDString, let paneID = UUID(uuidString: paneIDString) {
+            if let state = activityEvent.activityState {
+                appState.updateAgentActivity(paneID: paneID, state: state)
+            }
             NotificationStore.shared.add(
                 paneID: paneID,
                 source: source,
@@ -172,11 +181,15 @@ final class NotificationSocketServer: @unchecked Sendable {
 
         guard let projectID = appState.activeProjectID,
               let key = appState.activeWorktreeKey(for: projectID),
-              let context = findFirstPaneContext(key: key, appState: appState)
+              let fallback = findFirstPaneContext(key: key, appState: appState)
         else { return }
 
+        if let state = activityEvent.activityState {
+            appState.updateAgentActivity(paneID: fallback.paneID, state: state)
+        }
+
         NotificationStore.shared.addWithContext(
-            context: context,
+            context: fallback.context,
             source: source,
             title: title,
             body: body,
@@ -188,21 +201,24 @@ final class NotificationSocketServer: @unchecked Sendable {
     private func findFirstPaneContext(
         key: WorktreeKey,
         appState: AppState
-    ) -> NavigationContext? {
+    ) -> PaneNotificationContext? {
         guard let root = appState.workspaceRoots[key] else { return nil }
         for area in root.allAreas() {
             for tab in area.tabs {
-                guard tab.content.pane != nil else { continue }
+                guard let pane = tab.content.pane else { continue }
                 let path = NotificationStore.shared.worktreeStore?.worktree(
                     projectID: key.projectID,
                     worktreeID: key.worktreeID
                 )?.path ?? area.projectPath
-                return NavigationContext(
-                    projectID: key.projectID,
-                    worktreeID: key.worktreeID,
-                    worktreePath: path,
-                    areaID: area.id,
-                    tabID: tab.id
+                return PaneNotificationContext(
+                    paneID: pane.id,
+                    context: NavigationContext(
+                        projectID: key.projectID,
+                        worktreeID: key.worktreeID,
+                        worktreePath: path,
+                        areaID: area.id,
+                        tabID: tab.id
+                    )
                 )
             }
         }

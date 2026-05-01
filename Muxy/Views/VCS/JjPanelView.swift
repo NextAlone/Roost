@@ -14,6 +14,10 @@ struct JjPanelView: View {
     @State private var bookmarksCollapsed = true
     @State private var operationsCollapsed = true
     @State private var conflictsCollapsed = false
+    @State private var contextTargetChangeID: String?
+    @State private var contextTargetOperationID: String?
+    @State private var hoveredChangeID: String?
+    @State private var hoveredOperationID: String?
     @State private var showRestoreOperationAlert = false
     @State private var pendingRestoreOperation: JjOperation?
 
@@ -383,8 +387,32 @@ struct JjPanelView: View {
                                 entry: entry,
                                 bookmarks: bookmarks,
                                 graphColumnWidth: graphColumnWidth,
+                                isHovered: hoveredChangeID == entry.change.prefix,
+                                isContextTarget: contextTargetChangeID == entry.change.prefix,
                                 previousGraphLine: index > 0 ? entries[index - 1].graphLinesAfter.last : nil,
                                 nextGraphLine: entry.graphLinesAfter.first,
+                                onHoverChange: { isHovered in
+                                    if isHovered {
+                                        hoveredChangeID = entry.change.prefix
+                                    } else if hoveredChangeID == entry.change.prefix {
+                                        hoveredChangeID = nil
+                                    }
+                                },
+                                onRightMouseDown: {
+                                    hoveredChangeID = nil
+                                    hoveredOperationID = nil
+                                    contextTargetChangeID = entry.change.prefix
+                                    contextTargetOperationID = nil
+                                },
+                                onContextMenuAppear: {
+                                    contextTargetChangeID = entry.change.prefix
+                                    contextTargetOperationID = nil
+                                },
+                                onContextMenuDisappear: {
+                                    if contextTargetChangeID == entry.change.prefix {
+                                        contextTargetChangeID = nil
+                                    }
+                                },
                                 onCopyChangeID: { copyToPasteboard(entry.change.prefix) },
                                 onCopyCommitID: { copyToPasteboard(entry.commitId) },
                                 onCopyDescription: { copyToPasteboard(entry.description) },
@@ -586,8 +614,42 @@ struct JjPanelView: View {
                                 .font(.system(size: 10))
                                 .foregroundStyle(MuxyTheme.fgDim)
                         }
+                        .padding(.horizontal, 10)
+                        .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
+                        .background(
+                            JjRowHighlight.resolve(
+                                isHovered: hoveredOperationID == operation.id,
+                                isContextTarget: contextTargetOperationID == operation.id
+                            ).background
+                        )
                         .contentShape(Rectangle())
+                        .onHover { isHovered in
+                            if isHovered {
+                                hoveredOperationID = operation.id
+                            } else if hoveredOperationID == operation.id {
+                                hoveredOperationID = nil
+                            }
+                        }
+                        .background(
+                            JjRightClickObserver {
+                                hoveredChangeID = nil
+                                hoveredOperationID = nil
+                                contextTargetChangeID = nil
+                                contextTargetOperationID = operation.id
+                            }
+                        )
                         .contextMenu {
+                            JjContextMenuLifecycle(
+                                onAppear: {
+                                    contextTargetOperationID = operation.id
+                                    contextTargetChangeID = nil
+                                },
+                                onDisappear: {
+                                    if contextTargetOperationID == operation.id {
+                                        contextTargetOperationID = nil
+                                    }
+                                }
+                            )
                             Button("Restore Repository to This Operation", role: .destructive) {
                                 pendingRestoreOperation = operation
                                 showRestoreOperationAlert = true
@@ -675,12 +737,129 @@ private enum JjPanelSection: CaseIterable {
     }
 }
 
+enum JjRowHighlight: Equatable {
+    case none
+    case hover
+    case contextTarget
+
+    static func resolve(isHovered: Bool, isContextTarget: Bool) -> JjRowHighlight {
+        if isContextTarget { return .contextTarget }
+        if isHovered { return .hover }
+        return .none
+    }
+
+    @MainActor var background: Color {
+        switch self {
+        case .none: .clear
+        case .hover: MuxyTheme.hover
+        case .contextTarget: MuxyTheme.surface
+        }
+    }
+}
+
+private struct JjContextMenuLifecycle: View {
+    let onAppear: () -> Void
+    let onDisappear: () -> Void
+
+    var body: some View {
+        EmptyView()
+            .onAppear(perform: onAppear)
+            .onDisappear(perform: onDisappear)
+    }
+}
+
+private struct JjRightClickObserver: NSViewRepresentable {
+    let onRightMouseDown: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onRightMouseDown: onRightMouseDown)
+    }
+
+    func makeNSView(context: Context) -> ObserverView {
+        let view = ObserverView()
+        view.coordinator = context.coordinator
+        context.coordinator.view = view
+        context.coordinator.installIfNeeded()
+        return view
+    }
+
+    func updateNSView(_ nsView: ObserverView, context: Context) {
+        context.coordinator.onRightMouseDown = onRightMouseDown
+        context.coordinator.view = nsView
+        context.coordinator.installIfNeeded()
+    }
+
+    static func dismantleNSView(_: ObserverView, coordinator: Coordinator) {
+        coordinator.remove()
+    }
+
+    final class ObserverView: NSView {
+        weak var coordinator: Coordinator?
+
+        override var isFlipped: Bool { true }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            coordinator?.installIfNeeded()
+        }
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var onRightMouseDown: () -> Void
+        weak var view: ObserverView?
+        private var monitor: Any?
+        private weak var monitoredWindow: NSWindow?
+
+        init(onRightMouseDown: @escaping () -> Void) {
+            self.onRightMouseDown = onRightMouseDown
+        }
+
+        func installIfNeeded() {
+            guard let window = view?.window else {
+                remove()
+                return
+            }
+            guard monitor == nil || monitoredWindow !== window else { return }
+            remove()
+            monitoredWindow = window
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
+                MainActor.assumeIsolated {
+                    self?.handle(event)
+                }
+                return event
+            }
+        }
+
+        func remove() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+            }
+            monitor = nil
+            monitoredWindow = nil
+        }
+
+        private func handle(_ event: NSEvent) {
+            guard let view, event.window === view.window else { return }
+            let point = view.convert(event.locationInWindow, from: nil)
+            guard view.bounds.contains(point) else { return }
+            onRightMouseDown()
+        }
+    }
+}
+
 private struct JjChangeRow: View {
     let entry: JjLogEntry
     let bookmarks: [JjBookmark]
     let graphColumnWidth: CGFloat
+    let isHovered: Bool
+    let isContextTarget: Bool
     let previousGraphLine: String?
     let nextGraphLine: String?
+    let onHoverChange: (Bool) -> Void
+    let onRightMouseDown: () -> Void
+    let onContextMenuAppear: () -> Void
+    let onContextMenuDisappear: () -> Void
     let onCopyChangeID: () -> Void
     let onCopyCommitID: () -> Void
     let onCopyDescription: () -> Void
@@ -696,7 +875,6 @@ private struct JjChangeRow: View {
     let onMoveBookmark: (String) -> Void
     let onAbandon: () -> Void
     let onRevert: () -> Void
-    @State private var hovered = false
 
     private var isCurrent: Bool {
         entry.graphPrefix.contains("@")
@@ -756,7 +934,7 @@ private struct JjChangeRow: View {
 
             Spacer(minLength: 0)
 
-            if hovered {
+            if isHovered {
                 Text(entry.commitId)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(MuxyTheme.fgDim)
@@ -765,10 +943,12 @@ private struct JjChangeRow: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 40)
-        .background(hovered ? MuxyTheme.hover : .clear)
+        .background(JjRowHighlight.resolve(isHovered: isHovered, isContextTarget: isContextTarget).background)
         .contentShape(Rectangle())
-        .onHover { hovered = $0 }
+        .onHover(perform: onHoverChange)
+        .background(JjRightClickObserver(onRightMouseDown: onRightMouseDown))
         .contextMenu {
+            JjContextMenuLifecycle(onAppear: onContextMenuAppear, onDisappear: onContextMenuDisappear)
             Button("Copy Change ID", action: onCopyChangeID)
             Button("Copy Commit ID", action: onCopyCommitID)
             Button("Copy Description", action: onCopyDescription)

@@ -8,8 +8,10 @@ import MuxyShared
 struct JjBookmarkServiceTests {
     @Test("list parses bookmarks")
     func list() async throws {
-        let svc = JjBookmarkService(queue: JjProcessQueue()) { _, _, _, _ in
-            JjProcessResult(
+        let captured = BookmarkCapturedCall()
+        let svc = JjBookmarkService(queue: JjProcessQueue()) { repo, cmd, snapshot, _ in
+            await captured.set(repo: repo, cmd: cmd, snapshot: snapshot)
+            return JjProcessResult(
                 status: 0,
                 stdout: Data("main\t\tus\tuskwmzzuvtuzuqsrzvqwsnyulvmxpmtu\n".utf8),
                 stderr: ""
@@ -20,6 +22,8 @@ struct JjBookmarkServiceTests {
         #expect(bookmarks[0].name == "main")
         #expect(bookmarks[0].isLocal == true)
         #expect(bookmarks[0].target?.full == "uskwmzzuvtuzuqsrzvqwsnyulvmxpmtu")
+        #expect(await captured.cmd == ["bookmark", "list", "-T", JjBookmarkParser.template])
+        #expect(await captured.snapshot == .ignore)
     }
 
     @Test("create invokes bookmark create")

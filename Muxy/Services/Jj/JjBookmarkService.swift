@@ -20,7 +20,7 @@ struct JjBookmarkService: Sendable {
     func list(repoPath: String) async throws -> [JjBookmark] {
         let result = try await runner(
             repoPath,
-            ["bookmark", "list", "--no-graph", "-T", JjBookmarkParser.template],
+            ["bookmark", "list", "-T", JjBookmarkParser.template],
             .ignore,
             nil
         )

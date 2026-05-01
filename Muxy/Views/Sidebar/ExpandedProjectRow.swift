@@ -561,10 +561,6 @@ private struct ExpandedWorktreeRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            WorkspaceAgentActivityIndicator(
-                state: agentActivitySummary?.dominantState
-            )
-
             if isRenaming {
                 TextField("", text: $renameText)
                     .textFieldStyle(.plain)
@@ -602,7 +598,7 @@ private struct ExpandedWorktreeRow: View {
 
             Spacer(minLength: 2)
 
-            if let agentActivitySummary, agentActivitySummary.agentCount > 1 {
+            if let agentActivitySummary, agentActivitySummary.showsSidebarStatusDots {
                 AgentActivityDotStack(dots: agentActivitySummary.dots)
             }
         }
@@ -732,49 +728,13 @@ private struct ExpandedNewWorktreeButton: View {
     }
 }
 
-private struct WorkspaceAgentActivityIndicator: View {
-    let state: AgentActivityState?
-
-    var body: some View {
-        ZStack {
-            switch state {
-            case .running:
-                AgentActivityRunningDot(size: 12)
-            case .needsInput:
-                AgentActivityWaitingDot(size: 8)
-            case .completed:
-                Circle()
-                    .fill(MuxyTheme.diffAddFg)
-                    .frame(width: 8, height: 8)
-            case .exited:
-                Circle()
-                    .fill(MuxyTheme.fgDim)
-                    .frame(width: 8, height: 8)
-            case .idle:
-                Circle()
-                    .fill(MuxyTheme.fgDim.opacity(0.35))
-                    .frame(width: 5, height: 5)
-            case nil:
-                EmptyView()
-            }
-        }
-        .frame(width: 16, height: 16)
-    }
-}
-
 private struct AgentActivityDotStack: View {
     let dots: [SidebarAgentActivityDot]
 
     var body: some View {
-        HStack(spacing: -3) {
+        HStack(spacing: -4) {
             ForEach(dots) { dot in
-                Circle()
-                    .fill(color(for: dot.state))
-                    .frame(width: 11, height: 11)
-                    .overlay {
-                        Circle()
-                            .stroke(MuxyTheme.surface, lineWidth: 1.5)
-                    }
+                AgentActivityStackDot(state: dot.state)
             }
         }
         .frame(height: 18)
@@ -790,14 +750,40 @@ private struct AgentActivityDotStack: View {
         }
         return parts.joined(separator: ", ")
     }
+}
 
-    private func color(for state: AgentActivityState) -> Color {
+private struct AgentActivityStackDot: View {
+    let state: AgentActivityState
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(MuxyTheme.surface)
+                .frame(width: 13, height: 13)
+            content
+        }
+        .frame(width: 13, height: 18)
+    }
+
+    @ViewBuilder
+    private var content: some View {
         switch state {
-        case .running: MuxyTheme.accent
-        case .needsInput: MuxyTheme.diffRemoveFg
-        case .idle: MuxyTheme.fgDim.opacity(0.45)
-        case .completed: MuxyTheme.diffAddFg
-        case .exited: MuxyTheme.fgDim
+        case .running:
+            AgentActivityRunningDot(size: 11)
+        case .needsInput:
+            AgentActivityWaitingDot(size: 6)
+        case .completed:
+            Circle()
+                .fill(MuxyTheme.diffAddFg)
+                .frame(width: 9, height: 9)
+        case .idle:
+            Circle()
+                .fill(MuxyTheme.fgDim.opacity(0.45))
+                .frame(width: 6, height: 6)
+        case .exited:
+            Circle()
+                .fill(MuxyTheme.fgDim)
+                .frame(width: 9, height: 9)
         }
     }
 }

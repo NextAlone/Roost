@@ -24,6 +24,10 @@ struct SidebarAgentActivitySummary: Equatable {
         }
     }
 
+    var showsSidebarStatusDots: Bool {
+        !agentStates.isEmpty
+    }
+
     func count(for state: AgentActivityState) -> Int {
         agentStates.count { $0 == state }
     }

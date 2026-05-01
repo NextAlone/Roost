@@ -115,6 +115,20 @@ struct SidebarAgentActivityResolverTests {
         #expect(idle.dots.map(\.state) == [.idle, .idle])
     }
 
+    @Test("summary shows status dots for a single idle agent")
+    func summaryShowsStatusDotsForSingleIdleAgent() {
+        let idlePane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .codex)
+        idlePane.activityState = .idle
+
+        let summary = SidebarAgentActivityResolver.summary(
+            tabs: [TerminalTab(pane: idlePane)],
+            activeTabID: nil
+        )
+
+        #expect(summary?.showsSidebarStatusDots == true)
+        #expect(summary?.dots == [SidebarAgentActivityDot(index: 0, state: .idle)])
+    }
+
     @Test("returns nil for terminal-only workspace")
     func terminalOnly() {
         let tab = TerminalTab(pane: TerminalPaneState(projectPath: "/tmp/wt"))

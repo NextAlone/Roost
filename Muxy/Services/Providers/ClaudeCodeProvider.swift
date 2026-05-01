@@ -9,6 +9,7 @@ struct ClaudeCodeProvider: AIProviderIntegration, AIUsageProvider {
 
     private static let settingsPath = NSHomeDirectory() + "/.claude/settings.json"
     private static let muxyMarker = "muxy-notification-hook"
+    static let installedEvents = ["SessionStart", "UserPromptSubmit", "Stop", "Notification"]
 
     func isToolInstalled() -> Bool {
         let home = NSHomeDirectory()
@@ -24,28 +25,24 @@ struct ClaudeCodeProvider: AIProviderIntegration, AIUsageProvider {
         let settings = try Self.readSettings()
         let hooks = settings["hooks"] as? [String: Any] ?? [:]
 
-        let stopCommand = Self.hookCommand(hookScript: hookScriptPath, event: "stop")
-        let notificationCommand = Self.hookCommand(hookScript: hookScriptPath, event: "notification")
-
-        let stopMatches = Self.muxyHookMatches(entries: hooks["Stop"] as? [[String: Any]], expectedCommand: stopCommand)
-        let notificationMatches = Self.muxyHookMatches(
-            entries: hooks["Notification"] as? [[String: Any]],
-            expectedCommand: notificationCommand
-        )
-
-        guard !stopMatches || !notificationMatches else { return }
+        var allMatch = true
+        for event in Self.installedEvents {
+            let expected = Self.hookCommand(hookScript: hookScriptPath, event: event.lowercased())
+            if !Self.muxyHookMatches(entries: hooks[event] as? [[String: Any]], expectedCommand: expected) {
+                allMatch = false
+                break
+            }
+        }
+        guard !allMatch else { return }
 
         var updatedSettings = settings
         var updatedHooks = hooks
 
-        let stopHook = Self.buildHookEntry(command: stopCommand)
-        let notificationHook = Self.buildHookEntry(command: notificationCommand)
-
-        updatedHooks["Stop"] = Self.mergeHookArray(existing: hooks["Stop"] as? [[String: Any]], muxyHook: stopHook)
-        updatedHooks["Notification"] = Self.mergeHookArray(
-            existing: hooks["Notification"] as? [[String: Any]],
-            muxyHook: notificationHook
-        )
+        for event in Self.installedEvents {
+            let command = Self.hookCommand(hookScript: hookScriptPath, event: event.lowercased())
+            let hook = Self.buildHookEntry(command: command)
+            updatedHooks[event] = Self.mergeHookArray(existing: hooks[event] as? [[String: Any]], muxyHook: hook)
+        }
 
         updatedSettings["hooks"] = updatedHooks
         try Self.writeSettings(updatedSettings)
@@ -56,7 +53,7 @@ struct ClaudeCodeProvider: AIProviderIntegration, AIUsageProvider {
         var settings = try Self.readSettings()
         guard var hooks = settings["hooks"] as? [String: Any] else { return }
 
-        for key in ["Stop", "Notification"] {
+        for key in Self.installedEvents {
             guard var entries = hooks[key] as? [[String: Any]] else { continue }
             entries.removeAll { Self.isMuxyHookEntry($0) }
             if entries.isEmpty {

@@ -6,6 +6,8 @@ struct AgentHookScriptTests {
     @Test("Claude hook emits activity-qualified socket types")
     func claudeHookTypes() throws {
         let script = try resourceText("Muxy/Resources/scripts/muxy-claude-hook.sh")
+        #expect(script.contains("\"claude_hook:idle\""))
+        #expect(script.contains("\"claude_hook:running\""))
         #expect(script.contains("\"claude_hook:needs_input\""))
         #expect(script.contains("\"claude_hook:completed\""))
     }
@@ -13,6 +15,8 @@ struct AgentHookScriptTests {
     @Test("Codex hook emits activity-qualified socket types")
     func codexHookTypes() throws {
         let script = try resourceText("Muxy/Resources/scripts/muxy-codex-hook.sh")
+        #expect(script.contains("\"codex_hook:idle\""))
+        #expect(script.contains("\"codex_hook:running\""))
         #expect(script.contains("\"codex_hook:needs_input\""))
         #expect(script.contains("\"codex_hook:completed\""))
     }

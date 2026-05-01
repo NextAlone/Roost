@@ -10,7 +10,7 @@ struct CodexProvider: AIProviderIntegration {
 
     private static let hooksPath = NSHomeDirectory() + "/.codex/hooks.json"
     private static let muxyMarker = "muxy-notification-hook"
-    private static let installedEvents = ["Stop", "Notification"]
+    static let installedEvents = ["SessionStart", "UserPromptSubmit", "Stop", "Notification"]
 
     func isToolInstalled() -> Bool {
         let home = NSHomeDirectory()

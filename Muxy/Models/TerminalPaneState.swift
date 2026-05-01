@@ -15,7 +15,7 @@ final class TerminalPaneState: Identifiable {
     let agentKind: AgentKind
     let createdAt: Date
     var lastState: SessionLifecycleState = .running
-    var activityState: AgentActivityState = .running
+    var activityState: AgentActivityState
     let searchState = TerminalSearchState()
     @ObservationIgnored private var titleDebounceTask: Task<Void, Never>?
 
@@ -39,6 +39,7 @@ final class TerminalPaneState: Identifiable {
         self.externalEditorFilePath = externalEditorFilePath
         self.agentKind = agentKind
         self.createdAt = createdAt
+        activityState = agentKind == .terminal ? .running : .idle
     }
 
     func setTitle(_ newTitle: String) {

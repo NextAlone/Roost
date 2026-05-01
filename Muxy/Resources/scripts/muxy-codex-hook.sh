@@ -27,10 +27,16 @@ extract_last_message() {
 }
 
 case "$event" in
-    notification)
+    SessionStart|sessionstart)
+        send_notification "codex_hook:idle" "Codex" "Session started"
+        ;;
+    UserPromptSubmit|userpromptsubmit)
+        send_notification "codex_hook:running" "Codex" "Working"
+        ;;
+    Notification|notification)
         send_notification "codex_hook:needs_input" "Codex" "Needs attention"
         ;;
-    stop)
+    Stop|stop)
         body=$(extract_last_message)
         send_notification "codex_hook:completed" "Codex" "$body"
         ;;

@@ -27,10 +27,16 @@ extract_last_message() {
 }
 
 case "$event" in
-    notification)
+    SessionStart|sessionstart)
+        send_notification "claude_hook:idle" "Claude Code" "Session started"
+        ;;
+    UserPromptSubmit|userpromptsubmit)
+        send_notification "claude_hook:running" "Claude Code" "Working"
+        ;;
+    Notification|notification)
         send_notification "claude_hook:needs_input" "Claude Code" "Needs attention"
         ;;
-    stop)
+    Stop|stop)
         body=$(extract_last_message)
         send_notification "claude_hook:completed" "Claude Code" "$body"
         ;;

@@ -28,10 +28,10 @@ extract_last_message() {
 
 case "$event" in
     PermissionRequest|permission)
-        send_notification "cursor_hook" "Cursor" "Needs attention"
+        send_notification "cursor_hook:needs_input" "Cursor" "Needs attention"
         ;;
     Stop|stop)
         body=$(extract_last_message)
-        send_notification "cursor_hook" "Cursor" "$body"
+        send_notification "cursor_hook:completed" "Cursor" "$body"
         ;;
 esac

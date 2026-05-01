@@ -28,7 +28,7 @@ export const MuxyNotificationPlugin = async ({ client }) => ({
       }
     } catch {}
 
-    const payload = `opencode|${paneID}|OpenCode|${body}`
+    const payload = `opencode:idle|${paneID}|OpenCode|${body}`
 
     try {
       const { createConnection } = await import("net")

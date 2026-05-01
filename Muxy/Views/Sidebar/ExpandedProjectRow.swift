@@ -241,6 +241,7 @@ struct ExpandedProjectRow: View {
                             activeProjectID: appState.activeProjectID,
                             activeWorktreeID: activeWorktreeID
                         ),
+                        agentActivityState: agentActivityState(for: worktree),
                         onSelect: {
                             appState.selectWorktree(projectID: project.id, worktree: worktree)
                         },
@@ -277,6 +278,20 @@ struct ExpandedProjectRow: View {
         }
         .padding(.top, 2)
         .padding(.bottom, 4)
+    }
+
+    private func agentActivityState(for worktree: Worktree) -> AgentActivityState? {
+        let selected = Self.isWorktreeSelected(
+            projectID: project.id,
+            worktreeID: worktree.id,
+            activeProjectID: appState.activeProjectID,
+            activeWorktreeID: activeWorktreeID
+        )
+        let key = WorktreeKey(projectID: project.id, worktreeID: worktree.id)
+        return SidebarAgentActivityResolver.activityState(
+            tabs: appState.allTabs(forKey: key),
+            activeTabID: selected ? appState.focusedArea(for: project.id)?.activeTabID : nil
+        )
     }
 
     private var untrackedJjWorkspaceNames: [String] {
@@ -530,6 +545,7 @@ private struct ExpandedWorktreeRow: View {
     let projectID: UUID
     let worktree: Worktree
     let selected: Bool
+    let agentActivityState: AgentActivityState?
     let onSelect: () -> Void
     let onRename: (String) -> Void
     let onRemove: (() -> Void)?
@@ -594,6 +610,10 @@ private struct ExpandedWorktreeRow: View {
             }
 
             Spacer(minLength: 2)
+
+            if let agentActivityState {
+                AgentActivityBadge(state: agentActivityState)
+            }
 
             worktreeUnreadBadge
 

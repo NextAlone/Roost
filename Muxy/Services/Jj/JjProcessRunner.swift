@@ -96,6 +96,22 @@ extension JjProcessRunner {
         guard let exec = resolveExecutable() else {
             throw JjProcessError.launchFailed("jj not found on PATH")
         }
+        return try await runResolved(
+            executable: exec,
+            repoPath: repoPath,
+            command: command,
+            snapshot: snapshot,
+            atOp: atOp
+        )
+    }
+
+    static func runResolved(
+        executable: String,
+        repoPath: String,
+        command: [String],
+        snapshot: JjSnapshotPolicy,
+        atOp: String? = nil
+    ) async throws -> JjProcessResult {
         let args = buildArguments(
             repoPath: repoPath,
             command: command,
@@ -104,7 +120,12 @@ extension JjProcessRunner {
         )
         let env = buildEnvironment(inherited: ProcessInfo.processInfo.environment)
         return try await Task.detached(priority: .userInitiated) {
-            try runProcess(executable: exec, arguments: args, environment: env)
+            try runProcess(
+                executable: executable,
+                arguments: args,
+                environment: env,
+                currentDirectory: repoPath
+            )
         }.value
     }
 

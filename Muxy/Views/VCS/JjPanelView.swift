@@ -68,6 +68,7 @@ struct JjPanelView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(JjMenuTrackingObserver(onMenuDidEnd: clearContextTargets))
         .task {
             changesRevsetDraft = state.activeChangesRevset
             await state.refresh()
@@ -490,6 +491,10 @@ struct JjPanelView: View {
                             onCopyCommitID: { copyToPasteboard(entry.commitId) },
                             onCopyDescription: { copyToPasteboard(entry.description) },
                             onEdit: {
+                                guard !entry.isImmutable else {
+                                    actionError = String(describing: JjMutationError.immutableEdit(revset: actionRevset))
+                                    return
+                                }
                                 runMutation {
                                     try await mutator.edit(
                                         repoPath: state.repoPath,
@@ -661,19 +666,21 @@ struct JjPanelView: View {
                         .padding(.horizontal, 10)
                         .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
                         .background(
+                            JjHoverObserver { isHovered in
+                                if isHovered {
+                                    hoveredConflictPath = conflict.path
+                                } else if hoveredConflictPath == conflict.path {
+                                    hoveredConflictPath = nil
+                                }
+                            }
+                        )
+                        .background(
                             JjRowHighlight.resolve(
                                 isHovered: hoveredConflictPath == conflict.path,
                                 isContextTarget: contextTargetConflictPath == conflict.path
                             ).background
                         )
                         .contentShape(Rectangle())
-                        .onHover { isHovered in
-                            if isHovered {
-                                hoveredConflictPath = conflict.path
-                            } else if hoveredConflictPath == conflict.path {
-                                hoveredConflictPath = nil
-                            }
-                        }
                         .background(
                             JjRightClickObserver {
                                 hoveredChangeID = nil
@@ -725,6 +732,14 @@ struct JjPanelView: View {
                                 }
                             }
                         }
+                        .onDisappear {
+                            if hoveredConflictPath == conflict.path {
+                                hoveredConflictPath = nil
+                            }
+                            if contextTargetConflictPath == conflict.path {
+                                contextTargetConflictPath = nil
+                            }
+                        }
                     }
                 }
             }
@@ -761,19 +776,21 @@ struct JjPanelView: View {
                         .padding(.horizontal, 10)
                         .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
                         .background(
+                            JjHoverObserver { isHovered in
+                                if isHovered {
+                                    hoveredOperationID = operation.id
+                                } else if hoveredOperationID == operation.id {
+                                    hoveredOperationID = nil
+                                }
+                            }
+                        )
+                        .background(
                             JjRowHighlight.resolve(
                                 isHovered: hoveredOperationID == operation.id,
                                 isContextTarget: contextTargetOperationID == operation.id
                             ).background
                         )
                         .contentShape(Rectangle())
-                        .onHover { isHovered in
-                            if isHovered {
-                                hoveredOperationID = operation.id
-                            } else if hoveredOperationID == operation.id {
-                                hoveredOperationID = nil
-                            }
-                        }
                         .background(
                             JjRightClickObserver {
                                 hoveredChangeID = nil
@@ -800,6 +817,14 @@ struct JjPanelView: View {
                             Button("Restore Repository to This Operation", role: .destructive) {
                                 pendingRestoreOperation = operation
                                 showRestoreOperationAlert = true
+                            }
+                        }
+                        .onDisappear {
+                            if hoveredOperationID == operation.id {
+                                hoveredOperationID = nil
+                            }
+                            if contextTargetOperationID == operation.id {
+                                contextTargetOperationID = nil
                             }
                         }
                     }
@@ -889,6 +914,12 @@ struct JjPanelView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
     }
+
+    private func clearContextTargets() {
+        contextTargetChangeID = nil
+        contextTargetOperationID = nil
+        contextTargetConflictPath = nil
+    }
 }
 
 private enum JjPanelSection: CaseIterable {
@@ -937,6 +968,147 @@ private struct JjContextMenuLifecycle: View {
         EmptyView()
             .onAppear(perform: onAppear)
             .onDisappear(perform: onDisappear)
+    }
+}
+
+private struct JjMenuTrackingObserver: NSViewRepresentable {
+    let onMenuDidEnd: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onMenuDidEnd: onMenuDidEnd)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        context.coordinator.installIfNeeded()
+        return NSView()
+    }
+
+    func updateNSView(_: NSView, context: Context) {
+        context.coordinator.onMenuDidEnd = onMenuDidEnd
+        context.coordinator.installIfNeeded()
+    }
+
+    static func dismantleNSView(_: NSView, coordinator: Coordinator) {
+        coordinator.remove()
+    }
+
+    @MainActor
+    final class Coordinator {
+        var onMenuDidEnd: () -> Void
+        private var observer: NSObjectProtocol?
+
+        init(onMenuDidEnd: @escaping () -> Void) {
+            self.onMenuDidEnd = onMenuDidEnd
+        }
+
+        func installIfNeeded() {
+            guard observer == nil else { return }
+            observer = NotificationCenter.default.addObserver(
+                forName: NSMenu.didEndTrackingNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.onMenuDidEnd()
+                }
+            }
+        }
+
+        func remove() {
+            if let observer {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            observer = nil
+        }
+    }
+}
+
+private struct JjHoverObserver: NSViewRepresentable {
+    let onHoverChange: (Bool) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onHoverChange: onHoverChange)
+    }
+
+    func makeNSView(context: Context) -> HoverView {
+        let view = HoverView()
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateNSView(_ nsView: HoverView, context: Context) {
+        context.coordinator.onHoverChange = onHoverChange
+        nsView.coordinator = context.coordinator
+        nsView.syncHoverState()
+    }
+
+    static func dismantleNSView(_: HoverView, coordinator: Coordinator) {
+        coordinator.setHovered(false)
+    }
+
+    final class HoverView: NSView {
+        weak var coordinator: Coordinator?
+        private var trackingArea: NSTrackingArea?
+
+        override var isFlipped: Bool { true }
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            if let trackingArea {
+                removeTrackingArea(trackingArea)
+            }
+            let options: NSTrackingArea.Options = [
+                .mouseEnteredAndExited,
+                .activeAlways,
+                .inVisibleRect,
+            ]
+            let trackingArea = NSTrackingArea(rect: .zero, options: options, owner: self, userInfo: nil)
+            addTrackingArea(trackingArea)
+            self.trackingArea = trackingArea
+            syncHoverState()
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil {
+                coordinator?.setHovered(false)
+            } else {
+                updateTrackingAreas()
+            }
+        }
+
+        override func mouseEntered(with _: NSEvent) {
+            coordinator?.setHovered(true)
+        }
+
+        override func mouseExited(with _: NSEvent) {
+            coordinator?.setHovered(false)
+        }
+
+        func syncHoverState() {
+            guard let window else {
+                coordinator?.setHovered(false)
+                return
+            }
+            let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            coordinator?.setHovered(bounds.contains(point))
+        }
+    }
+
+    @MainActor
+    final class Coordinator {
+        var onHoverChange: (Bool) -> Void
+        private var isHovered = false
+
+        init(onHoverChange: @escaping (Bool) -> Void) {
+            self.onHoverChange = onHoverChange
+        }
+
+        func setHovered(_ value: Bool) {
+            guard isHovered != value else { return }
+            isHovered = value
+            onHoverChange(value)
+        }
     }
 }
 
@@ -1107,7 +1279,8 @@ private struct JjChangeRow: View {
         .frame(height: rowHeight, alignment: .top)
         .background(JjRowHighlight.resolve(isHovered: isHovered, isContextTarget: isContextTarget).background)
         .contentShape(Rectangle())
-        .onHover(perform: onHoverChange)
+        .onTapGesture(count: 2, perform: onEdit)
+        .background(JjHoverObserver(onHoverChange: onHoverChange))
         .background(JjRightClickObserver(onRightMouseDown: onRightMouseDown))
         .contextMenu {
             JjContextMenuLifecycle(onAppear: onContextMenuAppear, onDisappear: onContextMenuDisappear)
@@ -1153,6 +1326,10 @@ private struct JjChangeRow: View {
 
             Button("Revert Change", action: onRevert)
             Button("Abandon Change", role: .destructive, action: onAbandon)
+        }
+        .onDisappear {
+            onHoverChange(false)
+            onContextMenuDisappear()
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title), \(entry.change.prefix), \(entry.authorName), \(relativeDate(entry.authorTimestamp))")

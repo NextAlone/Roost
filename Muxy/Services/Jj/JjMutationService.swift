@@ -78,7 +78,11 @@ struct JjMutationService {
     }
 
     func edit(repoPath: String, revset: String) async throws {
-        try await runMutating(repoPath: repoPath, command: ["edit", revset])
+        do {
+            try await runMutating(repoPath: repoPath, command: ["edit", revset])
+        } catch let JjProcessError.nonZeroExit(_, stderr) where Self.isImmutableEditError(stderr) {
+            throw JjMutationError.immutableEdit(revset: revset)
+        }
     }
 
     func rebaseWorkingCopyOnto(repoPath: String, revset: String) async throws {
@@ -100,6 +104,23 @@ struct JjMutationService {
             if result.status != 0 {
                 throw JjProcessError.nonZeroExit(status: result.status, stderr: result.stderr)
             }
+        }
+    }
+
+    private static func isImmutableEditError(_ stderr: String) -> Bool {
+        let normalized = stderr.lowercased()
+        return normalized.contains("immutable")
+            && (normalized.contains("edit") || normalized.contains("revision") || normalized.contains("commit"))
+    }
+}
+
+enum JjMutationError: Error, Equatable, Sendable, CustomStringConvertible {
+    case immutableEdit(revset: String)
+
+    var description: String {
+        switch self {
+        case let .immutableEdit(revset):
+            return "Cannot edit \(revset) because it is immutable."
         }
     }
 }

@@ -21,6 +21,29 @@ struct JjLogParserTests {
         #expect(entries[1].description == "fix(sidebar): clarify workspace selection state")
     }
 
+    @Test("parses immutable flag from current template rows")
+    func parsesImmutableFlagFromCurrentTemplateRows() throws {
+        let raw = """
+        ◆  z\t000000000000\tempty\timmutable\troot\t1970-01-01T00:00:00+00:00\t\t
+        │
+        @  k\t1ebc3bcc8da1\tempty\tmutable\tNext Alone\t2026-05-02T03:39:39+08:00\t\t
+        """
+        let entries = try JjLogParser.parse(raw)
+        #expect(entries.count == 2)
+        #expect(entries[0].isImmutable)
+        #expect(entries[0].graphLinesAfter == ["│"])
+        #expect(!entries[1].isImmutable)
+    }
+
+    @Test("preserves tabs in legacy description rows")
+    func preservesTabsInLegacyDescriptionRows() throws {
+        let raw = "@  mu\td8e0f8759610\tnonempty\tNext Alone\t2026-05-01T15:49:43+08:00\t\tfix\twith tab\n"
+        let entries = try JjLogParser.parse(raw)
+        #expect(entries.count == 1)
+        #expect(entries[0].description == "fix\twith tab")
+        #expect(!entries[0].isImmutable)
+    }
+
     @Test("attaches graph-only rows to preceding changes")
     func attachesGraphOnlyRows() throws {
         let raw = """

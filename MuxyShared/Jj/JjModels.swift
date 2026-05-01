@@ -29,6 +29,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
     public let change: JjChangeId
     public let commitId: String
     public let isEmpty: Bool
+    public let isImmutable: Bool
     public let authorName: String
     public let authorTimestamp: String
     public let bookmarkLabels: [String]
@@ -40,6 +41,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         change: JjChangeId,
         commitId: String,
         isEmpty: Bool,
+        isImmutable: Bool = false,
         authorName: String,
         authorTimestamp: String,
         bookmarkLabels: [String] = [],
@@ -50,6 +52,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         self.change = change
         self.commitId = commitId
         self.isEmpty = isEmpty
+        self.isImmutable = isImmutable
         self.authorName = authorName
         self.authorTimestamp = authorTimestamp
         self.bookmarkLabels = bookmarkLabels
@@ -82,6 +85,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         case change
         case commitId
         case isEmpty
+        case isImmutable
         case authorName
         case authorTimestamp
         case bookmarkLabels
@@ -95,6 +99,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         change = try container.decode(JjChangeId.self, forKey: .change)
         commitId = try container.decode(String.self, forKey: .commitId)
         isEmpty = try container.decode(Bool.self, forKey: .isEmpty)
+        isImmutable = try container.decodeIfPresent(Bool.self, forKey: .isImmutable) ?? false
         authorName = try container.decode(String.self, forKey: .authorName)
         authorTimestamp = try container.decode(String.self, forKey: .authorTimestamp)
         bookmarkLabels = try container.decodeIfPresent([String].self, forKey: .bookmarkLabels) ?? []
@@ -108,6 +113,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         try container.encode(change, forKey: .change)
         try container.encode(commitId, forKey: .commitId)
         try container.encode(isEmpty, forKey: .isEmpty)
+        try container.encode(isImmutable, forKey: .isImmutable)
         try container.encode(authorName, forKey: .authorName)
         try container.encode(authorTimestamp, forKey: .authorTimestamp)
         try container.encode(bookmarkLabels, forKey: .bookmarkLabels)

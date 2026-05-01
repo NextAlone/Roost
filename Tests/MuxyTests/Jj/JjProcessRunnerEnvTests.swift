@@ -65,4 +65,29 @@ struct JjProcessRunnerEnvTests {
         )
         #expect(!args.contains("--ignore-working-copy"))
     }
+
+    @Test("run uses repository path as child process working directory")
+    func runUsesRepoPathAsWorkingDirectory() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("roost-jj-runner-\(UUID().uuidString)", isDirectory: true)
+        let repo = root.appendingPathComponent("repo", isDirectory: true)
+        let executable = root.appendingPathComponent("jj")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try "#!/bin/sh\npwd\n".write(to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        let result = try await JjProcessRunner.runResolved(
+            executable: executable.path,
+            repoPath: repo.path,
+            command: ["status"],
+            snapshot: .ignore,
+            atOp: nil
+        )
+        let stdout = String(data: result.stdout, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(result.status == 0)
+        #expect(stdout?.hasSuffix("/\(root.lastPathComponent)/repo") == true)
+    }
 }

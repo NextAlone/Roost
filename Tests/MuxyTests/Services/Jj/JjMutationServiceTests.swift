@@ -191,6 +191,18 @@ struct JjMutationServiceTests {
         #expect(recorder.commands == [["edit", "abc"]])
     }
 
+    @Test("edit immutable revision throws user-facing immutable error")
+    func editImmutableRevision() async {
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, _, _, _ in
+            JjProcessResult(status: 1, stdout: Data(), stderr: "Error: Revision abc is immutable and cannot be edited")
+        })
+
+        await #expect(throws: JjMutationError.immutableEdit(revset: "abc")) {
+            try await service.edit(repoPath: "/tmp/wt", revset: "abc")
+        }
+        #expect(String(describing: JjMutationError.immutableEdit(revset: "abc")) == "Cannot edit abc because it is immutable.")
+    }
+
     @Test("rebase working copy onto selected sends jj rebase -b @ -d <revset>")
     func rebaseWorkingCopyOnto() async throws {
         let recorder = CommandRecorder()

@@ -405,9 +405,9 @@ For jj projects, `VCSTabView` renders `JjPanelView` instead of the Git panel. `J
 - `JjBookmarkService.list` for local and remote bookmark labels.
 - `JjConflictsService.list` when status reports conflicts.
 
-`JjPanelView` renders Files, Changes, Bookmarks, and Conflicts sections. Mutating actions serialize through `JjProcessQueue.shared` via `JjMutationService` and refresh the panel after success. Current actions include describe, new, commit, squash, abandon, duplicate, backout, bookmark create, bookmark move, and bookmark delete.
+`JjPanelView` renders Files, Changes, Bookmarks, and Conflicts sections. The Changes section renders the `jj log` graph with bookmark badges and per-change context actions. Mutating actions serialize through `JjProcessQueue.shared` via `JjMutationService` and refresh the panel after success. Current actions include describe, new, commit, squash, abandon, duplicate, backout, edit, rebase working copy, bookmark create, bookmark move, and bookmark delete.
 
-The jj panel intentionally does not expose every legacy Git operation. Remaining future work includes push/pull bookmarks, rename bookmark, conflict resolution UI, DAG view, and op log / undo.
+The jj panel intentionally does not expose every legacy Git operation. Remaining future work includes bookmark push/pull, bookmark rename, conflict resolution UI, op log / undo, optional revset pickers, and richer DAG navigation beyond the current graph rendering.
 
 ## Navigation History
 

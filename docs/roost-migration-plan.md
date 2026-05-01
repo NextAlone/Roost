@@ -257,7 +257,7 @@ Phase 2.2e status (2026-04-28):
 - `VCSTabState` resolves and stores `vcsKind` at init via `VcsKindDetector.detect(at: projectPath)`. Plan: `docs/superpowers/plans/2026-04-28-phase2-2e-vcstabstate-vcskind-guard.md`.
 - `performRefresh`, `loadBranches`, `loadCommits` early-return when `vcsKind != .git`. UI shows empty state for jj projects rather than spamming git errors.
 - Mutating ops (commit/push/pull/etc.) intentionally not gated — their UI is reachable only after a successful read populates buttons; jj path leaves them dormant. Phase 5 jj Changes Panel will replace VCSTabState's read-side rather than extend it, so deeper abstraction here would be wasted effort.
-- Phase 2 VCS adapter work effectively complete. At this point, jj-native branches/commits/status equivalents, conflict viewer, op log undo, DAG view, and "branch" → "bookmark" labels moved to later phases or active backlog.
+- Phase 2 VCS adapter work effectively complete. At this point, jj-native branches/commits/status equivalents, conflict viewer, op log undo, advanced DAG navigation, and "branch" → "bookmark" labels moved to later phases or active backlog.
 
 Phase 2 cleanup batch (2026-04-28):
 
@@ -440,7 +440,7 @@ Minimum features:
 
 Later features:
 
-- DAG view.
+- Advanced DAG navigation beyond the current changes graph.
 - Operation log / undo.
 
 **Status (2026-04-28): Phase 5a (read-side panel) landed.**
@@ -473,10 +473,15 @@ Later features:
 - "+" button in the bookmarks section header opens `JjBookmarkCreateSheet` to create a bookmark targeting `@`.
 - Right-click context menu on each bookmark row: "Move to current change" and "Delete" actions.
 - All actions route through the existing `runMutation` helper for serialized execution + error surfacing + state refresh.
-- **Phase 5 complete.** Future enhancements (deferred): per-action revset pickers, push/pull bookmarks, rename bookmark, conflict resolution UI, DAG view, op log / undo.
+- **Phase 5 complete.** Future enhancements (deferred): per-action revset pickers, push/pull bookmarks, rename bookmark, conflict resolution UI, advanced DAG navigation, op log / undo.
 - Conflict content viewer.
 - Revset search.
 - Side-by-side diff improvements.
+
+**Audit status (2026-05-02): Phase 5 backlog narrowed after code review.**
+
+- Already landed: `JjPanelView` renders a `jj log` changes graph with bookmark badges, context actions on graph rows, bookmark create / move / delete, conflict listing, and selected-change actions for describe / new / duplicate / squash / rebase / abandon / revert.
+- Still active: bookmark push/pull, bookmark rename, conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
 
 Rules:
 
@@ -694,7 +699,7 @@ Tasks:
 
 ## Active Backlog After Current Landed Phases
 
-- jj changes: push/pull bookmarks, rename bookmark, conflict resolution UI, DAG view, op log / undo, and optional per-action revset pickers.
+- jj changes: bookmark push/pull, bookmark rename, conflict resolution actions / content viewer, op log / undo, optional free-form revset picker, and richer DAG navigation/filtering beyond the current graph rendering.
 - sessions: richer lifecycle states beyond running/exited when reliable terminal lifecycle signals exist.
 - hostd: real cross-process XPC service extraction with signing, sandbox, PTY ownership, and attach/release protocol.
 - release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design.

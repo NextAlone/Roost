@@ -571,6 +571,13 @@ private struct JjChangeRow: View {
         bookmarks.filter { $0.isLocal }
     }
 
+    private var targetBookmarks: [JjBookmark] {
+        bookmarks.filter { bookmark in
+            guard let target = bookmark.target else { return false }
+            return target.full == entry.change.full || target.prefix == entry.change.prefix
+        }
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             graphRail
@@ -601,6 +608,9 @@ private struct JjChangeRow: View {
                     Text(relativeDate(entry.authorTimestamp))
                         .font(.system(size: 10))
                         .foregroundStyle(MuxyTheme.fgDim)
+                    ForEach(targetBookmarks, id: \.name) { bookmark in
+                        JjBookmarkBadge(bookmark: bookmark)
+                    }
                 }
             }
 
@@ -681,6 +691,43 @@ private struct JjChangeRow: View {
                 .frame(width: 8, height: 8)
         }
         .frame(width: 12, height: 40)
+    }
+}
+
+private struct JjBookmarkBadge: View {
+    let bookmark: JjBookmark
+
+    private var label: String {
+        if bookmark.isLocal {
+            return bookmark.name
+        }
+        if let remote = bookmark.remotes.first {
+            return "\(remote)/\(bookmark.name)"
+        }
+        return bookmark.name
+    }
+
+    private var foreground: Color {
+        bookmark.isLocal ? MuxyTheme.accent : MuxyTheme.fgMuted
+    }
+
+    private var background: Color {
+        bookmark.isLocal ? MuxyTheme.accent.opacity(0.12) : MuxyTheme.surface
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "bookmark.fill")
+                .font(.system(size: 7))
+            Text(label)
+                .font(.system(size: 9, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .foregroundStyle(foreground)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 1)
+        .background(background, in: RoundedRectangle(cornerRadius: 3))
     }
 }
 

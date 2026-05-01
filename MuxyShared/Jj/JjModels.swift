@@ -69,6 +69,14 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         [graphPrefix] + graphLinesAfter
     }
 
+    public var graphDisplayColumnCharacterCount: Int {
+        graphDisplayLines.map(\.trailingWhitespaceTrimmedCount).max() ?? 0
+    }
+
+    public var metadataDisplayItems: [String] {
+        [change.prefix, commitId, authorName, authorTimestamp] + bookmarkLabels
+    }
+
     private enum CodingKeys: String, CodingKey {
         case graphPrefix
         case change
@@ -108,30 +116,15 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
     }
 }
 
-public struct JjLogDisplayRow: Hashable, Sendable {
-    public let id: String
-    public let graphText: String
-    public let entry: JjLogEntry?
-
-    public init(id: String, graphText: String, entry: JjLogEntry?) {
-        self.id = id
-        self.graphText = graphText
-        self.entry = entry
-    }
-}
-
-public enum JjLogDisplayRows {
-    public static func build(from entries: [JjLogEntry]) -> [JjLogDisplayRow] {
-        entries.flatMap { entry in
-            [JjLogDisplayRow(id: entry.rowIdentity, graphText: entry.graphPrefix, entry: entry)]
-                + entry.graphLinesAfter.enumerated().map { offset, line in
-                    JjLogDisplayRow(
-                        id: "\(entry.rowIdentity):graph:\(offset)",
-                        graphText: line,
-                        entry: nil
-                    )
-                }
+private extension String {
+    var trailingWhitespaceTrimmedCount: Int {
+        var trimmedEnd = endIndex
+        while trimmedEnd > startIndex {
+            let previous = index(before: trimmedEnd)
+            guard self[previous].isWhitespace else { break }
+            trimmedEnd = previous
         }
+        return distance(from: startIndex, to: trimmedEnd)
     }
 }
 

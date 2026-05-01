@@ -451,105 +451,96 @@ struct JjPanelView: View {
                     .foregroundStyle(MuxyTheme.fgDim)
             } else {
                 let graphColumnWidth = graphColumnWidth(entries: entries)
-                let rows = JjLogDisplayRows.build(from: entries)
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(rows, id: \.id) { row in
-                        if let entry = row.entry {
-                            let rowID = entry.rowIdentity
-                            let actionRevset = entry.actionRevset
-                            JjChangeRow(
-                                entry: entry,
-                                graphText: row.graphText,
-                                bookmarks: bookmarks,
-                                graphColumnWidth: graphColumnWidth,
-                                isHovered: hoveredChangeID == rowID,
-                                isContextTarget: contextTargetChangeID == rowID,
-                                onHoverChange: { isHovered in
-                                    if isHovered {
-                                        hoveredChangeID = rowID
-                                    } else if hoveredChangeID == rowID {
-                                        hoveredChangeID = nil
-                                    }
-                                },
-                                onRightMouseDown: {
+                    ForEach(entries, id: \.rowIdentity) { entry in
+                        let rowID = entry.rowIdentity
+                        let actionRevset = entry.actionRevset
+                        JjChangeRow(
+                            entry: entry,
+                            bookmarks: bookmarks,
+                            graphColumnWidth: graphColumnWidth,
+                            isHovered: hoveredChangeID == rowID,
+                            isContextTarget: contextTargetChangeID == rowID,
+                            onHoverChange: { isHovered in
+                                if isHovered {
+                                    hoveredChangeID = rowID
+                                } else if hoveredChangeID == rowID {
                                     hoveredChangeID = nil
-                                    hoveredOperationID = nil
-                                    hoveredConflictPath = nil
-                                    contextTargetChangeID = rowID
-                                    contextTargetOperationID = nil
-                                    contextTargetConflictPath = nil
-                                },
-                                onContextMenuAppear: {
-                                    contextTargetChangeID = rowID
-                                    contextTargetOperationID = nil
-                                    contextTargetConflictPath = nil
-                                },
-                                onContextMenuDisappear: {
-                                    if contextTargetChangeID == rowID {
-                                        contextTargetChangeID = nil
-                                    }
-                                },
-                                onCopyChangeID: { copyToPasteboard(entry.change.prefix) },
-                                onCopyCommitID: { copyToPasteboard(entry.commitId) },
-                                onCopyDescription: { copyToPasteboard(entry.description) },
-                                onEdit: {
-                                    runMutation {
-                                        try await mutator.edit(
-                                            repoPath: state.repoPath,
-                                            revset: actionRevset
-                                        )
-                                    }
-                                },
-                                onDescribe: {
-                                    pendingDescribeChange = entry
-                                    showDescribeSheet = true
-                                },
-                                onNewAt: {
-                                    runMutation { try await mutator.newAt(repoPath: state.repoPath, revset: actionRevset) }
-                                },
-                                onNewAfter: {
-                                    runMutation { try await mutator.newAfter(repoPath: state.repoPath, revset: actionRevset) }
-                                },
-                                onNewBefore: {
-                                    runMutation { try await mutator.newBefore(repoPath: state.repoPath, revset: actionRevset) }
-                                },
-                                onDuplicate: {
-                                    runMutation { try await mutator.duplicate(repoPath: state.repoPath, revset: actionRevset) }
-                                },
-                                onSquashInto: {
-                                    runMutation { try await mutator.squashInto(repoPath: state.repoPath, revset: actionRevset) }
-                                },
-                                onRebaseOnto: {
-                                    runMutation {
-                                        try await mutator.rebaseWorkingCopyOnto(repoPath: state.repoPath, revset: actionRevset)
-                                    }
-                                },
-                                onCreateBookmark: {
-                                    pendingCreateBookmarkRevset = actionRevset
-                                    showCreateBookmarkSheet = true
-                                },
-                                onMoveBookmark: { bookmarkName in
-                                    runMutation {
-                                        try await bookmarkService.setTarget(
-                                            repoPath: state.repoPath,
-                                            name: bookmarkName,
-                                            revset: actionRevset
-                                        )
-                                    }
-                                },
-                                onAbandon: {
-                                    runMutation { try await mutator.abandon(repoPath: state.repoPath, revset: actionRevset) }
-                                },
-                                onRevert: {
-                                    runMutation { try await mutator.revert(repoPath: state.repoPath, revset: actionRevset) }
                                 }
-                            )
-                        } else {
-                            JjGraphContinuationRow(
-                                graphText: row.graphText,
-                                graphColumnWidth: graphColumnWidth
-                            )
-                        }
+                            },
+                            onRightMouseDown: {
+                                hoveredChangeID = nil
+                                hoveredOperationID = nil
+                                hoveredConflictPath = nil
+                                contextTargetChangeID = rowID
+                                contextTargetOperationID = nil
+                                contextTargetConflictPath = nil
+                            },
+                            onContextMenuAppear: {
+                                contextTargetChangeID = rowID
+                                contextTargetOperationID = nil
+                                contextTargetConflictPath = nil
+                            },
+                            onContextMenuDisappear: {
+                                if contextTargetChangeID == rowID {
+                                    contextTargetChangeID = nil
+                                }
+                            },
+                            onCopyChangeID: { copyToPasteboard(entry.change.prefix) },
+                            onCopyCommitID: { copyToPasteboard(entry.commitId) },
+                            onCopyDescription: { copyToPasteboard(entry.description) },
+                            onEdit: {
+                                runMutation {
+                                    try await mutator.edit(
+                                        repoPath: state.repoPath,
+                                        revset: actionRevset
+                                    )
+                                }
+                            },
+                            onDescribe: {
+                                pendingDescribeChange = entry
+                                showDescribeSheet = true
+                            },
+                            onNewAt: {
+                                runMutation { try await mutator.newAt(repoPath: state.repoPath, revset: actionRevset) }
+                            },
+                            onNewAfter: {
+                                runMutation { try await mutator.newAfter(repoPath: state.repoPath, revset: actionRevset) }
+                            },
+                            onNewBefore: {
+                                runMutation { try await mutator.newBefore(repoPath: state.repoPath, revset: actionRevset) }
+                            },
+                            onDuplicate: {
+                                runMutation { try await mutator.duplicate(repoPath: state.repoPath, revset: actionRevset) }
+                            },
+                            onSquashInto: {
+                                runMutation { try await mutator.squashInto(repoPath: state.repoPath, revset: actionRevset) }
+                            },
+                            onRebaseOnto: {
+                                runMutation {
+                                    try await mutator.rebaseWorkingCopyOnto(repoPath: state.repoPath, revset: actionRevset)
+                                }
+                            },
+                            onCreateBookmark: {
+                                pendingCreateBookmarkRevset = actionRevset
+                                showCreateBookmarkSheet = true
+                            },
+                            onMoveBookmark: { bookmarkName in
+                                runMutation {
+                                    try await bookmarkService.setTarget(
+                                        repoPath: state.repoPath,
+                                        name: bookmarkName,
+                                        revset: actionRevset
+                                    )
+                                }
+                            },
+                            onAbandon: {
+                                runMutation { try await mutator.abandon(repoPath: state.repoPath, revset: actionRevset) }
+                            },
+                            onRevert: {
+                                runMutation { try await mutator.revert(repoPath: state.repoPath, revset: actionRevset) }
+                            }
+                        )
                     }
                 }
             }
@@ -557,8 +548,7 @@ struct JjPanelView: View {
     }
 
     private func graphColumnWidth(entries: [JjLogEntry]) -> CGFloat {
-        let graphLines = entries.flatMap(\.graphDisplayLines)
-        let maxCharacterCount = graphLines.map(\.count).max() ?? 2
+        let maxCharacterCount = entries.map(\.graphDisplayColumnCharacterCount).max() ?? 2
         return max(18, CGFloat(maxCharacterCount) * JjGraphTextMetrics.characterWidth)
     }
 
@@ -1032,7 +1022,6 @@ private struct JjRightClickObserver: NSViewRepresentable {
 
 private struct JjChangeRow: View {
     let entry: JjLogEntry
-    let graphText: String
     let bookmarks: [JjBookmark]
     let graphColumnWidth: CGFloat
     let isHovered: Bool
@@ -1067,46 +1056,54 @@ private struct JjChangeRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            JjGraphTextLine(text: graphText, graphColumnWidth: graphColumnWidth)
+        let rowHeight = max(
+            JjGraphTextMetrics.rowHeight,
+            CGFloat(entry.graphDisplayLines.count) * JjGraphTextMetrics.lineHeight
+        )
 
-            HStack(spacing: 6) {
-                Text(entry.change.prefix)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(MuxyTheme.accent)
+        HStack(alignment: .top, spacing: 6) {
+            JjGraphTextBlock(lines: entry.graphDisplayLines, graphColumnWidth: graphColumnWidth)
 
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 12))
                     .foregroundStyle(entry.isEmpty ? MuxyTheme.fgMuted : MuxyTheme.fg)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .layoutPriority(1)
 
-                Text(entry.authorName)
-                    .font(.system(size: 10))
-                    .foregroundStyle(MuxyTheme.fgDim)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(entry.change.prefix)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(MuxyTheme.accent)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                Text(relativeDate(entry.authorTimestamp))
-                    .font(.system(size: 10))
-                    .foregroundStyle(MuxyTheme.fgDim)
+                    Text(entry.commitId)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(MuxyTheme.fgDim)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                ForEach(entry.bookmarkLabels, id: \.self) { label in
-                    JjChangeBookmarkBadge(label: label)
+                    Text(entry.authorName)
+                        .font(.system(size: 10))
+                        .foregroundStyle(MuxyTheme.fgDim)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+
+                    Text(relativeDate(entry.authorTimestamp))
+                        .font(.system(size: 10))
+                        .foregroundStyle(MuxyTheme.fgDim)
+                        .fixedSize(horizontal: true, vertical: false)
+
+                    ForEach(entry.bookmarkLabels, id: \.self) { label in
+                        JjChangeBookmarkBadge(label: label)
+                    }
                 }
             }
+            .padding(.top, 4)
 
             Spacer(minLength: 0)
-
-            if isHovered {
-                Text(entry.commitId)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(MuxyTheme.fgDim)
-                    .lineLimit(1)
-            }
         }
         .padding(.horizontal, 10)
-        .frame(height: JjGraphTextMetrics.lineHeight)
+        .frame(height: rowHeight, alignment: .top)
         .background(JjRowHighlight.resolve(isHovered: isHovered, isContextTarget: isContextTarget).background)
         .contentShape(Rectangle())
         .onHover(perform: onHoverChange)
@@ -1162,35 +1159,28 @@ private struct JjChangeRow: View {
 }
 
 private enum JjGraphTextMetrics {
-    static let characterWidth: CGFloat = 9
-    static let lineHeight: CGFloat = 24
+    static let characterWidth: CGFloat = 7
+    static let lineHeight: CGFloat = 13
+    static let rowHeight: CGFloat = 40
 }
 
-private struct JjGraphContinuationRow: View {
-    let graphText: String
+private struct JjGraphTextBlock: View {
+    let lines: [String]
     let graphColumnWidth: CGFloat
 
     var body: some View {
-        HStack(spacing: 8) {
-            JjGraphTextLine(text: graphText, graphColumnWidth: graphColumnWidth)
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                Text(line)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(MuxyTheme.fgDim)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(width: graphColumnWidth, height: JjGraphTextMetrics.lineHeight, alignment: .leading)
+            }
         }
-        .padding(.horizontal, 10)
-        .frame(height: JjGraphTextMetrics.lineHeight)
-    }
-}
-
-private struct JjGraphTextLine: View {
-    let text: String
-    let graphColumnWidth: CGFloat
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 11, design: .monospaced))
-            .foregroundStyle(MuxyTheme.fgDim)
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .frame(width: graphColumnWidth, height: JjGraphTextMetrics.lineHeight, alignment: .leading)
+        .padding(.top, 4)
+        .frame(width: graphColumnWidth, alignment: .topLeading)
     }
 }
 
@@ -1222,7 +1212,7 @@ private struct JjBookmarkBadge: View {
             Text(label)
                 .font(.system(size: 9, weight: .semibold))
                 .lineLimit(1)
-                .truncationMode(.middle)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .foregroundStyle(foreground)
         .padding(.horizontal, 5)

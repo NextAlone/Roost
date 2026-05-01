@@ -38,16 +38,12 @@ struct JjLogEntryIdentityTests {
         #expect(entry.graphDisplayLines == ["│ ○  ", "├─╮", "│ │", "├─╯", "~"])
     }
 
-    @Test("display rows flatten change and continuation lines")
-    func displayRowsFlattenChangeAndContinuationLines() {
-        let first = entry(
-            change: JjChangeId(prefix: "aaaa", full: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            commitId: "111111111111"
-        )
-        let second = JjLogEntry(
+    @Test("graph column width ignores trailing padding and keeps connector lines")
+    func graphColumnWidthIgnoresTrailingPaddingAndKeepsConnectorLines() {
+        let entry = JjLogEntry(
             graphPrefix: "│ ○  ",
-            change: JjChangeId(prefix: "bbbb", full: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
-            commitId: "222222222222",
+            change: JjChangeId(prefix: "abcd", full: "abcdefghijklmnopqrstuvwxyz"),
+            commitId: "5275e03c1176",
             isEmpty: false,
             authorName: "Next Alone",
             authorTimestamp: "2026-05-02T03:39:39+08:00",
@@ -55,11 +51,23 @@ struct JjLogEntryIdentityTests {
             graphLinesAfter: ["├─╮", "│ │"]
         )
 
-        let rows = JjLogDisplayRows.build(from: [first, second])
+        #expect(entry.graphDisplayColumnCharacterCount == 3)
+    }
 
-        #expect(rows.map(\.id) == ["111111111111", "222222222222", "222222222222:graph:0", "222222222222:graph:1"])
-        #expect(rows.map(\.graphText) == ["○  ", "│ ○  ", "├─╮", "│ │"])
-        #expect(rows.map { $0.entry?.commitId } == ["111111111111", "222222222222", nil, nil])
+    @Test("metadata display items keep jj log identifiers and labels")
+    func metadataDisplayItemsKeepJjLogIdentifiersAndLabels() {
+        let entry = JjLogEntry(
+            graphPrefix: "○  ",
+            change: JjChangeId(prefix: "abcd", full: "abcdefghijklmnopqrstuvwxyz"),
+            commitId: "5275e03c1176",
+            isEmpty: false,
+            authorName: "Next Alone",
+            authorTimestamp: "2026-05-02T03:39:39+08:00",
+            bookmarkLabels: ["feature-a", "main@origin"],
+            description: "demo"
+        )
+
+        #expect(entry.metadataDisplayItems == ["abcd", "5275e03c1176", "Next Alone", "2026-05-02T03:39:39+08:00", "feature-a", "main@origin"])
     }
 
     private func entry(change: JjChangeId, commitId: String) -> JjLogEntry {

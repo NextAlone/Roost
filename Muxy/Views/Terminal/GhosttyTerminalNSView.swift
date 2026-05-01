@@ -878,20 +878,10 @@ final class GhosttyTerminalNSView: NSView {
     }
 
     private static func loginShellCommand(_ command: String, interactive: Bool) -> String {
-        let shell = userShell()
+        let shell = UserShellResolver.shell()
         let escaped = command.replacingOccurrences(of: "'", with: "'\\''")
         let flags = interactive ? "-l -i" : "-l"
         return "\(shell) \(flags) -c '\(escaped)'"
-    }
-
-    private static func userShell() -> String {
-        if let shell = ProcessInfo.processInfo.environment["SHELL"], !shell.isEmpty {
-            return shell
-        }
-        guard let pw = getpwuid(getuid()), let shellPtr = pw.pointee.pw_shell else {
-            return "/bin/zsh"
-        }
-        return String(cString: shellPtr)
     }
 
     enum SearchDirection: String {

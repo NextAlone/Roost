@@ -35,7 +35,7 @@ ENCODED_PATH="$(percent_encode "$TARGET_DIR")"
 open "roost://open?path=${ENCODED_PATH}" 2>/dev/null \
     || open -b app.roost.mac "$TARGET_DIR" 2>/dev/null \
     || {
-        SOCKET="$HOME/Library/Application Support/Muxy/muxy.sock"
+        SOCKET="$HOME/Library/Application Support/Roost/roost.sock"
         if [ -e "$SOCKET" ]; then
             printf 'open-project|%s\n' "$TARGET_DIR" | nc -U "$SOCKET" 2>/dev/null
         fi

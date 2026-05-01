@@ -6,10 +6,10 @@ This document is for everything else: sending notifications into Roost from a cu
 
 ## How Roost Receives Notifications
 
-Roost currently listens on a Unix domain socket inherited from the Muxy storage layer:
+Roost currently listens on a Unix domain socket under its Application Support directory:
 
 ```text
-~/Library/Application Support/Muxy/muxy.sock
+~/Library/Application Support/Roost/roost.sock
 ```
 
 Terminals launched by Roost receive these compatibility environment variables:

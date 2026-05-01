@@ -36,7 +36,7 @@ Run `scripts/checks.sh --fix` after every task.
 
 ## Persistence
 
-- Legacy app state and terminal integration files still live under `~/Library/Application Support/Muxy/` through `MuxyFileStorage`.
+- App state and terminal integration files live under `~/Library/Application Support/Roost/` through `MuxyFileStorage`.
 - App-wide Roost config lives at `~/Library/Application Support/Roost/config.json`.
 - Project Roost config lives at `<project>/.roost/config.json`.
 - Legacy `.muxy/worktree.json` is read only as a setup fallback.
@@ -46,7 +46,7 @@ Run `scripts/checks.sh --fix` after every task.
 
 - Built-in agent kinds include Terminal, Claude Code, Codex, Gemini CLI, and OpenCode.
 - Notification hooks currently use compatibility environment variables such as `MUXY_SOCKET_PATH` and `MUXY_PANE_ID`.
-- The current notification socket path remains under `~/Library/Application Support/Muxy/muxy.sock`.
+- The current notification socket path is `~/Library/Application Support/Roost/roost.sock`.
 
 ## NSViewRepresentable Pitfalls
 

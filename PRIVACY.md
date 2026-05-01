@@ -15,7 +15,7 @@ Roost is a macOS developer tool that hosts terminals, jj workspaces, coding-agen
 
 Roost may store the following on your Mac:
 
-- **Projects and workspace state.** Opened project paths, workspace/worktree metadata, tabs, splits, editor state, and related app state. Some inherited app-state files still live under `~/Library/Application Support/Muxy/`.
+- **Projects and workspace state.** Opened project paths, workspace/worktree metadata, tabs, splits, editor state, and related app state under `~/Library/Application Support/Roost/`.
 - **Roost configuration.** App-wide config at `~/Library/Application Support/Roost/config.json` and project config at `<project>/.roost/config.json`.
 - **Session history.** Local host/session records under `~/Library/Application Support/Roost/hostd/`.
 - **Notifications.** In-app notification records, badges, sounds, and toast state. Notification content may include truncated command or agent output.

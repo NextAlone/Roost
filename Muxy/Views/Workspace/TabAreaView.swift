@@ -78,6 +78,7 @@ struct TabAreaView: View {
                         onProcessExit: {
                             if let pane = tab.content.pane {
                                 pane.lastState = .exited
+                                pane.activityState = .exited
                                 let paneID = pane.id
                                 if let hostdClient {
                                     Task { [hostdClient] in

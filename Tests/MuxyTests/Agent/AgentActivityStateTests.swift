@@ -29,4 +29,13 @@ struct AgentActivityStateTests {
         #expect(AgentActivityState.completed.sidebarLabel == "DONE")
         #expect(AgentActivityState.exited.sidebarLabel == "EXIT")
     }
+
+    @Test("accessibility labels are human readable")
+    func accessibilityLabels() {
+        #expect(AgentActivityState.running.accessibilityLabel == "Running")
+        #expect(AgentActivityState.needsInput.accessibilityLabel == "Needs input")
+        #expect(AgentActivityState.idle.accessibilityLabel == "Idle")
+        #expect(AgentActivityState.completed.accessibilityLabel == "Completed")
+        #expect(AgentActivityState.exited.accessibilityLabel == "Exited")
+    }
 }

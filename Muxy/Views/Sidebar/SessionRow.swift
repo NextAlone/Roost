@@ -12,6 +12,14 @@ struct SessionRow: View {
         tab.content.pane?.agentKind ?? .terminal
     }
 
+    private var activityState: AgentActivityState {
+        tab.content.pane?.activityState ?? .running
+    }
+
+    private var showsActivityBadge: Bool {
+        agentKind != .terminal
+    }
+
     @ViewBuilder
     private var lifecycleDot: some View {
         switch tab.content.pane?.lastState ?? .running {
@@ -41,9 +49,13 @@ struct SessionRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
 
-                lifecycleDot
-
                 Spacer(minLength: 0)
+
+                if showsActivityBadge {
+                    AgentActivityBadge(state: activityState)
+                } else {
+                    lifecycleDot
+                }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
@@ -52,13 +64,22 @@ struct SessionRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
-        .accessibilityLabel("\(agentKind.displayName): \(tab.title)")
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        if showsActivityBadge {
+            return "\(agentKind.displayName): \(tab.title), \(activityState.accessibilityLabel)"
+        }
+        return "\(agentKind.displayName): \(tab.title)"
     }
 
     @ViewBuilder
     private var rowBackground: some View {
         if isActive {
             MuxyTheme.accentSoft
+        } else if showsActivityBadge, activityState == .needsInput {
+            hovered ? MuxyTheme.diffRemoveBg.opacity(0.72) : MuxyTheme.diffRemoveBg.opacity(0.48)
         } else if hovered {
             MuxyTheme.hover
         } else {

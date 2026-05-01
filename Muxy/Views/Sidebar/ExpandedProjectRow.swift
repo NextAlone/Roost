@@ -616,12 +616,6 @@ private struct ExpandedWorktreeRow: View {
             }
 
             worktreeUnreadBadge
-
-            Image(systemName: "checkmark")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(MuxyTheme.accent)
-                .frame(width: 18, height: 18)
-                .opacity(selected ? 1 : 0)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 5)

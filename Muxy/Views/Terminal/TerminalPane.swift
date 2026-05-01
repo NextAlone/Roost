@@ -133,7 +133,7 @@ struct TerminalBridge: NSViewRepresentable {
             commandInteractive: state.startupCommandInteractive
         )
         if view.envVars.isEmpty, let key = worktreeKey {
-            view.envVars = Self.buildEnvVars(paneID: state.id, worktreeKey: key, configured: state.env)
+            view.envVars = TerminalPaneEnvironment.ordered(paneID: state.id, worktreeKey: key, configured: state.env)
         }
         view.isFocused = focused
         view.overlayActive = overlayActive
@@ -169,7 +169,7 @@ struct TerminalBridge: NSViewRepresentable {
 
     func updateNSView(_ nsView: GhosttyTerminalNSView, context: Context) {
         if nsView.envVars.isEmpty, nsView.surface == nil, let key = worktreeKey {
-            nsView.envVars = Self.buildEnvVars(paneID: state.id, worktreeKey: key, configured: state.env)
+            nsView.envVars = TerminalPaneEnvironment.ordered(paneID: state.id, worktreeKey: key, configured: state.env)
         }
         nsView.overlayActive = overlayActive
         nsView.onFocus = onFocus
@@ -208,24 +208,6 @@ struct TerminalBridge: NSViewRepresentable {
         } else if !focused, wasFocused {
             nsView.notifySurfaceUnfocused()
         }
-    }
-
-    private static func buildEnvVars(
-        paneID: UUID,
-        worktreeKey key: WorktreeKey,
-        configured: [String: String]
-    ) -> [(key: String, value: String)] {
-        var vars = configured
-        vars["MUXY_PANE_ID"] = paneID.uuidString
-        vars["MUXY_PROJECT_ID"] = key.projectID.uuidString
-        vars["MUXY_WORKTREE_ID"] = key.worktreeID.uuidString
-        vars["MUXY_SOCKET_PATH"] = NotificationSocketServer.socketPath
-        if let hookPath = MuxyNotificationHooks.hookScriptPath {
-            vars["MUXY_HOOK_SCRIPT"] = hookPath
-        }
-        return vars
-            .map { (key: $0.key, value: $0.value) }
-            .sorted { $0.key < $1.key }
     }
 
     private func configureFileOpenCallback(_ view: GhosttyTerminalNSView) {

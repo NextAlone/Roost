@@ -2,7 +2,6 @@ name: jj integration
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
   schedule:

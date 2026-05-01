@@ -79,7 +79,7 @@ struct JjPanelView: View {
                 onConfirm: { message in
                     showDescribeSheet = false
                     if let pendingDescribeChange {
-                        let revset = pendingDescribeChange.change.prefix
+                        let revset = pendingDescribeChange.actionRevset
                         self.pendingDescribeChange = nil
                         runMutation { try await mutator.describe(repoPath: state.repoPath, revset: revset, message: message) }
                     } else {
@@ -452,20 +452,22 @@ struct JjPanelView: View {
             } else {
                 let graphColumnWidth = graphColumnWidth(entries: entries)
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(entries.enumerated()), id: \.element.change.prefix) { index, entry in
+                    ForEach(Array(entries.enumerated()), id: \.element.rowIdentity) { index, entry in
+                        let rowID = entry.rowIdentity
+                        let actionRevset = entry.actionRevset
                         VStack(alignment: .leading, spacing: 0) {
                             JjChangeRow(
                                 entry: entry,
                                 bookmarks: bookmarks,
                                 graphColumnWidth: graphColumnWidth,
-                                isHovered: hoveredChangeID == entry.change.prefix,
-                                isContextTarget: contextTargetChangeID == entry.change.prefix,
+                                isHovered: hoveredChangeID == rowID,
+                                isContextTarget: contextTargetChangeID == rowID,
                                 previousGraphLine: index > 0 ? entries[index - 1].graphLinesAfter.last : nil,
                                 nextGraphLine: entry.graphLinesAfter.first,
                                 onHoverChange: { isHovered in
                                     if isHovered {
-                                        hoveredChangeID = entry.change.prefix
-                                    } else if hoveredChangeID == entry.change.prefix {
+                                        hoveredChangeID = rowID
+                                    } else if hoveredChangeID == rowID {
                                         hoveredChangeID = nil
                                     }
                                 },
@@ -473,17 +475,17 @@ struct JjPanelView: View {
                                     hoveredChangeID = nil
                                     hoveredOperationID = nil
                                     hoveredConflictPath = nil
-                                    contextTargetChangeID = entry.change.prefix
+                                    contextTargetChangeID = rowID
                                     contextTargetOperationID = nil
                                     contextTargetConflictPath = nil
                                 },
                                 onContextMenuAppear: {
-                                    contextTargetChangeID = entry.change.prefix
+                                    contextTargetChangeID = rowID
                                     contextTargetOperationID = nil
                                     contextTargetConflictPath = nil
                                 },
                                 onContextMenuDisappear: {
-                                    if contextTargetChangeID == entry.change.prefix {
+                                    if contextTargetChangeID == rowID {
                                         contextTargetChangeID = nil
                                     }
                                 },
@@ -494,7 +496,7 @@ struct JjPanelView: View {
                                     runMutation {
                                         try await mutator.edit(
                                             repoPath: state.repoPath,
-                                            revset: entry.change.prefix
+                                            revset: actionRevset
                                         )
                                     }
                                 },
@@ -503,27 +505,27 @@ struct JjPanelView: View {
                                     showDescribeSheet = true
                                 },
                                 onNewAt: {
-                                    runMutation { try await mutator.newAt(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                    runMutation { try await mutator.newAt(repoPath: state.repoPath, revset: actionRevset) }
                                 },
                                 onNewAfter: {
-                                    runMutation { try await mutator.newAfter(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                    runMutation { try await mutator.newAfter(repoPath: state.repoPath, revset: actionRevset) }
                                 },
                                 onNewBefore: {
-                                    runMutation { try await mutator.newBefore(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                    runMutation { try await mutator.newBefore(repoPath: state.repoPath, revset: actionRevset) }
                                 },
                                 onDuplicate: {
-                                    runMutation { try await mutator.duplicate(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                    runMutation { try await mutator.duplicate(repoPath: state.repoPath, revset: actionRevset) }
                                 },
                                 onSquashInto: {
-                                    runMutation { try await mutator.squashInto(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                    runMutation { try await mutator.squashInto(repoPath: state.repoPath, revset: actionRevset) }
                                 },
                                 onRebaseOnto: {
                                     runMutation {
-                                        try await mutator.rebaseWorkingCopyOnto(repoPath: state.repoPath, revset: entry.change.prefix)
+                                        try await mutator.rebaseWorkingCopyOnto(repoPath: state.repoPath, revset: actionRevset)
                                     }
                                 },
                                 onCreateBookmark: {
-                                    pendingCreateBookmarkRevset = entry.change.prefix
+                                    pendingCreateBookmarkRevset = actionRevset
                                     showCreateBookmarkSheet = true
                                 },
                                 onMoveBookmark: { bookmarkName in
@@ -531,15 +533,15 @@ struct JjPanelView: View {
                                         try await bookmarkService.setTarget(
                                             repoPath: state.repoPath,
                                             name: bookmarkName,
-                                            revset: entry.change.prefix
+                                            revset: actionRevset
                                         )
                                     }
                                 },
                                 onAbandon: {
-                                    runMutation { try await mutator.abandon(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                    runMutation { try await mutator.abandon(repoPath: state.repoPath, revset: actionRevset) }
                                 },
                                 onRevert: {
-                                    runMutation { try await mutator.revert(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                    runMutation { try await mutator.revert(repoPath: state.repoPath, revset: actionRevset) }
                                 }
                             )
                         }

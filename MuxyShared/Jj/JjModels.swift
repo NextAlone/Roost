@@ -57,6 +57,14 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         self.graphLinesAfter = graphLinesAfter
     }
 
+    public var rowIdentity: String {
+        commitId.isEmpty ? change.full : commitId
+    }
+
+    public var actionRevset: String {
+        commitId.isEmpty ? change.prefix : commitId
+    }
+
     private enum CodingKeys: String, CodingKey {
         case graphPrefix
         case change

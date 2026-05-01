@@ -32,6 +32,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
     public let authorName: String
     public let authorTimestamp: String
     public let description: String
+    public let graphLinesAfter: [String]
 
     public init(
         graphPrefix: String,
@@ -40,7 +41,8 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         isEmpty: Bool,
         authorName: String,
         authorTimestamp: String,
-        description: String
+        description: String,
+        graphLinesAfter: [String] = []
     ) {
         self.graphPrefix = graphPrefix
         self.change = change
@@ -49,6 +51,7 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         self.authorName = authorName
         self.authorTimestamp = authorTimestamp
         self.description = description
+        self.graphLinesAfter = graphLinesAfter
     }
 }
 

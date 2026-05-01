@@ -11,7 +11,7 @@ struct JjPanelView: View {
     @State private var pendingDescribeChange: JjLogEntry?
     @State private var filesCollapsed = false
     @State private var changesCollapsed = false
-    @State private var bookmarksCollapsed = false
+    @State private var bookmarksCollapsed = true
     @State private var conflictsCollapsed = false
 
     private let mutator = JjMutationService(queue: JjProcessQueue.shared)
@@ -306,72 +306,82 @@ struct JjPanelView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(MuxyTheme.fgDim)
             } else {
+                let graphColumnWidth = graphColumnWidth(entries: entries)
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(entries.enumerated()), id: \.element.change.prefix) { index, entry in
-                        JjChangeRow(
-                            entry: entry,
-                            bookmarks: bookmarks,
-                            isFirst: index == 0,
-                            isLast: index == entries.count - 1,
-                            onCopyChangeID: { copyToPasteboard(entry.change.prefix) },
-                            onCopyCommitID: { copyToPasteboard(entry.commitId) },
-                            onCopyDescription: { copyToPasteboard(entry.description) },
-                            onEdit: {
-                                runMutation {
-                                    try await mutator.edit(
-                                        repoPath: state.repoPath,
-                                        revset: entry.change.prefix
-                                    )
+                        VStack(alignment: .leading, spacing: 0) {
+                            JjChangeRow(
+                                entry: entry,
+                                bookmarks: bookmarks,
+                                graphColumnWidth: graphColumnWidth,
+                                previousGraphLine: index > 0 ? entries[index - 1].graphLinesAfter.last : nil,
+                                nextGraphLine: entry.graphLinesAfter.first,
+                                onCopyChangeID: { copyToPasteboard(entry.change.prefix) },
+                                onCopyCommitID: { copyToPasteboard(entry.commitId) },
+                                onCopyDescription: { copyToPasteboard(entry.description) },
+                                onEdit: {
+                                    runMutation {
+                                        try await mutator.edit(
+                                            repoPath: state.repoPath,
+                                            revset: entry.change.prefix
+                                        )
+                                    }
+                                },
+                                onDescribe: {
+                                    pendingDescribeChange = entry
+                                    showDescribeSheet = true
+                                },
+                                onNewAt: {
+                                    runMutation { try await mutator.newAt(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                },
+                                onNewAfter: {
+                                    runMutation { try await mutator.newAfter(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                },
+                                onNewBefore: {
+                                    runMutation { try await mutator.newBefore(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                },
+                                onDuplicate: {
+                                    runMutation { try await mutator.duplicate(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                },
+                                onSquashInto: {
+                                    runMutation { try await mutator.squashInto(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                },
+                                onRebaseOnto: {
+                                    runMutation {
+                                        try await mutator.rebaseWorkingCopyOnto(repoPath: state.repoPath, revset: entry.change.prefix)
+                                    }
+                                },
+                                onCreateBookmark: {
+                                    pendingCreateBookmarkRevset = entry.change.prefix
+                                    showCreateBookmarkSheet = true
+                                },
+                                onMoveBookmark: { bookmarkName in
+                                    runMutation {
+                                        try await bookmarkService.setTarget(
+                                            repoPath: state.repoPath,
+                                            name: bookmarkName,
+                                            revset: entry.change.prefix
+                                        )
+                                    }
+                                },
+                                onAbandon: {
+                                    runMutation { try await mutator.abandon(repoPath: state.repoPath, revset: entry.change.prefix) }
+                                },
+                                onRevert: {
+                                    runMutation { try await mutator.revert(repoPath: state.repoPath, revset: entry.change.prefix) }
                                 }
-                            },
-                            onDescribe: {
-                                pendingDescribeChange = entry
-                                showDescribeSheet = true
-                            },
-                            onNewAt: {
-                                runMutation { try await mutator.newAt(repoPath: state.repoPath, revset: entry.change.prefix) }
-                            },
-                            onNewAfter: {
-                                runMutation { try await mutator.newAfter(repoPath: state.repoPath, revset: entry.change.prefix) }
-                            },
-                            onNewBefore: {
-                                runMutation { try await mutator.newBefore(repoPath: state.repoPath, revset: entry.change.prefix) }
-                            },
-                            onDuplicate: {
-                                runMutation { try await mutator.duplicate(repoPath: state.repoPath, revset: entry.change.prefix) }
-                            },
-                            onSquashInto: {
-                                runMutation { try await mutator.squashInto(repoPath: state.repoPath, revset: entry.change.prefix) }
-                            },
-                            onRebaseOnto: {
-                                runMutation {
-                                    try await mutator.rebaseWorkingCopyOnto(repoPath: state.repoPath, revset: entry.change.prefix)
-                                }
-                            },
-                            onCreateBookmark: {
-                                pendingCreateBookmarkRevset = entry.change.prefix
-                                showCreateBookmarkSheet = true
-                            },
-                            onMoveBookmark: { bookmarkName in
-                                runMutation {
-                                    try await bookmarkService.setTarget(
-                                        repoPath: state.repoPath,
-                                        name: bookmarkName,
-                                        revset: entry.change.prefix
-                                    )
-                                }
-                            },
-                            onAbandon: {
-                                runMutation { try await mutator.abandon(repoPath: state.repoPath, revset: entry.change.prefix) }
-                            },
-                            onRevert: {
-                                runMutation { try await mutator.revert(repoPath: state.repoPath, revset: entry.change.prefix) }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    private func graphColumnWidth(entries: [JjLogEntry]) -> CGFloat {
+        let graphLines = entries.flatMap { [$0.graphPrefix] + $0.graphLinesAfter }
+        let maxCharacterCount = graphLines.map(\.count).max() ?? 2
+        return max(18, CGFloat(maxCharacterCount) * JjGraphMetrics.characterWidth)
     }
 
     private func color(for change: JjFileChange) -> Color {
@@ -539,8 +549,9 @@ private enum JjPanelSection: CaseIterable {
 private struct JjChangeRow: View {
     let entry: JjLogEntry
     let bookmarks: [JjBookmark]
-    let isFirst: Bool
-    let isLast: Bool
+    let graphColumnWidth: CGFloat
+    let previousGraphLine: String?
+    let nextGraphLine: String?
     let onCopyChangeID: () -> Void
     let onCopyCommitID: () -> Void
     let onCopyDescription: () -> Void
@@ -580,7 +591,14 @@ private struct JjChangeRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            graphRail
+            JjGraphView(
+                graph: entry.graphPrefix,
+                height: 40,
+                isCurrent: isCurrent,
+                previousGraphLine: previousGraphLine,
+                nextGraphLine: nextGraphLine
+            )
+            .frame(width: graphColumnWidth, height: 40, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -675,22 +693,374 @@ private struct JjChangeRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title), \(entry.change.prefix), \(entry.authorName), \(relativeDate(entry.authorTimestamp))")
     }
+}
 
-    private var graphRail: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(isFirst ? .clear : MuxyTheme.fgDim.opacity(0.35))
-                Rectangle()
-                    .fill(isLast ? .clear : MuxyTheme.fgDim.opacity(0.35))
+private enum JjGraphMetrics {
+    static let characterWidth: CGFloat = 9
+    static let lineWidth: CGFloat = 1
+    static let nodeSize: CGFloat = 7
+    static let nodeStroke: CGFloat = 1.2
+    static let transitionInset: CGFloat = 4
+    static let cornerRadius: CGFloat = 4
+}
+
+private struct JjGraphView: View {
+    let graph: String
+    let height: CGFloat
+    let isCurrent: Bool
+    let previousGraphLine: String?
+    let nextGraphLine: String?
+
+    private var characters: [Character] {
+        Array(graph)
+    }
+
+    private var node: (index: Int, character: Character)? {
+        guard let index = characters.firstIndex(where: { character in
+            character == "@" || character == "○" || character == "◆"
+        })
+        else { return nil }
+        return (index, characters[index])
+    }
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            graphPath
+                .stroke(
+                    MuxyTheme.fgDim.opacity(0.62),
+                    style: StrokeStyle(
+                        lineWidth: JjGraphMetrics.lineWidth,
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
+                )
+
+            if let node {
+                nodeElement(node.character, at: node.index)
             }
-            .frame(width: 1)
 
-            Circle()
-                .fill(isCurrent ? MuxyTheme.accent : MuxyTheme.fgDim)
-                .frame(width: 8, height: 8)
+            fallbackGraphText
         }
-        .frame(width: 12, height: 40)
+        .frame(height: height)
+    }
+
+    @ViewBuilder
+    private var fallbackGraphText: some View {
+        ForEach(Array(characters.enumerated()), id: \.offset) { index, character in
+            if character == "~" {
+                Text(String(character))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(MuxyTheme.fgDim)
+                    .frame(width: JjGraphMetrics.characterWidth)
+                    .position(x: xPosition(for: index), y: height / 2)
+            }
+        }
+        ForEach(Array((nextGraphLine ?? "").enumerated()), id: \.offset) { index, character in
+            if character == "~" {
+                Text(String(character))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(MuxyTheme.fgDim)
+                    .frame(width: JjGraphMetrics.characterWidth)
+                    .position(x: xPosition(for: index), y: transitionY)
+            }
+        }
+    }
+
+    private var graphPath: Path {
+        Path { path in
+            drawCurrentGraph(in: &path)
+            drawNodeLines(in: &path)
+            drawTransitionGraph(in: &path)
+        }
+    }
+
+    private var centerY: CGFloat {
+        height / 2
+    }
+
+    private var transitionY: CGFloat {
+        max(centerY, height - JjGraphMetrics.transitionInset)
+    }
+
+    private var halfCharacterWidth: CGFloat {
+        JjGraphMetrics.characterWidth / 2
+    }
+
+    private func drawCurrentGraph(in path: inout Path) {
+        for (index, character) in characters.enumerated() {
+            switch character {
+            case "│":
+                let nextCharacter = graphCharacter(nextGraphLine, at: index)
+                drawVertical(in: &path, at: index, from: 0, to: currentVerticalEnd(nextCharacter))
+            case "├":
+                drawJunctionRight(in: &path, at: index, y: centerY, verticalStart: 0, verticalEnd: height)
+            case "┤":
+                drawJunctionLeft(in: &path, at: index, y: centerY, verticalStart: 0, verticalEnd: height)
+            case "┼":
+                drawJunctionCross(in: &path, at: index, y: centerY, verticalStart: 0, verticalEnd: height)
+            case "┬":
+                drawJunctionDown(in: &path, at: index, y: centerY, verticalEnd: height)
+            case "┴":
+                drawJunctionUp(in: &path, at: index, y: centerY, verticalStart: 0)
+            case "─":
+                drawHorizontal(
+                    in: &path,
+                    from: xPosition(for: index) - halfCharacterWidth,
+                    to: xPosition(for: index) + halfCharacterWidth,
+                    y: centerY
+                )
+            case "╭":
+                drawCornerRightDown(in: &path, at: index, y: centerY, verticalEnd: height)
+            case "╰":
+                drawCornerRightUp(in: &path, at: index, y: centerY, verticalStart: 0)
+            case "╮":
+                drawCornerLeftDown(in: &path, at: index, y: centerY, verticalEnd: height)
+            case "╯":
+                drawCornerLeftUp(in: &path, at: index, y: centerY, verticalStart: 0)
+            default:
+                break
+            }
+        }
+    }
+
+    private func drawNodeLines(in path: inout Path) {
+        guard let node else { return }
+        if let character = graphCharacter(previousGraphLine, at: node.index),
+           connectsToRowBelow(character)
+        {
+            drawVertical(in: &path, at: node.index, from: 0, to: centerY)
+        }
+        if let character = graphCharacter(nextGraphLine, at: node.index),
+           connectsFromRowAbove(character)
+        {
+            if !closesAtTransition(character) {
+                drawVertical(in: &path, at: node.index, from: centerY, to: height)
+            }
+        }
+    }
+
+    private func currentVerticalEnd(_ nextCharacter: Character?) -> CGFloat {
+        guard let nextCharacter, closesAtTransition(nextCharacter) else { return height }
+        return centerY
+    }
+
+    private func drawTransitionGraph(in path: inout Path) {
+        guard let nextGraphLine else { return }
+        let nextCharacters = Array(nextGraphLine)
+        for (index, character) in nextCharacters.enumerated() {
+            switch character {
+            case "│":
+                drawVertical(in: &path, at: index, from: transitionY, to: height)
+            case "├":
+                if rightSideClosesFromAbove(nextCharacters, after: index) {
+                    drawJunctionRightFromBelow(in: &path, at: index, y: transitionY, verticalStart: centerY, verticalEnd: height)
+                } else {
+                    drawJunctionRight(in: &path, at: index, y: transitionY, verticalStart: centerY, verticalEnd: height)
+                }
+            case "┤":
+                drawJunctionLeft(in: &path, at: index, y: transitionY, verticalStart: centerY, verticalEnd: height)
+            case "┼":
+                drawJunctionCross(in: &path, at: index, y: transitionY, verticalStart: centerY, verticalEnd: height)
+            case "┬":
+                drawJunctionDown(in: &path, at: index, y: transitionY, verticalEnd: height)
+            case "┴":
+                drawJunctionUp(in: &path, at: index, y: transitionY, verticalStart: centerY)
+            case "─":
+                drawHorizontal(
+                    in: &path,
+                    from: xPosition(for: index) - halfCharacterWidth,
+                    to: xPosition(for: index) + halfCharacterWidth,
+                    y: transitionY
+                )
+            case "╭":
+                drawCornerRightDown(in: &path, at: index, y: transitionY, verticalEnd: height)
+            case "╮":
+                drawCornerLeftDown(in: &path, at: index, y: transitionY, verticalEnd: height)
+            case "╰":
+                drawCornerRightUp(in: &path, at: index, y: transitionY, verticalStart: centerY)
+            case "╯":
+                drawCornerLeftUp(in: &path, at: index, y: transitionY, verticalStart: centerY)
+            case "╲":
+                drawHorizontal(in: &path, from: xPosition(for: index), to: xPosition(for: index) + halfCharacterWidth, y: transitionY)
+            case "╱":
+                drawHorizontal(in: &path, from: xPosition(for: index) - halfCharacterWidth, to: xPosition(for: index), y: transitionY)
+            case "╳":
+                drawHorizontal(
+                    in: &path,
+                    from: xPosition(for: index) - halfCharacterWidth,
+                    to: xPosition(for: index) + halfCharacterWidth,
+                    y: transitionY
+                )
+            default:
+                break
+            }
+        }
+    }
+
+    private func drawVertical(in path: inout Path, at index: Int, from start: CGFloat, to end: CGFloat) {
+        drawLine(
+            in: &path,
+            from: CGPoint(x: xPosition(for: index), y: start),
+            to: CGPoint(x: xPosition(for: index), y: end)
+        )
+    }
+
+    private func drawHorizontal(in path: inout Path, from start: CGFloat, to end: CGFloat, y: CGFloat) {
+        drawLine(in: &path, from: CGPoint(x: start, y: y), to: CGPoint(x: end, y: y))
+    }
+
+    private func drawJunctionRight(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat, verticalEnd: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawVertical(in: &path, at: index, from: verticalStart, to: verticalEnd)
+        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
+        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
+    }
+
+    private func drawJunctionRightFromBelow(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat, verticalEnd: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawVertical(in: &path, at: index, from: verticalStart, to: verticalEnd)
+        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
+        drawCurve(in: &path, from: CGPoint(x: x, y: y + radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
+    }
+
+    private func drawJunctionLeft(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat, verticalEnd: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawVertical(in: &path, at: index, from: verticalStart, to: verticalEnd)
+        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
+        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x - radius, y: y), control: CGPoint(x: x, y: y))
+    }
+
+    private func drawJunctionCross(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat, verticalEnd: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawVertical(in: &path, at: index, from: verticalStart, to: verticalEnd)
+        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
+        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
+        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
+        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x - radius, y: y), control: CGPoint(x: x, y: y))
+    }
+
+    private func drawJunctionDown(in path: inout Path, at index: Int, y: CGFloat, verticalEnd: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
+        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
+        drawVertical(in: &path, at: index, from: y + radius, to: verticalEnd)
+        drawCurve(in: &path, from: CGPoint(x: x - radius, y: y), to: CGPoint(x: x, y: y + radius), control: CGPoint(x: x, y: y))
+        drawCurve(in: &path, from: CGPoint(x: x + radius, y: y), to: CGPoint(x: x, y: y + radius), control: CGPoint(x: x, y: y))
+    }
+
+    private func drawJunctionUp(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
+        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
+        drawVertical(in: &path, at: index, from: verticalStart, to: y - radius)
+        drawCurve(in: &path, from: CGPoint(x: x - radius, y: y), to: CGPoint(x: x, y: y - radius), control: CGPoint(x: x, y: y))
+        drawCurve(in: &path, from: CGPoint(x: x + radius, y: y), to: CGPoint(x: x, y: y - radius), control: CGPoint(x: x, y: y))
+    }
+
+    private func drawCornerRightDown(in path: inout Path, at index: Int, y: CGFloat, verticalEnd: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawVertical(in: &path, at: index, from: y + radius, to: verticalEnd)
+        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
+        drawCurve(in: &path, from: CGPoint(x: x, y: y + radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
+    }
+
+    private func drawCornerRightUp(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawVertical(in: &path, at: index, from: verticalStart, to: y - radius)
+        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
+        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
+    }
+
+    private func drawCornerLeftDown(in path: inout Path, at index: Int, y: CGFloat, verticalEnd: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawVertical(in: &path, at: index, from: y + radius, to: verticalEnd)
+        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
+        drawCurve(in: &path, from: CGPoint(x: x - radius, y: y), to: CGPoint(x: x, y: y + radius), control: CGPoint(x: x, y: y))
+    }
+
+    private func drawCornerLeftUp(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat) {
+        let x = xPosition(for: index)
+        let radius = cornerRadius
+        drawVertical(in: &path, at: index, from: verticalStart, to: y - radius)
+        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
+        drawCurve(in: &path, from: CGPoint(x: x - radius, y: y), to: CGPoint(x: x, y: y - radius), control: CGPoint(x: x, y: y))
+    }
+
+    private var cornerRadius: CGFloat {
+        min(JjGraphMetrics.cornerRadius, halfCharacterWidth)
+    }
+
+    private func drawCurve(in path: inout Path, from start: CGPoint, to end: CGPoint, control: CGPoint) {
+        path.move(to: start)
+        path.addQuadCurve(to: end, control: control)
+    }
+
+    private func drawLine(in path: inout Path, from start: CGPoint, to end: CGPoint) {
+        path.move(to: start)
+        path.addLine(to: end)
+    }
+
+    private func rightSideClosesFromAbove(_ characters: [Character], after index: Int) -> Bool {
+        for character in characters.dropFirst(index + 1) {
+            if character == "╯" { return true }
+            if character != "─", !character.isWhitespace { return false }
+        }
+        return false
+    }
+
+    @ViewBuilder
+    private func nodeElement(_ character: Character, at index: Int) -> some View {
+        if character == "@" {
+            Text("@")
+                .font(.system(size: 11, design: .monospaced))
+                .fontWeight(.semibold)
+                .foregroundStyle(MuxyTheme.accent)
+                .frame(width: JjGraphMetrics.characterWidth)
+                .position(x: xPosition(for: index), y: height / 2)
+        } else if character == "◆" {
+            Rectangle()
+                .fill(MuxyTheme.fgDim)
+                .frame(width: JjGraphMetrics.nodeSize, height: JjGraphMetrics.nodeSize)
+                .rotationEffect(.degrees(45))
+                .position(x: xPosition(for: index), y: height / 2)
+        } else {
+            Circle()
+                .stroke(MuxyTheme.fgDim.opacity(0.86), lineWidth: JjGraphMetrics.nodeStroke)
+                .frame(width: JjGraphMetrics.nodeSize, height: JjGraphMetrics.nodeSize)
+                .position(x: xPosition(for: index), y: height / 2)
+        }
+    }
+
+    private func graphCharacter(_ line: String?, at index: Int) -> Character? {
+        guard let line else { return nil }
+        let characters = Array(line)
+        guard characters.indices.contains(index) else { return nil }
+        return characters[index]
+    }
+
+    private func connectsToRowBelow(_ character: Character) -> Bool {
+        "│├┤┼┬╮╭".contains(character)
+    }
+
+    private func connectsFromRowAbove(_ character: Character) -> Bool {
+        "│├┤┼┴╯╰".contains(character)
+    }
+
+    private func closesAtTransition(_ character: Character) -> Bool {
+        "┴╯╰".contains(character)
+    }
+
+    private func xPosition(for index: Int) -> CGFloat {
+        CGFloat(index) * JjGraphMetrics.characterWidth + JjGraphMetrics.characterWidth / 2
     }
 }
 

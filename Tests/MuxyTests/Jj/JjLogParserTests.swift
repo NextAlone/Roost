@@ -21,6 +21,20 @@ struct JjLogParserTests {
         #expect(entries[1].description == "fix(sidebar): clarify workspace selection state")
     }
 
+    @Test("attaches graph-only rows to preceding changes")
+    func attachesGraphOnlyRows() throws {
+        let raw = """
+        @  mu\td8e0f8759610\tempty\tNext Alone\t2026-05-01T15:49:43+08:00\t
+        │
+        ○  tv\t35808e455f51\tnonempty\tNext Alone\t2026-05-01T15:31:49+08:00\tfix(sidebar): clarify workspace selection state
+        ~
+        """
+        let entries = try JjLogParser.parse(raw)
+        #expect(entries.count == 2)
+        #expect(entries[0].graphLinesAfter == ["│"])
+        #expect(entries[1].graphLinesAfter == ["~"])
+    }
+
     @Test("rejects malformed rows")
     func rejectsMalformedRows() {
         #expect(throws: JjLogParseError.self) {
@@ -33,10 +47,12 @@ struct JjLogParserTests {
         let raw = """
         malformed
         @  mu\td8e0f8759610\tnonempty\tNext Alone\t2026-05-01T15:49:43+08:00
+        │
         """
         let entries = JjLogParser.parseLenient(raw)
         #expect(entries.count == 1)
         #expect(entries[0].change.prefix == "mu")
         #expect(entries[0].description == "")
+        #expect(entries[0].graphLinesAfter == ["│"])
     }
 }

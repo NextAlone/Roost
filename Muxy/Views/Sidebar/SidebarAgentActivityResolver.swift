@@ -77,8 +77,20 @@ enum SidebarAgentActivityResolver {
     }
 }
 
-private extension AgentActivityState {
+extension AgentActivityState {
     static var sidebarPriority: [AgentActivityState] {
-        [.needsInput, .running, .idle, .completed, .exited]
+        [.needsInput, .running, .completed, .idle, .exited]
+    }
+
+    var acknowledgedSidebarState: AgentActivityState {
+        switch self {
+        case .completed:
+            .idle
+        case .needsInput,
+             .running,
+             .idle,
+             .exited:
+            self
+        }
     }
 }

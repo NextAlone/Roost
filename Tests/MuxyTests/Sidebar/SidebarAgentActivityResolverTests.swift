@@ -81,6 +81,24 @@ struct SidebarAgentActivityResolverTests {
         #expect(summary?.agentStates == [.running, .needsInput])
     }
 
+    @Test("summary surfaces completed before idle")
+    func summarySurfacesCompletedBeforeIdle() {
+        let idlePane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .codex)
+        idlePane.activityState = .idle
+        let completedPane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .claudeCode)
+        completedPane.activityState = .completed
+
+        let summary = SidebarAgentActivityResolver.summary(
+            tabs: [
+                TerminalTab(pane: idlePane),
+                TerminalTab(pane: completedPane),
+            ],
+            activeTabID: nil
+        )
+
+        #expect(summary?.dominantState == .completed)
+    }
+
     @Test("summary dot identities include state")
     func summaryDotIdentitiesIncludeState() {
         let completed = SidebarAgentActivitySummary(
@@ -119,5 +137,12 @@ struct SidebarAgentActivityResolverTests {
         )
 
         #expect(summary == nil)
+    }
+
+    @Test("completed acknowledges to idle")
+    func completedAcknowledgesToIdle() {
+        #expect(AgentActivityState.completed.acknowledgedSidebarState == .idle)
+        #expect(AgentActivityState.needsInput.acknowledgedSidebarState == .needsInput)
+        #expect(AgentActivityState.running.acknowledgedSidebarState == .running)
     }
 }

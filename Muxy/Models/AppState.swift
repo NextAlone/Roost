@@ -217,10 +217,11 @@ final class AppState {
         for area in root.allAreas() {
             for tab in area.tabs {
                 guard let pane = tab.content.pane,
-                      pane.agentKind != .terminal,
-                      pane.activityState == .completed
+                      pane.agentKind != .terminal
                 else { continue }
-                pane.activityState = .idle
+                let acknowledgedState = pane.activityState.acknowledgedSidebarState
+                guard acknowledgedState != pane.activityState else { continue }
+                pane.activityState = acknowledgedState
                 cleared = true
             }
         }

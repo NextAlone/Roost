@@ -22,3 +22,16 @@ struct WorkspaceStatusBadge: View {
         }
     }
 }
+
+extension WorkspaceStatus {
+    var sidebarRowBadgeStatus: WorkspaceStatus? {
+        switch self {
+        case .conflicted:
+            self
+        case .clean,
+             .dirty,
+             .unknown:
+            nil
+        }
+    }
+}

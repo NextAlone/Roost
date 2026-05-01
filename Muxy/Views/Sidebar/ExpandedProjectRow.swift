@@ -562,8 +562,7 @@ private struct ExpandedWorktreeRow: View {
     var body: some View {
         HStack(spacing: 6) {
             WorkspaceAgentActivityIndicator(
-                state: agentActivitySummary?.dominantState,
-                selected: selected
+                state: agentActivitySummary?.dominantState
             )
 
             if isRenaming {
@@ -586,7 +585,9 @@ private struct ExpandedWorktreeRow: View {
                         if let label = worktree.vcsKind.sidebarWarningBadgeLabel {
                             VcsWarningBadge(label: label)
                         }
-                        WorkspaceStatusBadge(status: statusStore.status(forWorktreeID: worktree.id))
+                        if let sidebarStatus {
+                            WorkspaceStatusBadge(status: sidebarStatus)
+                        }
                     }
 
                     if let branch = branchLabel {
@@ -644,10 +645,15 @@ private struct ExpandedWorktreeRow: View {
     private var worktreeAccessibilityLabel: String {
         var label = displayName
         if let branch = branchLabel { label += ", branch: \(branch)" }
+        if sidebarStatus == .conflicted { label += ", conflicted" }
         if let agentActivitySummary {
             label += ", \(agentActivitySummary.accessibilityLabel)"
         }
         return label
+    }
+
+    private var sidebarStatus: WorkspaceStatus? {
+        statusStore.status(forWorktreeID: worktree.id).sidebarRowBadgeStatus
     }
 
     private var rowBackground: AnyShapeStyle {
@@ -671,7 +677,6 @@ private struct ExpandedWorktreeRow: View {
                 endPoint: .trailing
             ))
         }
-        if selected { return AnyShapeStyle(MuxyTheme.accentSoft) }
         if agentActivitySummary?.dominantState == .running {
             return AnyShapeStyle(LinearGradient(
                 colors: [
@@ -729,7 +734,6 @@ private struct ExpandedNewWorktreeButton: View {
 
 private struct WorkspaceAgentActivityIndicator: View {
     let state: AgentActivityState?
-    let selected: Bool
 
     var body: some View {
         ZStack {
@@ -748,12 +752,10 @@ private struct WorkspaceAgentActivityIndicator: View {
                     .frame(width: 8, height: 8)
             case .idle:
                 Circle()
-                    .fill(selected ? MuxyTheme.accent : MuxyTheme.fgDim.opacity(0.45))
-                    .frame(width: 8, height: 8)
-            case nil:
-                Circle()
-                    .fill(selected ? MuxyTheme.accent : MuxyTheme.fgDim.opacity(0.35))
+                    .fill(MuxyTheme.fgDim.opacity(0.35))
                     .frame(width: 5, height: 5)
+            case nil:
+                EmptyView()
             }
         }
         .frame(width: 16, height: 16)

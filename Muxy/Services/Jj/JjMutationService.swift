@@ -97,6 +97,10 @@ struct JjMutationService {
         try await runMutating(repoPath: repoPath, command: ["resolve", "--tool", tool.rawValue, "--", path])
     }
 
+    func snapshotWorkingCopy(repoPath: String) async throws {
+        try await runMutating(repoPath: repoPath, command: ["status"])
+    }
+
     private func runMutating(repoPath: String, command: [String]) async throws {
         let runner = self.runner
         try await queue.run(repoPath: repoPath, isMutating: true) {

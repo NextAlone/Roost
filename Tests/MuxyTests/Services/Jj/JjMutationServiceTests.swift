@@ -247,6 +247,30 @@ struct JjMutationServiceTests {
         #expect(recorder.commands == [["resolve", "--tool", ":theirs", "--", "README.md"]])
     }
 
+    @Test("snapshot working copy sends status with snapshot allowed")
+    func snapshotWorkingCopy() async throws {
+        let recorder = CommandRecorder()
+        final class SnapshotRecorder: @unchecked Sendable {
+            var snapshots: [JjSnapshotPolicy] = []
+            let lock = NSLock()
+            func record(_ snapshot: JjSnapshotPolicy) {
+                lock.lock(); defer { lock.unlock() }
+                snapshots.append(snapshot)
+            }
+        }
+        let snapshots = SnapshotRecorder()
+        let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, cmd, snapshot, _ in
+            recorder.record(cmd)
+            snapshots.record(snapshot)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        })
+
+        try await service.snapshotWorkingCopy(repoPath: "/tmp/wt")
+
+        #expect(recorder.commands == [["status"]])
+        #expect(snapshots.snapshots == [.allow])
+    }
+
     @Test("non-zero exit throws")
     func nonZeroExit() async {
         let service = JjMutationService(queue: JjProcessQueue.shared, runner: { _, _, _, _ in

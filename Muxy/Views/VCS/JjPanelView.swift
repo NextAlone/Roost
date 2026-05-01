@@ -29,6 +29,7 @@ struct JjPanelView: View {
     private let mutator = JjMutationService(queue: JjProcessQueue.shared)
     private let bookmarkService = JjBookmarkService(queue: JjProcessQueue.shared)
     private let conflictContentLoader = JjConflictContentLoader()
+    private let conflictContentWriter = JjConflictContentWriter()
 
     @State private var showCreateBookmarkSheet = false
     @State private var pendingCreateBookmarkRevset: String?
@@ -157,6 +158,9 @@ struct JjPanelView: View {
                 onOpenInEditor: {
                     onOpenFile(content.path)
                     conflictContent = nil
+                },
+                onSaveResolvedContent: { text in
+                    saveResolvedConflictContent(content, text: text)
                 },
                 onClose: {
                     conflictContent = nil
@@ -967,6 +971,20 @@ struct JjPanelView: View {
             do {
                 conflictContent = try await conflictContentLoader.load(repoPath: state.repoPath, path: conflict.path)
                 actionError = nil
+            } catch {
+                actionError = String(describing: error)
+            }
+        }
+    }
+
+    private func saveResolvedConflictContent(_ content: JjConflictContent, text: String) {
+        Task {
+            do {
+                try await conflictContentWriter.write(repoPath: state.repoPath, path: content.path, text: text)
+                try await mutator.snapshotWorkingCopy(repoPath: state.repoPath)
+                conflictContent = nil
+                actionError = nil
+                await state.refresh()
             } catch {
                 actionError = String(describing: error)
             }

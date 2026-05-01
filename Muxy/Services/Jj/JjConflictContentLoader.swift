@@ -22,15 +22,7 @@ struct JjConflictContentLoader: Sendable {
     }
 
     func load(repoPath: String, path: String) async throws -> JjConflictContent {
-        guard !path.hasPrefix("/") else { throw JjConflictContentLoaderError.absolutePath }
-
-        let repoURL = URL(fileURLWithPath: repoPath).standardizedFileURL.resolvingSymlinksInPath()
-        let fileURL = repoURL.appendingPathComponent(path).standardizedFileURL.resolvingSymlinksInPath()
-        let repoPrefix = repoURL.path.hasSuffix("/") ? repoURL.path : repoURL.path + "/"
-
-        guard fileURL.path.hasPrefix(repoPrefix) else {
-            throw JjConflictContentLoaderError.pathEscapesRepository
-        }
+        let fileURL = try JjConflictContentFile.fileURL(repoPath: repoPath, path: path)
 
         let maxBytes = self.maxBytes
         let data = try await Task.detached(priority: .userInitiated) {
@@ -44,5 +36,31 @@ struct JjConflictContentLoader: Sendable {
         }
 
         return JjConflictContent(path: path, text: text)
+    }
+}
+
+struct JjConflictContentWriter: Sendable {
+    func write(repoPath: String, path: String, text: String) async throws {
+        let fileURL = try JjConflictContentFile.fileURL(repoPath: repoPath, path: path)
+        let data = Data(text.utf8)
+        try await Task.detached(priority: .userInitiated) {
+            try data.write(to: fileURL, options: .atomic)
+        }.value
+    }
+}
+
+private enum JjConflictContentFile {
+    static func fileURL(repoPath: String, path: String) throws -> URL {
+        guard !path.hasPrefix("/") else { throw JjConflictContentLoaderError.absolutePath }
+
+        let repoURL = URL(fileURLWithPath: repoPath).standardizedFileURL.resolvingSymlinksInPath()
+        let fileURL = repoURL.appendingPathComponent(path).standardizedFileURL.resolvingSymlinksInPath()
+        let repoPrefix = repoURL.path.hasSuffix("/") ? repoURL.path : repoURL.path + "/"
+
+        guard fileURL.path.hasPrefix(repoPrefix) else {
+            throw JjConflictContentLoaderError.pathEscapesRepository
+        }
+
+        return fileURL
     }
 }

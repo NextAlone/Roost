@@ -518,6 +518,13 @@ Later features:
 - `JjConflictContentSheet` renders structured conflict markers as three side-by-side columns and falls back to the raw file content when markers are not recognized.
 - Remaining active jj changes backlog: optional embedded conflict editing with write-back beyond the current read-only structured preview.
 
+**Follow-up status (2026-05-02): embedded conflict write-back landed.**
+
+- `JjConflictContentWriter` safely writes resolved conflict content to repo-relative paths using the same escape and symlink checks as the content loader.
+- Structured conflict sheets add editable resolved text for each conflict block, preserving surrounding file context when writing back.
+- Saving resolved content snapshots the jj working copy with a serialized `jj status` call, then refreshes the panel.
+- No active Phase 5 jj changes backlog remains at this checkpoint.
+
 Rules:
 
 - jj has no staging area; do not emulate Git staging as a first-class concept.
@@ -734,7 +741,6 @@ Tasks:
 
 ## Active Backlog After Current Landed Phases
 
-- jj changes: optional embedded conflict editing with write-back beyond the current read-only structured preview.
 - sessions: richer lifecycle states beyond running/exited when reliable terminal lifecycle signals exist.
 - hostd: real cross-process XPC service extraction with signing, sandbox, PTY ownership, and attach/release protocol.
 - release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design.

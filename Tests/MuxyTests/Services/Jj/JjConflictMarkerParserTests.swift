@@ -54,4 +54,24 @@ struct JjConflictMarkerParserTests {
 
         #expect(preview.regions.isEmpty)
     }
+
+    @Test("builds resolved content with edited regions")
+    func buildsResolvedContent() {
+        let text = """
+        before
+        <<<<<<< ours
+        current
+        ||||||| base
+        base
+        =======
+        incoming
+        >>>>>>> theirs
+        after
+        """
+
+        let preview = JjConflictMarkerParser.parse(text)
+        let resolved = preview.resolvedText(replacements: [1: "merged"])
+
+        #expect(resolved == "before\nmerged\nafter")
+    }
 }

@@ -2,12 +2,12 @@
 
 This checklist tracks the current self-signed/ad-hoc local signature release path. Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, telemetry, crash reporting, and the real XPC host daemon are future work.
 
-## Current Release: Self-Signed / Ad-Hoc ZIP
+## Current Release: 1.0.0 Self-Signed / Ad-Hoc ZIP
 
 - [ ] Run `scripts/checks.sh`.
-- [ ] Run `scripts/build-release.sh --arch arm64 --version <X.Y.Z> --zip --sign-identity -` to produce `build/Roost-<X.Y.Z>-arm64.zip`.
+- [ ] Run `scripts/build-release.sh --arch arm64 --version 1.0.0 --zip --sign-identity -` to produce `build/Roost-1.0.0-arm64.zip`.
 - [ ] Confirm `--sign-identity -` uses ad-hoc local signing and does not provide Developer ID or notarization trust.
-- [ ] Verify `build/Roost-<X.Y.Z>-arm64.zip` exists.
+- [ ] Verify `build/Roost-1.0.0-arm64.zip` exists.
 - [ ] Verify `build/SHA256SUMS.txt` exists and contains the versioned archive.
 - [ ] Verify checksum:
 

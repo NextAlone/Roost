@@ -8,10 +8,18 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: jj-integration-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   jj-smoke:
     name: jj integration smoke
     runs-on: macos-26
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -41,11 +49,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Build tests
-        run: swift build --build-tests
-
-      - name: jj smoke tests
-        run: swift test --filter JjIntegrationTests
-
-      - name: jj parser tests against fixtures
-        run: swift test --filter "JjStatusParser|JjOpLogParser|JjBookmarkParser|JjConflictParser|JjWorkspaceParser|JjDiffParser|JjShowParser|JjVersion"
+      - name: Run jj tests
+        run: swift test --build-path .build/jj-integration --filter "JjIntegrationTests|JjStatusParser|JjOpLogParser|JjBookmarkParser|JjConflictParser|JjWorkspaceParser|JjDiffParser|JjShowParser|JjVersion"

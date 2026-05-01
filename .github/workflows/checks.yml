@@ -6,10 +6,18 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     name: Checks
     runs-on: macos-26
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,33 +29,24 @@ jobs:
 
       - name: Install SwiftFormat
         run: |
+          set -euo pipefail
           curl -sL "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.artifactbundle.zip" -o /tmp/swiftformat.zip
           unzip -o /tmp/swiftformat.zip -d /tmp/swiftformat
-          cp /tmp/swiftformat/swiftformat.artifactbundle/swiftformat-$SWIFTFORMAT_VERSION-macos/bin/swiftformat /usr/local/bin/swiftformat
-          chmod +x /usr/local/bin/swiftformat
+          sudo install -m 755 /tmp/swiftformat/swiftformat.artifactbundle/swiftformat-$SWIFTFORMAT_VERSION-macos/bin/swiftformat /usr/local/bin/swiftformat
           swiftformat --version
 
       - name: Install SwiftLint
         run: |
+          set -euo pipefail
           curl -sL "https://github.com/realm/SwiftLint/releases/download/$SWIFTLINT_VERSION/portable_swiftlint.zip" -o /tmp/swiftlint.zip
           unzip -o /tmp/swiftlint.zip -d /tmp/swiftlint
-          cp /tmp/swiftlint/swiftlint /usr/local/bin/swiftlint
-          chmod +x /usr/local/bin/swiftlint
+          sudo install -m 755 /tmp/swiftlint/swiftlint /usr/local/bin/swiftlint
           swiftlint version
-
-      - name: Formatting
-        run: swiftformat --lint .
-
-      - name: Linting
-        run: swiftlint lint --strict --quiet
 
       - name: Setup GhosttyKit
         run: scripts/setup.sh
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Build
-        run: swift build
-
-      - name: Test
-        run: swift test
+      - name: Run checks
+        run: scripts/checks.sh

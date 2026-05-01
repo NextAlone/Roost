@@ -22,6 +22,22 @@ struct JjLogEntryIdentityTests {
         #expect(entry.actionRevset == "5275e03c1176")
     }
 
+    @Test("graph display lines preserve raw jj log graph text")
+    func graphDisplayLinesPreserveRawJjLogGraphText() {
+        let entry = JjLogEntry(
+            graphPrefix: "│ ○  ",
+            change: JjChangeId(prefix: "abcd", full: "abcdefghijklmnopqrstuvwxyz"),
+            commitId: "5275e03c1176",
+            isEmpty: false,
+            authorName: "Next Alone",
+            authorTimestamp: "2026-05-02T03:39:39+08:00",
+            description: "demo",
+            graphLinesAfter: ["├─╮", "│ │", "├─╯", "~"]
+        )
+
+        #expect(entry.graphDisplayLines == ["│ ○  ", "├─╮", "│ │", "├─╯", "~"])
+    }
+
     private func entry(change: JjChangeId, commitId: String) -> JjLogEntry {
         JjLogEntry(
             graphPrefix: "○  ",

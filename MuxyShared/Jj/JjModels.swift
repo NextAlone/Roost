@@ -65,6 +65,10 @@ public struct JjLogEntry: Hashable, Sendable, Codable {
         commitId.isEmpty ? change.prefix : commitId
     }
 
+    public var graphDisplayLines: [String] {
+        [graphPrefix] + graphLinesAfter
+    }
+
     private enum CodingKeys: String, CodingKey {
         case graphPrefix
         case change

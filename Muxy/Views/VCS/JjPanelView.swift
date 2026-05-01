@@ -452,7 +452,7 @@ struct JjPanelView: View {
             } else {
                 let graphColumnWidth = graphColumnWidth(entries: entries)
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(entries.enumerated()), id: \.element.rowIdentity) { index, entry in
+                    ForEach(entries, id: \.rowIdentity) { entry in
                         let rowID = entry.rowIdentity
                         let actionRevset = entry.actionRevset
                         VStack(alignment: .leading, spacing: 0) {
@@ -462,8 +462,6 @@ struct JjPanelView: View {
                                 graphColumnWidth: graphColumnWidth,
                                 isHovered: hoveredChangeID == rowID,
                                 isContextTarget: contextTargetChangeID == rowID,
-                                previousGraphLine: index > 0 ? entries[index - 1].graphLinesAfter.last : nil,
-                                nextGraphLine: entry.graphLinesAfter.first,
                                 onHoverChange: { isHovered in
                                     if isHovered {
                                         hoveredChangeID = rowID
@@ -552,9 +550,9 @@ struct JjPanelView: View {
     }
 
     private func graphColumnWidth(entries: [JjLogEntry]) -> CGFloat {
-        let graphLines = entries.flatMap { [$0.graphPrefix] + $0.graphLinesAfter }
+        let graphLines = entries.flatMap(\.graphDisplayLines)
         let maxCharacterCount = graphLines.map(\.count).max() ?? 2
-        return max(18, CGFloat(maxCharacterCount) * JjGraphMetrics.characterWidth)
+        return max(18, CGFloat(maxCharacterCount) * JjGraphTextMetrics.characterWidth)
     }
 
     private func color(for change: JjFileChange) -> Color {
@@ -1031,8 +1029,6 @@ private struct JjChangeRow: View {
     let graphColumnWidth: CGFloat
     let isHovered: Bool
     let isContextTarget: Bool
-    let previousGraphLine: String?
-    let nextGraphLine: String?
     let onHoverChange: (Bool) -> Void
     let onRightMouseDown: () -> Void
     let onContextMenuAppear: () -> Void
@@ -1067,15 +1063,25 @@ private struct JjChangeRow: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            primaryRow
+
+            ForEach(Array(entry.graphLinesAfter.enumerated()), id: \.offset) { _, line in
+                HStack(spacing: 8) {
+                    JjGraphTextLine(text: line, graphColumnWidth: graphColumnWidth)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 10)
+                .frame(height: JjGraphTextMetrics.continuationLineHeight)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(entry.change.prefix), \(entry.authorName), \(relativeDate(entry.authorTimestamp))")
+    }
+
+    private var primaryRow: some View {
         HStack(spacing: 8) {
-            JjGraphView(
-                graph: entry.graphPrefix,
-                height: 40,
-                isCurrent: isCurrent,
-                previousGraphLine: previousGraphLine,
-                nextGraphLine: nextGraphLine
-            )
-            .frame(width: graphColumnWidth, height: 40, alignment: .leading)
+            JjGraphTextLine(text: entry.graphPrefix, graphColumnWidth: graphColumnWidth)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -1119,7 +1125,7 @@ private struct JjChangeRow: View {
             }
         }
         .padding(.horizontal, 10)
-        .frame(height: 40)
+        .frame(height: JjGraphTextMetrics.changeRowHeight)
         .background(JjRowHighlight.resolve(isHovered: isHovered, isContextTarget: isContextTarget).background)
         .contentShape(Rectangle())
         .onHover(perform: onHoverChange)
@@ -1169,377 +1175,26 @@ private struct JjChangeRow: View {
             Button("Revert Change", action: onRevert)
             Button("Abandon Change", role: .destructive, action: onAbandon)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(entry.change.prefix), \(entry.authorName), \(relativeDate(entry.authorTimestamp))")
     }
 }
 
-private enum JjGraphMetrics {
+private enum JjGraphTextMetrics {
     static let characterWidth: CGFloat = 9
-    static let lineWidth: CGFloat = 1
-    static let nodeSize: CGFloat = 7
-    static let nodeStroke: CGFloat = 1.2
-    static let transitionInset: CGFloat = 4
-    static let cornerRadius: CGFloat = 4
+    static let changeRowHeight: CGFloat = 40
+    static let continuationLineHeight: CGFloat = 14
 }
 
-private struct JjGraphView: View {
-    let graph: String
-    let height: CGFloat
-    let isCurrent: Bool
-    let previousGraphLine: String?
-    let nextGraphLine: String?
-
-    private var characters: [Character] {
-        Array(graph)
-    }
-
-    private var node: (index: Int, character: Character)? {
-        guard let index = characters.firstIndex(where: { character in
-            character == "@" || character == "○" || character == "◆"
-        })
-        else { return nil }
-        return (index, characters[index])
-    }
+private struct JjGraphTextLine: View {
+    let text: String
+    let graphColumnWidth: CGFloat
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            graphPath
-                .stroke(
-                    MuxyTheme.fgDim.opacity(0.62),
-                    style: StrokeStyle(
-                        lineWidth: JjGraphMetrics.lineWidth,
-                        lineCap: .round,
-                        lineJoin: .round
-                    )
-                )
-
-            if let node {
-                nodeElement(node.character, at: node.index)
-            }
-
-            fallbackGraphText
-        }
-        .frame(height: height)
-    }
-
-    @ViewBuilder
-    private var fallbackGraphText: some View {
-        ForEach(Array(characters.enumerated()), id: \.offset) { index, character in
-            if character == "~" {
-                Text(String(character))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(MuxyTheme.fgDim)
-                    .frame(width: JjGraphMetrics.characterWidth)
-                    .position(x: xPosition(for: index), y: height / 2)
-            }
-        }
-        ForEach(Array((nextGraphLine ?? "").enumerated()), id: \.offset) { index, character in
-            if character == "~" {
-                Text(String(character))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(MuxyTheme.fgDim)
-                    .frame(width: JjGraphMetrics.characterWidth)
-                    .position(x: xPosition(for: index), y: transitionY)
-            }
-        }
-    }
-
-    private var graphPath: Path {
-        Path { path in
-            drawCurrentGraph(in: &path)
-            drawNodeLines(in: &path)
-            drawTransitionGraph(in: &path)
-        }
-    }
-
-    private var centerY: CGFloat {
-        height / 2
-    }
-
-    private var transitionY: CGFloat {
-        max(centerY, height - JjGraphMetrics.transitionInset)
-    }
-
-    private var halfCharacterWidth: CGFloat {
-        JjGraphMetrics.characterWidth / 2
-    }
-
-    private func drawCurrentGraph(in path: inout Path) {
-        for (index, character) in characters.enumerated() {
-            switch character {
-            case "│":
-                let nextCharacter = graphCharacter(nextGraphLine, at: index)
-                drawVertical(in: &path, at: index, from: 0, to: currentVerticalEnd(nextCharacter))
-            case "├":
-                drawJunctionRight(in: &path, at: index, y: centerY, verticalStart: 0, verticalEnd: height)
-            case "┤":
-                drawJunctionLeft(in: &path, at: index, y: centerY, verticalStart: 0, verticalEnd: height)
-            case "┼":
-                drawJunctionCross(in: &path, at: index, y: centerY, verticalStart: 0, verticalEnd: height)
-            case "┬":
-                drawJunctionDown(in: &path, at: index, y: centerY, verticalEnd: height)
-            case "┴":
-                drawJunctionUp(in: &path, at: index, y: centerY, verticalStart: 0)
-            case "─":
-                drawHorizontal(
-                    in: &path,
-                    from: xPosition(for: index) - halfCharacterWidth,
-                    to: xPosition(for: index) + halfCharacterWidth,
-                    y: centerY
-                )
-            case "╭":
-                drawCornerRightDown(in: &path, at: index, y: centerY, verticalEnd: height)
-            case "╰":
-                drawCornerRightUp(in: &path, at: index, y: centerY, verticalStart: 0)
-            case "╮":
-                drawCornerLeftDown(in: &path, at: index, y: centerY, verticalEnd: height)
-            case "╯":
-                drawCornerLeftUp(in: &path, at: index, y: centerY, verticalStart: 0)
-            default:
-                break
-            }
-        }
-    }
-
-    private func drawNodeLines(in path: inout Path) {
-        guard let node else { return }
-        if let character = graphCharacter(previousGraphLine, at: node.index),
-           connectsToRowBelow(character)
-        {
-            drawVertical(in: &path, at: node.index, from: 0, to: centerY)
-        }
-        if let character = graphCharacter(nextGraphLine, at: node.index),
-           connectsFromRowAbove(character)
-        {
-            if !closesAtTransition(character) {
-                drawVertical(in: &path, at: node.index, from: centerY, to: height)
-            }
-        }
-    }
-
-    private func currentVerticalEnd(_ nextCharacter: Character?) -> CGFloat {
-        guard let nextCharacter, closesAtTransition(nextCharacter) else { return height }
-        return centerY
-    }
-
-    private func drawTransitionGraph(in path: inout Path) {
-        guard let nextGraphLine else { return }
-        let nextCharacters = Array(nextGraphLine)
-        for (index, character) in nextCharacters.enumerated() {
-            switch character {
-            case "│":
-                drawVertical(in: &path, at: index, from: transitionY, to: height)
-            case "├":
-                if rightSideClosesFromAbove(nextCharacters, after: index) {
-                    drawJunctionRightFromBelow(in: &path, at: index, y: transitionY, verticalStart: centerY, verticalEnd: height)
-                } else {
-                    drawJunctionRight(in: &path, at: index, y: transitionY, verticalStart: centerY, verticalEnd: height)
-                }
-            case "┤":
-                drawJunctionLeft(in: &path, at: index, y: transitionY, verticalStart: centerY, verticalEnd: height)
-            case "┼":
-                drawJunctionCross(in: &path, at: index, y: transitionY, verticalStart: centerY, verticalEnd: height)
-            case "┬":
-                drawJunctionDown(in: &path, at: index, y: transitionY, verticalEnd: height)
-            case "┴":
-                drawJunctionUp(in: &path, at: index, y: transitionY, verticalStart: centerY)
-            case "─":
-                drawHorizontal(
-                    in: &path,
-                    from: xPosition(for: index) - halfCharacterWidth,
-                    to: xPosition(for: index) + halfCharacterWidth,
-                    y: transitionY
-                )
-            case "╭":
-                drawCornerRightDown(in: &path, at: index, y: transitionY, verticalEnd: height)
-            case "╮":
-                drawCornerLeftDown(in: &path, at: index, y: transitionY, verticalEnd: height)
-            case "╰":
-                drawCornerRightUp(in: &path, at: index, y: transitionY, verticalStart: centerY)
-            case "╯":
-                drawCornerLeftUp(in: &path, at: index, y: transitionY, verticalStart: centerY)
-            case "╲":
-                drawHorizontal(in: &path, from: xPosition(for: index), to: xPosition(for: index) + halfCharacterWidth, y: transitionY)
-            case "╱":
-                drawHorizontal(in: &path, from: xPosition(for: index) - halfCharacterWidth, to: xPosition(for: index), y: transitionY)
-            case "╳":
-                drawHorizontal(
-                    in: &path,
-                    from: xPosition(for: index) - halfCharacterWidth,
-                    to: xPosition(for: index) + halfCharacterWidth,
-                    y: transitionY
-                )
-            default:
-                break
-            }
-        }
-    }
-
-    private func drawVertical(in path: inout Path, at index: Int, from start: CGFloat, to end: CGFloat) {
-        drawLine(
-            in: &path,
-            from: CGPoint(x: xPosition(for: index), y: start),
-            to: CGPoint(x: xPosition(for: index), y: end)
-        )
-    }
-
-    private func drawHorizontal(in path: inout Path, from start: CGFloat, to end: CGFloat, y: CGFloat) {
-        drawLine(in: &path, from: CGPoint(x: start, y: y), to: CGPoint(x: end, y: y))
-    }
-
-    private func drawJunctionRight(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat, verticalEnd: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawVertical(in: &path, at: index, from: verticalStart, to: verticalEnd)
-        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
-        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
-    }
-
-    private func drawJunctionRightFromBelow(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat, verticalEnd: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawVertical(in: &path, at: index, from: verticalStart, to: verticalEnd)
-        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
-        drawCurve(in: &path, from: CGPoint(x: x, y: y + radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
-    }
-
-    private func drawJunctionLeft(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat, verticalEnd: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawVertical(in: &path, at: index, from: verticalStart, to: verticalEnd)
-        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
-        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x - radius, y: y), control: CGPoint(x: x, y: y))
-    }
-
-    private func drawJunctionCross(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat, verticalEnd: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawVertical(in: &path, at: index, from: verticalStart, to: verticalEnd)
-        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
-        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
-        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
-        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x - radius, y: y), control: CGPoint(x: x, y: y))
-    }
-
-    private func drawJunctionDown(in path: inout Path, at index: Int, y: CGFloat, verticalEnd: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
-        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
-        drawVertical(in: &path, at: index, from: y + radius, to: verticalEnd)
-        drawCurve(in: &path, from: CGPoint(x: x - radius, y: y), to: CGPoint(x: x, y: y + radius), control: CGPoint(x: x, y: y))
-        drawCurve(in: &path, from: CGPoint(x: x + radius, y: y), to: CGPoint(x: x, y: y + radius), control: CGPoint(x: x, y: y))
-    }
-
-    private func drawJunctionUp(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
-        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
-        drawVertical(in: &path, at: index, from: verticalStart, to: y - radius)
-        drawCurve(in: &path, from: CGPoint(x: x - radius, y: y), to: CGPoint(x: x, y: y - radius), control: CGPoint(x: x, y: y))
-        drawCurve(in: &path, from: CGPoint(x: x + radius, y: y), to: CGPoint(x: x, y: y - radius), control: CGPoint(x: x, y: y))
-    }
-
-    private func drawCornerRightDown(in path: inout Path, at index: Int, y: CGFloat, verticalEnd: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawVertical(in: &path, at: index, from: y + radius, to: verticalEnd)
-        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
-        drawCurve(in: &path, from: CGPoint(x: x, y: y + radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
-    }
-
-    private func drawCornerRightUp(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawVertical(in: &path, at: index, from: verticalStart, to: y - radius)
-        drawHorizontal(in: &path, from: x + radius, to: x + halfCharacterWidth, y: y)
-        drawCurve(in: &path, from: CGPoint(x: x, y: y - radius), to: CGPoint(x: x + radius, y: y), control: CGPoint(x: x, y: y))
-    }
-
-    private func drawCornerLeftDown(in path: inout Path, at index: Int, y: CGFloat, verticalEnd: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawVertical(in: &path, at: index, from: y + radius, to: verticalEnd)
-        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
-        drawCurve(in: &path, from: CGPoint(x: x - radius, y: y), to: CGPoint(x: x, y: y + radius), control: CGPoint(x: x, y: y))
-    }
-
-    private func drawCornerLeftUp(in path: inout Path, at index: Int, y: CGFloat, verticalStart: CGFloat) {
-        let x = xPosition(for: index)
-        let radius = cornerRadius
-        drawVertical(in: &path, at: index, from: verticalStart, to: y - radius)
-        drawHorizontal(in: &path, from: x - halfCharacterWidth, to: x - radius, y: y)
-        drawCurve(in: &path, from: CGPoint(x: x - radius, y: y), to: CGPoint(x: x, y: y - radius), control: CGPoint(x: x, y: y))
-    }
-
-    private var cornerRadius: CGFloat {
-        min(JjGraphMetrics.cornerRadius, halfCharacterWidth)
-    }
-
-    private func drawCurve(in path: inout Path, from start: CGPoint, to end: CGPoint, control: CGPoint) {
-        path.move(to: start)
-        path.addQuadCurve(to: end, control: control)
-    }
-
-    private func drawLine(in path: inout Path, from start: CGPoint, to end: CGPoint) {
-        path.move(to: start)
-        path.addLine(to: end)
-    }
-
-    private func rightSideClosesFromAbove(_ characters: [Character], after index: Int) -> Bool {
-        for character in characters.dropFirst(index + 1) {
-            if character == "╯" { return true }
-            if character != "─", !character.isWhitespace { return false }
-        }
-        return false
-    }
-
-    @ViewBuilder
-    private func nodeElement(_ character: Character, at index: Int) -> some View {
-        if character == "@" {
-            Text("@")
-                .font(.system(size: 11, design: .monospaced))
-                .fontWeight(.semibold)
-                .foregroundStyle(MuxyTheme.accent)
-                .frame(width: JjGraphMetrics.characterWidth)
-                .position(x: xPosition(for: index), y: height / 2)
-        } else if character == "◆" {
-            Rectangle()
-                .fill(MuxyTheme.fgDim)
-                .frame(width: JjGraphMetrics.nodeSize, height: JjGraphMetrics.nodeSize)
-                .rotationEffect(.degrees(45))
-                .position(x: xPosition(for: index), y: height / 2)
-        } else {
-            Circle()
-                .stroke(MuxyTheme.fgDim.opacity(0.86), lineWidth: JjGraphMetrics.nodeStroke)
-                .frame(width: JjGraphMetrics.nodeSize, height: JjGraphMetrics.nodeSize)
-                .position(x: xPosition(for: index), y: height / 2)
-        }
-    }
-
-    private func graphCharacter(_ line: String?, at index: Int) -> Character? {
-        guard let line else { return nil }
-        let characters = Array(line)
-        guard characters.indices.contains(index) else { return nil }
-        return characters[index]
-    }
-
-    private func connectsToRowBelow(_ character: Character) -> Bool {
-        "│├┤┼┬╮╭".contains(character)
-    }
-
-    private func connectsFromRowAbove(_ character: Character) -> Bool {
-        "│├┤┼┴╯╰".contains(character)
-    }
-
-    private func closesAtTransition(_ character: Character) -> Bool {
-        "┴╯╰".contains(character)
-    }
-
-    private func xPosition(for index: Int) -> CGFloat {
-        CGFloat(index) * JjGraphMetrics.characterWidth + JjGraphMetrics.characterWidth / 2
+        Text(text)
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(MuxyTheme.fgDim)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(width: graphColumnWidth, alignment: .leading)
     }
 }
 

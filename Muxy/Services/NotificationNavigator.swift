@@ -62,7 +62,28 @@ enum NotificationNavigator {
             tabID: notification.tabID
         ))
 
+        if targetsCompletedAgent(notification, appState: appState) {
+            let key = WorktreeKey(projectID: notification.projectID, worktreeID: notification.worktreeID)
+            appState.clearCompletedAgentActivity(for: key)
+        }
+
         notificationStore.markAsRead(notification.id)
+    }
+
+    private static func targetsCompletedAgent(_ notification: MuxyNotification, appState: AppState) -> Bool {
+        let key = WorktreeKey(projectID: notification.projectID, worktreeID: notification.worktreeID)
+        guard let root = appState.workspaceRoots[key] else { return false }
+        for area in root.allAreas() {
+            for tab in area.tabs where tab.id == notification.tabID {
+                guard let pane = tab.content.pane,
+                      pane.id == notification.paneID,
+                      pane.agentKind != .terminal,
+                      pane.activityState == .completed
+                else { return false }
+                return true
+            }
+        }
+        return false
     }
 
     static func activeTabID(appState: AppState) -> UUID? {

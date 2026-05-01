@@ -202,7 +202,6 @@ struct ExpandedProjectRow: View {
 
     private var projectIcon: some View {
         let logo = resolvedLogo
-        let unread = NotificationStore.shared.unreadCount(for: project.id)
         return ZStack {
             RoundedRectangle(cornerRadius: 6)
                 .fill(iconBackground(hasLogo: logo != nil))
@@ -220,12 +219,6 @@ struct ExpandedProjectRow: View {
             }
         }
         .frame(width: 28, height: 28)
-        .overlay(alignment: .topTrailing) {
-            if unread > 0 {
-                NotificationBadge(count: unread)
-                    .offset(x: 4, y: -4)
-            }
-        }
     }
 
     private var worktreeList: some View {
@@ -611,8 +604,6 @@ private struct ExpandedWorktreeRow: View {
             if let agentActivitySummary, agentActivitySummary.agentCount > 1 {
                 AgentActivityDotStack(dots: agentActivitySummary.dots)
             }
-
-            worktreeUnreadBadge
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 5)
@@ -657,14 +648,6 @@ private struct ExpandedWorktreeRow: View {
             label += ", \(agentActivitySummary.accessibilityLabel)"
         }
         return label
-    }
-
-    @ViewBuilder
-    private var worktreeUnreadBadge: some View {
-        let unread = NotificationStore.shared.unreadCount(for: projectID, worktreeID: worktree.id)
-        if unread > 0 {
-            NotificationBadge(count: unread)
-        }
     }
 
     private var rowBackground: AnyShapeStyle {

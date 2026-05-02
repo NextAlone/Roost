@@ -543,13 +543,15 @@ final class AppState {
             keepProjectOpenWhenEmpty: ProjectLifecyclePreferences.keepOpenWhenNoTabs
         )
         let effects = WorkspaceReducer.reduce(action: action, state: &workspace)
+        let updatedWorkspaceRootSignature = workspaceRootSignature(workspace.workspaceRoots)
+        let workspaceRootsChanged = currentWorkspaceRootSignature != updatedWorkspaceRootSignature
         if activeProjectID != workspace.activeProjectID {
             activeProjectID = workspace.activeProjectID
         }
         if activeWorktreeID != workspace.activeWorktreeID {
             activeWorktreeID = workspace.activeWorktreeID
         }
-        if currentWorkspaceRootSignature != workspaceRootSignature(workspace.workspaceRoots) {
+        if workspaceRootsChanged {
             workspaceRoots = workspace.workspaceRoots
         }
         if focusedAreaID != workspace.focusedAreaID {
@@ -575,7 +577,9 @@ final class AppState {
             NotificationStore.shared.markAsRead(tabID: activeTabID)
         }
 
-        saveWorkspaces()
+        if shouldSaveWorkspaceSnapshot(for: action, workspaceRootsChanged: workspaceRootsChanged) {
+            saveWorkspaces()
+        }
         saveSelection()
     }
 
@@ -658,6 +662,42 @@ final class AppState {
 
     private func workspaceRootSignature(_ roots: [WorktreeKey: SplitNode]) -> [WorktreeKey: UUID] {
         roots.mapValues(\.id)
+    }
+
+    private func shouldSaveWorkspaceSnapshot(for action: Action, workspaceRootsChanged: Bool) -> Bool {
+        if workspaceRootsChanged { return true }
+        switch action {
+        case .selectProject,
+             .selectWorktree,
+             .selectTab,
+             .selectTabByIndex,
+             .selectNextTab,
+             .selectPreviousTab,
+             .focusArea,
+             .navigate:
+            return false
+        case .removeProject,
+             .removeWorktree,
+             .createTab,
+             .createTabInDirectory,
+             .createCommandTab,
+             .createVCSTab,
+             .createAgentTab,
+             .createEditorTab,
+             .createExternalEditorTab,
+             .createDiffViewerTab,
+             .closeTab,
+             .splitArea,
+             .closeArea,
+             .focusPaneLeft,
+             .focusPaneRight,
+             .focusPaneUp,
+             .focusPaneDown,
+             .moveTab,
+             .selectNextProject,
+             .selectPreviousProject:
+            return true
+        }
     }
 
     private func clearPendingProcessCloseIfMatching(tabID: UUID, areaID: UUID, projectID: UUID) {

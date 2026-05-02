@@ -1,6 +1,11 @@
 import MuxyShared
 import SwiftUI
 
+enum PaneTabStripLayout {
+    static let agentActivityStatusIconWidth: CGFloat = AgentActivityStatusBadgeLayout.diameter
+    static let agentActivityStatusIconHeight: CGFloat = AgentActivityStatusBadgeLayout.height
+}
+
 struct PaneTabStrip: View {
     struct TabSnapshot: Identifiable {
         let id: UUID
@@ -9,6 +14,13 @@ struct PaneTabStrip: View {
         let isPinned: Bool
         let hasCustomTitle: Bool
         let colorID: String?
+        let agentKind: AgentKind
+        let agentActivityState: AgentActivityState?
+
+        var agentActivityStateForIcon: AgentActivityState? {
+            guard kind == .terminal, agentKind != .terminal else { return nil }
+            return agentActivityState
+        }
     }
 
     let areaID: UUID
@@ -41,13 +53,17 @@ struct PaneTabStrip: View {
 
     static func snapshots(from tabs: [TerminalTab]) -> [TabSnapshot] {
         tabs.map { tab in
-            TabSnapshot(
+            let pane = tab.content.pane
+            let agentKind = pane?.agentKind ?? .terminal
+            return TabSnapshot(
                 id: tab.id,
                 title: tab.title,
                 kind: tab.kind,
                 isPinned: tab.isPinned,
                 hasCustomTitle: tab.customTitle != nil,
-                colorID: tab.colorID
+                colorID: tab.colorID,
+                agentKind: agentKind,
+                agentActivityState: agentKind == .terminal ? nil : pane?.activityState
             )
         }
     }
@@ -539,7 +555,12 @@ private struct TabCell: View {
     private var tabAccessibilityLabel: String {
         var label = tab.title
         switch tab.kind {
-        case .terminal: label += ", Terminal"
+        case .terminal:
+            if let state = tab.agentActivityStateForIcon {
+                label += ", \(tab.agentKind.displayName), \(state.accessibilityLabel)"
+            } else {
+                label += ", Terminal"
+            }
         case .vcs: label += ", Source Control"
         case .editor: label += ", Editor"
         case .diffViewer: label += ", Diff Viewer"
@@ -564,6 +585,12 @@ private struct TabCell: View {
         } else if tab.kind == .diffViewer {
             Image(systemName: "rectangle.split.2x1")
                 .font(.system(size: 11, weight: .semibold))
+        } else if let state = tab.agentActivityStateForIcon {
+            AgentActivityStatusBadge(state: state)
+                .frame(
+                    width: PaneTabStripLayout.agentActivityStatusIconWidth,
+                    height: PaneTabStripLayout.agentActivityStatusIconHeight
+                )
         } else {
             Image(systemName: "terminal")
                 .font(.system(size: 12, weight: .semibold))

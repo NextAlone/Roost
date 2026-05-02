@@ -130,24 +130,14 @@ struct ExpandedProjectRow: View {
     }
 
     private var projectHeader: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: ExpandedWorktreeRowLayout.projectColumnSpacing) {
             projectIcon
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(project.name)
-                    .font(.system(size: 12, weight: isActive ? .semibold : .medium))
-                    .foregroundStyle(isActive ? MuxyTheme.fg : MuxyTheme.fgMuted)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                if isVcsRepo, let worktree = activeWorktree {
-                    Text(worktree.displayWorkspaceName)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(MuxyTheme.fgDim)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-            }
+            Text(project.name)
+                .font(.system(size: 12, weight: isActive ? .semibold : .medium))
+                .foregroundStyle(isActive ? MuxyTheme.fg : MuxyTheme.fgMuted)
+                .lineLimit(1)
+                .truncationMode(.tail)
 
             Spacer(minLength: 4)
 
@@ -155,9 +145,16 @@ struct ExpandedProjectRow: View {
                 worktreeChevron
             }
         }
-        .padding(4)
-        .background(headerBackground, in: RoundedRectangle(cornerRadius: 8))
-        .contentShape(RoundedRectangle(cornerRadius: 8))
+        .frame(minHeight: ExpandedWorktreeRowLayout.projectRowMinHeight)
+        .padding(.leading, ExpandedWorktreeRowLayout.projectLeadingContentInset)
+        .padding(.trailing, ExpandedWorktreeRowLayout.trailingContentInset)
+        .background(headerBackground)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(MuxyTheme.border.opacity(0.55))
+                .frame(height: 1)
+        }
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(projectHeaderAccessibilityLabel)
         .accessibilityAddTraits(isActive ? .isSelected : [])
@@ -210,19 +207,25 @@ struct ExpandedProjectRow: View {
                 Image(nsImage: logo)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 28, height: 28)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .frame(
+                        width: ExpandedWorktreeRowLayout.projectIconSize,
+                        height: ExpandedWorktreeRowLayout.projectIconSize
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
             } else {
                 Text(displayLetter)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: ExpandedWorktreeRowLayout.projectLetterFontSize, weight: .bold))
                     .foregroundStyle(letterForeground)
             }
         }
-        .frame(width: 28, height: 28)
+        .frame(
+            width: ExpandedWorktreeRowLayout.projectIconSize,
+            height: ExpandedWorktreeRowLayout.projectIconSize
+        )
     }
 
     private var worktreeList: some View {
-        VStack(spacing: 1) {
+        VStack(spacing: 0) {
             ForEach(worktrees) { worktree in
                 VStack(alignment: .leading, spacing: 0) {
                     let selected = Self.isWorktreeSelected(
@@ -275,7 +278,6 @@ struct ExpandedProjectRow: View {
                 }
             }
         }
-        .padding(.top, 2)
         .padding(.bottom, 4)
     }
 
@@ -489,7 +491,7 @@ struct ExpandedProjectRow: View {
             Text("No sessions")
                 .font(.system(size: 10))
                 .foregroundStyle(MuxyTheme.fgDim)
-                .padding(.leading, 24)
+                .padding(.leading, ExpandedWorktreeRowLayout.worktreeTitleLeadingEdge)
                 .padding(.vertical, 4)
         } else {
             VStack(alignment: .leading, spacing: 0) {
@@ -499,7 +501,7 @@ struct ExpandedProjectRow: View {
                         isActive: isSessionActive(tab: tab, key: key),
                         onSelect: { selectSession(tab: tab, worktree: worktree, key: key) }
                     )
-                    .padding(.leading, 16)
+                    .padding(.leading, ExpandedWorktreeRowLayout.worktreeTitleLeadingEdge)
                 }
             }
         }
@@ -536,10 +538,25 @@ struct ExpandedProjectRow: View {
 
 enum ExpandedWorktreeRowLayout {
     static let selectedStripeWidth: CGFloat = 3
-    static let leadingContentInset: CGFloat = 26
-    static let trailingContentInset: CGFloat = 10
-    static let statusDotHeight: CGFloat = 18
-    static let minContentHeight: CGFloat = statusDotHeight
+    static let projectLeadingContentInset: CGFloat = AddProjectButtonLayout.expandedLeadingContentInset
+    static let projectIconSize: CGFloat = AddProjectButtonLayout.expandedIconSize
+    static let projectLetterFontSize: CGFloat = 13
+    static let projectColumnSpacing: CGFloat = AddProjectButtonLayout.expandedColumnSpacing
+    static let projectTitleLeadingEdge: CGFloat = projectLeadingContentInset + projectIconSize + projectColumnSpacing
+    static let worktreeLeadingContentInset: CGFloat = 24
+    static let newWorktreeLeadingContentInset: CGFloat = worktreeLeadingContentInset
+    static let worktreeMarkerWidth: CGFloat = 18
+    static let newWorktreeMarkerWidth: CGFloat = worktreeMarkerWidth
+    static let treeColumnSpacing: CGFloat = 6
+    static let worktreeTitleLeadingEdge: CGFloat = worktreeLeadingContentInset + worktreeMarkerWidth + treeColumnSpacing
+    static let newWorktreeTitleLeadingEdge: CGFloat = newWorktreeLeadingContentInset + newWorktreeMarkerWidth + treeColumnSpacing
+    static let leadingContentInset: CGFloat = worktreeLeadingContentInset
+    static let trailingContentInset: CGFloat = AddProjectButtonLayout.expandedTrailingContentInset
+    static let statusDotHeight: CGFloat = AgentActivityStatusBadgeLayout.height
+    static let projectRowMinHeight: CGFloat = AddProjectButtonLayout.expandedRowHeight
+    static let worktreeRowMinHeight: CGFloat = 30
+    static let newWorktreeRowMinHeight: CGFloat = worktreeRowMinHeight
+    static let minContentHeight: CGFloat = worktreeRowMinHeight
 }
 
 private struct ExpandedWorktreeRow: View {
@@ -568,7 +585,10 @@ private struct ExpandedWorktreeRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: ExpandedWorktreeRowLayout.treeColumnSpacing) {
+            WorktreeTreeMarker()
+                .frame(width: ExpandedWorktreeRowLayout.worktreeMarkerWidth)
+
             if isRenaming {
                 TextField("", text: $renameText)
                     .textFieldStyle(.plain)
@@ -578,21 +598,12 @@ private struct ExpandedWorktreeRow: View {
                     .onSubmit { commitRename() }
                     .onExitCommand { cancelRename() }
             } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 4) {
-                        Text(displayName)
-                            .font(.system(size: 11, weight: selected ? .semibold : .regular))
-                            .foregroundStyle(selected ? MuxyTheme.fg : MuxyTheme.fgMuted)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-
-                        if let label = worktree.vcsKind.sidebarWarningBadgeLabel {
-                            VcsWarningBadge(label: label)
-                        }
-                        if let sidebarStatus {
-                            WorkspaceStatusBadge(status: sidebarStatus)
-                        }
-                    }
+                HStack(spacing: 4) {
+                    Text(displayName)
+                        .font(.system(size: 11, weight: selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? MuxyTheme.fg : MuxyTheme.fgMuted)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
                     if let branch = branchLabel {
                         Text(branch)
@@ -600,6 +611,13 @@ private struct ExpandedWorktreeRow: View {
                             .foregroundStyle(MuxyTheme.fgDim)
                             .lineLimit(1)
                             .truncationMode(.middle)
+                    }
+
+                    if let label = worktree.vcsKind.sidebarWarningBadgeLabel {
+                        VcsWarningBadge(label: label)
+                    }
+                    if let sidebarStatus {
+                        WorkspaceStatusBadge(status: sidebarStatus)
                     }
                 }
             }
@@ -610,11 +628,10 @@ private struct ExpandedWorktreeRow: View {
                 AgentActivityDotStack(dots: agentActivitySummary.dots)
             }
         }
-        .frame(minHeight: ExpandedWorktreeRowLayout.minContentHeight)
-        .padding(.leading, ExpandedWorktreeRowLayout.leadingContentInset)
+        .frame(height: ExpandedWorktreeRowLayout.worktreeRowMinHeight)
+        .padding(.leading, ExpandedWorktreeRowLayout.worktreeLeadingContentInset)
         .padding(.trailing, ExpandedWorktreeRowLayout.trailingContentInset)
-        .padding(.vertical, 5)
-        .background(rowBackground, in: RoundedRectangle(cornerRadius: 6))
+        .background(rowBackground)
         .overlay(alignment: .leading) {
             if selected {
                 Capsule()
@@ -623,7 +640,7 @@ private struct ExpandedWorktreeRow: View {
                     .padding(.vertical, 4)
             }
         }
-        .contentShape(RoundedRectangle(cornerRadius: 6))
+        .contentShape(Rectangle())
         .onHover { hovered = $0 }
         .onTapGesture {
             guard !isRenaming else { return }
@@ -641,6 +658,11 @@ private struct ExpandedWorktreeRow: View {
                 Divider()
                 Text("External workspace").font(.system(size: 11))
             }
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(MuxyTheme.border.opacity(0.45))
+                .frame(height: 1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(worktreeAccessibilityLabel)
@@ -714,23 +736,41 @@ private struct ExpandedWorktreeRow: View {
     }
 }
 
+private struct WorktreeTreeMarker: View {
+    var body: some View {
+        Text("·")
+            .font(.system(size: 14, weight: .bold))
+            .foregroundStyle(MuxyTheme.fgDim.opacity(0.72))
+            .frame(maxWidth: .infinity)
+    }
+}
+
 private struct ExpandedNewWorktreeButton: View {
     let action: () -> Void
     @State private var hovered = false
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: ExpandedWorktreeRowLayout.treeColumnSpacing) {
                 Image(systemName: "plus")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(hovered ? MuxyTheme.accent : MuxyTheme.fgDim)
+                    .frame(width: ExpandedWorktreeRowLayout.newWorktreeMarkerWidth)
                 Text("New Workspace")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(hovered ? MuxyTheme.accent : MuxyTheme.fgDim)
                 Spacer()
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .frame(height: ExpandedWorktreeRowLayout.newWorktreeRowMinHeight)
+            .padding(.leading, ExpandedWorktreeRowLayout.newWorktreeLeadingContentInset)
+            .padding(.trailing, ExpandedWorktreeRowLayout.trailingContentInset)
+            .background(hovered ? MuxyTheme.hover : Color.clear)
+            .contentShape(Rectangle())
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(MuxyTheme.border.opacity(0.45))
+                    .frame(height: 1)
+            }
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
@@ -766,77 +806,7 @@ private struct AgentActivityStackDot: View {
     let state: AgentActivityState
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(MuxyTheme.surface)
-                .frame(width: 13, height: 13)
-            content
-        }
-        .frame(width: 13, height: ExpandedWorktreeRowLayout.statusDotHeight)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        switch state {
-        case .running:
-            AgentActivityRunningDot(size: 11)
-        case .needsInput:
-            AgentActivityWaitingDot(size: 6)
-        case .completed:
-            Circle()
-                .fill(MuxyTheme.diffAddFg)
-                .frame(width: 9, height: 9)
-        case .idle:
-            Circle()
-                .fill(MuxyTheme.fgDim.opacity(0.45))
-                .frame(width: 6, height: 6)
-        case .exited:
-            Circle()
-                .fill(MuxyTheme.fgDim)
-                .frame(width: 9, height: 9)
-        }
-    }
-}
-
-private struct AgentActivityRunningDot: View {
-    let size: CGFloat
-    @State private var spinning = false
-
-    var body: some View {
-        Circle()
-            .trim(from: 0.18, to: 0.82)
-            .stroke(
-                MuxyTheme.accent,
-                style: StrokeStyle(lineWidth: 2, lineCap: .round)
-            )
-            .frame(width: size, height: size)
-            .rotationEffect(.degrees(spinning ? 360 : 0))
-            .animation(.linear(duration: 1.0).repeatForever(autoreverses: false), value: spinning)
-            .onAppear {
-                spinning = true
-            }
-    }
-}
-
-private struct AgentActivityWaitingDot: View {
-    let size: CGFloat
-    @State private var pulsing = false
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(MuxyTheme.diffRemoveFg.opacity(0.18))
-                .frame(width: size * 2.6, height: size * 2.6)
-                .scaleEffect(pulsing ? 1.2 : 0.72)
-                .opacity(pulsing ? 0.18 : 0.55)
-                .animation(.easeInOut(duration: 1.25).repeatForever(autoreverses: true), value: pulsing)
-            Circle()
-                .fill(MuxyTheme.diffRemoveFg)
-                .frame(width: size, height: size)
-        }
-        .onAppear {
-            pulsing = true
-        }
+        AgentActivityStatusBadge(state: state)
     }
 }
 

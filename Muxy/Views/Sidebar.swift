@@ -26,6 +26,14 @@ enum SidebarLayout {
     }
 }
 
+enum AddProjectButtonLayout {
+    static let expandedRowHeight: CGFloat = 36
+    static let expandedIconSize: CGFloat = 28
+    static let expandedLeadingContentInset: CGFloat = 4
+    static let expandedTrailingContentInset: CGFloat = 10
+    static let expandedColumnSpacing: CGFloat = 8
+}
+
 struct Sidebar: View {
     @Environment(AppState.self) private var appState
     @Environment(ProjectStore.self) private var projectStore
@@ -57,6 +65,8 @@ struct Sidebar: View {
                 .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
                 .clipped()
 
+            addProjectBar
+
             SidebarFooter(expanded: isWide)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -86,6 +96,13 @@ struct Sidebar: View {
             )
         }
         .help(shortcutTooltip("Add Project", for: .openProject))
+    }
+
+    private var addProjectBar: some View {
+        addButton
+            .padding(.horizontal, isWide ? 6 : 8)
+            .padding(.vertical, 4)
+            .background(MuxyTheme.bg)
     }
 
     private var projectList: some View {
@@ -129,7 +146,6 @@ struct Sidebar: View {
                     }
                     .gesture(projectDragGesture(for: project))
                 }
-                addButton
             }
             .padding(.horizontal, isWide ? 6 : 8)
             .padding(.vertical, 4)
@@ -250,7 +266,7 @@ private struct AddProjectButton: View {
     }
 
     private var expandedLayout: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AddProjectButtonLayout.expandedColumnSpacing) {
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(MuxyTheme.surface)
@@ -258,7 +274,10 @@ private struct AddProjectButton: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(hovered ? MuxyTheme.accent : MuxyTheme.fgMuted)
             }
-            .frame(width: 28, height: 28)
+            .frame(
+                width: AddProjectButtonLayout.expandedIconSize,
+                height: AddProjectButtonLayout.expandedIconSize
+            )
 
             Text("Add Project")
                 .font(.system(size: 12, weight: .medium))
@@ -266,8 +285,11 @@ private struct AddProjectButton: View {
                 .lineLimit(1)
             Spacer()
         }
-        .padding(4)
-        .background(hovered ? MuxyTheme.hover : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+        .frame(height: AddProjectButtonLayout.expandedRowHeight)
+        .padding(.leading, AddProjectButtonLayout.expandedLeadingContentInset)
+        .padding(.trailing, AddProjectButtonLayout.expandedTrailingContentInset)
+        .background(hovered ? MuxyTheme.hover : Color.clear)
+        .contentShape(Rectangle())
     }
 }
 

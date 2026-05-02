@@ -31,6 +31,20 @@ struct WorkspaceStatusStoreTests {
         store.reconcile(activeIDs: [])
         #expect(store.status(forWorktreeID: id) == .unknown)
     }
+
+    @Test("refresh coalesces concurrent worktree probes")
+    func refreshCoalescesConcurrentProbe() async {
+        let id = UUID()
+        let probe = CountingProbe(status: .dirty)
+        let store = WorkspaceStatusStore(probeFactory: { _ in probe })
+
+        async let first: Void = store.refresh(worktreeID: id, path: "/tmp/wt", kind: .jj)
+        async let second: Void = store.refresh(worktreeID: id, path: "/tmp/wt", kind: .jj)
+        _ = await (first, second)
+
+        #expect(await probe.callCount() == 1)
+        #expect(store.status(forWorktreeID: id) == .dirty)
+    }
 }
 
 private struct StubProbe: VcsStatusProbe {
@@ -39,4 +53,27 @@ private struct StubProbe: VcsStatusProbe {
         status == .dirty || status == .conflicted
     }
     func status(at worktreePath: String) async -> WorkspaceStatus { status }
+}
+
+private actor CountingProbe: VcsStatusProbe {
+    private let statusValue: WorkspaceStatus
+    private var calls = 0
+
+    init(status: WorkspaceStatus) {
+        statusValue = status
+    }
+
+    func hasUncommittedChanges(at worktreePath: String) async -> Bool {
+        statusValue == .dirty || statusValue == .conflicted
+    }
+
+    func status(at worktreePath: String) async -> WorkspaceStatus {
+        calls += 1
+        try? await Task.sleep(nanoseconds: 30_000_000)
+        return statusValue
+    }
+
+    func callCount() -> Int {
+        calls
+    }
 }

@@ -275,7 +275,7 @@ final class VCSTabState {
     func refresh() {
         if vcsKind == .jj {
             Task { @MainActor in
-                await jjState?.refresh()
+                await jjState?.refreshIfNeeded()
             }
             hasCompletedInitialLoad = true
             return

@@ -5,15 +5,15 @@ enum TerminalPaneEnvironment {
         paneID: UUID,
         worktreeKey key: WorktreeKey,
         configured: [String: String],
-        shellPath: String = UserShellEnvironmentResolver.path(),
-        shell: String = UserShellResolver.shell()
+        shellPath: @autoclosure () -> String = UserShellEnvironmentResolver.cachedPath(),
+        shell: @autoclosure () -> String = UserShellResolver.shell()
     ) -> [String: String] {
         var vars = configured
         if vars["PATH"]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
-            vars["PATH"] = shellPath
+            vars["PATH"] = shellPath()
         }
         if vars["SHELL"]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
-            vars["SHELL"] = shell
+            vars["SHELL"] = shell()
         }
         vars["MUXY_PANE_ID"] = paneID.uuidString
         vars["MUXY_PROJECT_ID"] = key.projectID.uuidString

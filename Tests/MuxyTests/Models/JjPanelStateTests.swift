@@ -71,6 +71,30 @@ struct JjPanelStateTests {
         #expect(state.errorMessage == nil)
     }
 
+    @Test("refresh if needed skips an existing snapshot")
+    func refreshIfNeededSkipsExistingSnapshot() async {
+        let recorder = RevsetRecorder()
+        let change = JjChangeId(prefix: "ab", full: "abcdef")
+        let show = JjShowOutput(change: change, parents: [], description: "x", diffStat: nil)
+        let status = JjStatus(workingCopy: change, parent: nil, workingCopySummary: "", entries: [], hasConflicts: false)
+        let loader = JjPanelLoader(
+            showLoader: { _ in show },
+            statusLoader: { _ in status },
+            changesLoader: { _, revset in
+                recorder.record(revset)
+                return []
+            },
+            bookmarksLoader: { _ in [] },
+            operationsLoader: { _ in [] }
+        )
+        let state = JjPanelState(repoPath: "/tmp/wt", loader: loader)
+
+        await state.refresh()
+        await state.refreshIfNeeded()
+
+        #expect(recorder.snapshot() == [nil])
+    }
+
     @Test("refresh on error sets errorMessage and clears loading")
     func refreshError() async {
         struct Boom: Error, CustomStringConvertible { var description: String { "boom" } }

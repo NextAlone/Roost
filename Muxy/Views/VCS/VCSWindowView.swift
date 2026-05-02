@@ -6,6 +6,7 @@ struct VCSWindowView: View {
     @Environment(WorktreeStore.self) private var worktreeStore
     @State private var vcsStates: [WorktreeKey: VCSTabState] = [:]
     @State private var activeState: VCSTabState?
+    @State private var syncTask: Task<Void, Never>?
 
     private var activeProject: Project? {
         guard let pid = appState.activeProjectID else { return nil }
@@ -29,15 +30,24 @@ struct VCSWindowView: View {
             synchronizeState()
         }
         .onChange(of: appState.activeProjectID) {
-            synchronizeState()
+            scheduleSynchronizeState()
         }
         .onChange(of: appState.activeWorktreeID) {
-            synchronizeState()
+            scheduleSynchronizeState()
         }
         .onChange(of: projectStore.projects.map(\.id)) {
-            synchronizeState()
+            scheduleSynchronizeState()
         }
         .onChange(of: worktreeStore.worktrees.mapValues { $0.map(\.id) }) {
+            scheduleSynchronizeState()
+        }
+    }
+
+    private func scheduleSynchronizeState() {
+        syncTask?.cancel()
+        syncTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            guard !Task.isCancelled else { return }
             synchronizeState()
         }
     }

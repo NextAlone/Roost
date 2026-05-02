@@ -7,6 +7,7 @@ import Observation
 final class WorkspaceStatusStore {
     private(set) var statuses: [UUID: WorkspaceStatus] = [:]
     private var watchers: [UUID: WorkspaceStatusWatcher] = [:]
+    private var refreshInFlight: Set<UUID> = []
     private let probeFactory: @Sendable (VcsKind) -> any VcsStatusProbe
 
     init(probeFactory: @escaping @Sendable (VcsKind) -> any VcsStatusProbe = VcsStatusProbeFactory.probe(for:)) {
@@ -18,8 +19,14 @@ final class WorkspaceStatusStore {
     }
 
     func refresh(worktreeID id: UUID, path: String, kind: VcsKind) async {
+        guard !refreshInFlight.contains(id) else { return }
+
+        refreshInFlight.insert(id)
+        defer { refreshInFlight.remove(id) }
+
         let probe = probeFactory(kind)
         let result = await probe.status(at: path)
+        guard statuses[id] != result else { return }
         statuses[id] = result
     }
 
@@ -37,6 +44,7 @@ final class WorkspaceStatusStore {
     func stopWatching(worktreeID id: UUID) {
         watchers.removeValue(forKey: id)
         statuses.removeValue(forKey: id)
+        refreshInFlight.remove(id)
     }
 
     func reconcile(activeIDs: Set<UUID>) {

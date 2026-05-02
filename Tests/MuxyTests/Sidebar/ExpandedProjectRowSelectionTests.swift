@@ -48,4 +48,15 @@ struct ExpandedProjectRowSelectionTests {
     func gitWorkspaceShowsWarningBadge() {
         #expect(VcsKind.git.sidebarWarningBadgeLabel == "GIT")
     }
+
+    @Test("workspace row handles first mouse down as selection")
+    func workspaceRowHandlesFirstMouseDownAsSelection() {
+        #expect(ExpandedWorktreeRowClickPolicy.action(forClickCount: 1) == .select)
+    }
+
+    @Test("workspace row handles repeated mouse down as double click")
+    func workspaceRowHandlesRepeatedMouseDownAsDoubleClick() {
+        #expect(ExpandedWorktreeRowClickPolicy.action(forClickCount: 2) == .doubleClick)
+        #expect(ExpandedWorktreeRowClickPolicy.action(forClickCount: 3) == .doubleClick)
+    }
 }

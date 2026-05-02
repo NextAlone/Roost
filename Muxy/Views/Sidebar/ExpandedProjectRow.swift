@@ -243,6 +243,7 @@ struct ExpandedProjectRow: View {
                         agentActivitySummary: agentActivitySummary,
                         onSelect: {
                             appState.selectWorktree(projectID: project.id, worktree: worktree)
+
                             if agentActivitySummary?.dominantState == .completed {
                                 appState.clearCompletedAgentActivity(for: key)
                             }
@@ -254,13 +255,13 @@ struct ExpandedProjectRow: View {
                                 to: newName
                             )
                         },
+                        onDoubleClick: {
+                            toggleWorktreeExpansion(worktree.id)
+                        },
                         onRemove: worktree.canBeRemoved ? {
                             Task { await requestRemove(worktree: worktree) }
                         } : nil
                     )
-                    .onTapGesture(count: 2) {
-                        toggleWorktreeExpansion(worktree.id)
-                    }
 
                     if expandedWorktreeIDs.contains(worktree.id) {
                         sessionList(for: worktree)
@@ -559,6 +560,17 @@ enum ExpandedWorktreeRowLayout {
     static let minContentHeight: CGFloat = worktreeRowMinHeight
 }
 
+enum ExpandedWorktreeRowClickAction {
+    case select
+    case doubleClick
+}
+
+enum ExpandedWorktreeRowClickPolicy {
+    static func action(forClickCount clickCount: Int) -> ExpandedWorktreeRowClickAction {
+        clickCount >= 2 ? .doubleClick : .select
+    }
+}
+
 private struct ExpandedWorktreeRow: View {
     let projectID: UUID
     let worktree: Worktree
@@ -566,6 +578,7 @@ private struct ExpandedWorktreeRow: View {
     let agentActivitySummary: SidebarAgentActivitySummary?
     let onSelect: () -> Void
     let onRename: (String) -> Void
+    let onDoubleClick: () -> Void
     let onRemove: (() -> Void)?
 
     @Environment(WorkspaceStatusStore.self) private var statusStore
@@ -642,7 +655,12 @@ private struct ExpandedWorktreeRow: View {
         }
         .contentShape(Rectangle())
         .onHover { hovered = $0 }
-        .onTapGesture {
+        .background {
+            SidebarMouseDownActionView { clickCount in
+                handleMouseDown(clickCount: clickCount)
+            }
+        }
+        .accessibilityAction {
             guard !isRenaming else { return }
             onSelect()
         }
@@ -668,6 +686,16 @@ private struct ExpandedWorktreeRow: View {
         .accessibilityLabel(worktreeAccessibilityLabel)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityAddTraits(.isButton)
+    }
+
+    private func handleMouseDown(clickCount: Int) {
+        guard !isRenaming else { return }
+        switch ExpandedWorktreeRowClickPolicy.action(forClickCount: clickCount) {
+        case .select:
+            onSelect()
+        case .doubleClick:
+            onDoubleClick()
+        }
     }
 
     private var worktreeAccessibilityLabel: String {

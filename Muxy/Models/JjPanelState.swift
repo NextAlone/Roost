@@ -98,7 +98,13 @@ final class JjPanelState {
         self.loader = loader
     }
 
+    func refreshIfNeeded() async {
+        guard snapshot == nil, errorMessage == nil, !isLoading else { return }
+        await refresh()
+    }
+
     func refresh() async {
+        guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
         do {

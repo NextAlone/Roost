@@ -72,7 +72,7 @@ struct JjPanelView: View {
         .background(JjMenuTrackingObserver(onMenuDidEnd: clearContextTargets))
         .task {
             changesRevsetDraft = state.activeChangesRevset
-            await state.refresh()
+            await state.refreshIfNeeded()
         }
         .sheet(isPresented: $showDescribeSheet) {
             JjMessageSheet(

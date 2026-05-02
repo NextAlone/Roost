@@ -3,6 +3,18 @@ import Foundation
 enum UserShellEnvironmentResolver {
     typealias ShellPathRunner = (String, [String: String]) -> String?
 
+    private static let cache = UserShellEnvironmentPathCache()
+
+    static func cachedPath(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        shell: String = UserShellResolver.shell(),
+        runShellPath: ShellPathRunner = runLoginShellPath
+    ) -> String {
+        cache.value(shell: shell, environment: environment) {
+            path(environment: environment, shell: shell, runShellPath: runShellPath)
+        }
+    }
+
     static func path(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         shell: String = UserShellResolver.shell(),
@@ -111,5 +123,46 @@ enum UserShellEnvironmentResolver {
             .filter { !$0.isEmpty }
             .filter { seen.insert($0).inserted }
             .joined(separator: ":")
+    }
+}
+
+private struct UserShellEnvironmentPathCacheKey: Hashable {
+    let shell: String
+    let path: String
+    let home: String
+    let user: String
+    let logname: String
+
+    init(shell: String, environment: [String: String]) {
+        self.shell = shell
+        path = environment["PATH"] ?? ""
+        home = environment["HOME"] ?? ""
+        user = environment["USER"] ?? ""
+        logname = environment["LOGNAME"] ?? ""
+    }
+}
+
+private final class UserShellEnvironmentPathCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [UserShellEnvironmentPathCacheKey: String] = [:]
+
+    func value(shell: String, environment: [String: String], resolve: () -> String) -> String {
+        let key = UserShellEnvironmentPathCacheKey(shell: shell, environment: environment)
+
+        lock.lock()
+        if let value = values[key] {
+            lock.unlock()
+            return value
+        }
+        lock.unlock()
+
+        let resolved = resolve()
+
+        lock.lock()
+        let value = values[key] ?? resolved
+        values[key] = value
+        lock.unlock()
+
+        return value
     }
 }

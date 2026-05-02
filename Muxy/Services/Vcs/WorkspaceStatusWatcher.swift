@@ -3,6 +3,7 @@ import Foundation
 import MuxyShared
 
 final class WorkspaceStatusWatcher: @unchecked Sendable {
+    private static let debounceInterval: TimeInterval = 1.0
     private let queue = DispatchQueue(label: "app.roost.workspace-status-watcher", qos: .utility)
     private var stream: FSEventStreamRef?
     private var debounceWork: DispatchWorkItem?
@@ -33,7 +34,7 @@ final class WorkspaceStatusWatcher: @unchecked Sendable {
             &context,
             paths,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-            0.3,
+            Self.debounceInterval,
             FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagUseCFTypes)
         )
         else { return nil }
@@ -57,6 +58,6 @@ final class WorkspaceStatusWatcher: @unchecked Sendable {
             self?.handler()
         }
         debounceWork = work
-        queue.asyncAfter(deadline: .now() + 0.3, execute: work)
+        queue.asyncAfter(deadline: .now() + Self.debounceInterval, execute: work)
     }
 }

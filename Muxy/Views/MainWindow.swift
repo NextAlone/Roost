@@ -50,12 +50,21 @@ struct MainWindow: View {
         }
     }
 
+    private struct MountedTerminalWorktree: Identifiable {
+        let key: WorktreeKey
+        let project: Project
+
+        var id: WorktreeKey { key }
+    }
+
     @State private var vcsPanelVisible = false
     @State private var vcsPanelWidth: CGFloat = AttachedVCSLayout.defaultWidth
     @State private var vcsStates: [WorktreeKey: VCSTabState] = [:]
+    @State private var sidePanelStateSyncTask: Task<Void, Never>?
     @State private var fileTreePanelVisible = false
     @AppStorage("muxy.fileTreeWidth") private var fileTreePanelWidth: Double = .init(FileTreeLayout.defaultWidth)
     @State private var fileTreeStates: [WorktreeKey: FileTreeState] = [:]
+    @State private var mountedTerminalWorktreeKeys: Set<WorktreeKey> = []
     @State private var showQuickOpen = false
     @State private var showWorktreeSwitcher = false
     @State private var isFullScreen = false
@@ -110,23 +119,25 @@ struct MainWindow: View {
                         }
                     } else if projectsWithWorkspaces.isEmpty {
                         WelcomeView()
-                    } else if let project = activeProjectWithWorkspace,
-                              let activeKey = appState.activeWorktreeKey(for: project.id)
-                    {
-                        ForEach(mountedWorktreeKeys(for: project), id: \.self) { key in
+                    } else {
+                        let activeKey = activeWorktreeKey
+                        ForEach(mountedTerminalWorktrees) { item in
+                            let key = item.key
+                            let project = item.project
+                            let isActive = key == activeKey
                             TerminalArea(
                                 project: project,
                                 worktreeKey: key,
-                                isActiveProject: key == activeKey
+                                isActiveProject: isActive
                             )
-                            .opacity(key == activeKey ? 1 : 0)
-                            .allowsHitTesting(key == activeKey)
-                            .zIndex(key == activeKey ? 1 : 0)
+                            .opacity(isActive ? 1 : 0)
+                            .allowsHitTesting(isActive)
+                            .zIndex(isActive ? 1 : 0)
                         }
                     }
                 }
 
-                if vcsPanelVisible, VCSDisplayMode.current == .attached, let state = activeVCSState {
+                if vcsPanelVisible, VCSDisplayMode.current == .attached {
                     HStack(spacing: 0) {
                         sidePanelResizeHandle { delta in
                             vcsPanelWidth = max(
@@ -134,10 +145,14 @@ struct MainWindow: View {
                                 min(AttachedVCSLayout.maxWidth, vcsPanelWidth - delta)
                             )
                         }
-                        VCSTabView(state: state, focused: false, onFocus: {})
-                            .frame(width: vcsPanelWidth)
+                        if let state = activeVCSState {
+                            VCSTabView(state: state, focused: false, onFocus: {})
+                                .frame(width: vcsPanelWidth)
+                        } else {
+                            MuxyTheme.bg.frame(width: vcsPanelWidth)
+                        }
                     }
-                } else if fileTreePanelVisible, let treeState = activeFileTreeState {
+                } else if fileTreePanelVisible {
                     HStack(spacing: 0) {
                         sidePanelResizeHandle { delta in
                             let next = fileTreePanelWidth - Double(delta)
@@ -146,26 +161,30 @@ struct MainWindow: View {
                                 min(Double(FileTreeLayout.maxWidth), next)
                             )
                         }
-                        FileTreeView(
-                            state: treeState,
-                            onOpenFile: { filePath in
-                                guard let projectID = appState.activeProjectID else { return }
-                                appState.openFile(filePath, projectID: projectID, preserveFocus: true)
-                            },
-                            onOpenTerminal: { directory in
-                                guard let projectID = appState.activeProjectID else { return }
-                                appState.dispatch(.createTabInDirectory(
-                                    projectID: projectID,
-                                    areaID: nil,
-                                    directory: directory
-                                ))
-                            },
-                            onFileMoved: { oldPath, newPath in
-                                appState.handleFileMoved(from: oldPath, to: newPath)
-                            }
-                        )
-                        .id(treeState.rootPath)
-                        .frame(width: CGFloat(fileTreePanelWidth))
+                        if let treeState = activeFileTreeState {
+                            FileTreeView(
+                                state: treeState,
+                                onOpenFile: { filePath in
+                                    guard let projectID = appState.activeProjectID else { return }
+                                    appState.openFile(filePath, projectID: projectID, preserveFocus: true)
+                                },
+                                onOpenTerminal: { directory in
+                                    guard let projectID = appState.activeProjectID else { return }
+                                    appState.dispatch(.createTabInDirectory(
+                                        projectID: projectID,
+                                        areaID: nil,
+                                        directory: directory
+                                    ))
+                                },
+                                onFileMoved: { oldPath, newPath in
+                                    appState.handleFileMoved(from: oldPath, to: newPath)
+                                }
+                            )
+                            .id(treeState.rootPath)
+                            .frame(width: CGFloat(fileTreePanelWidth))
+                        } else {
+                            MuxyTheme.bg.frame(width: CGFloat(fileTreePanelWidth))
+                        }
                     }
                 }
             }
@@ -262,17 +281,16 @@ struct MainWindow: View {
             toggleFileTreePanel()
         }
         .onChange(of: vcsPruneSignature) {
-            pruneVCSStates()
-            pruneFileTreeStates()
+            handleVCSPruneSignatureChange()
+        }
+        .onChange(of: terminalWorkspaceSignature, initial: true) {
+            handleTerminalWorkspaceSignatureChange()
+        }
+        .onChange(of: activeWorktreeKey, initial: true) { _, key in
+            handleActiveWorktreeKeyChange(key)
         }
         .onChange(of: vcsEnsureSignature) {
-            guard let project = activeProject else { return }
-            if vcsPanelVisible, VCSDisplayMode.current == .attached {
-                ensureVCSState(for: project)
-            }
-            if fileTreePanelVisible {
-                ensureFileTreeState(for: project)
-            }
+            handleVCSEnsureSignatureChange()
         }
         .modifier(FileTreeSelectionSync(
             filePath: activeEditorFilePath,
@@ -296,16 +314,7 @@ struct MainWindow: View {
             presentSaveErrorAlert(message: message)
         }
         .onChange(of: worktreeStore.worktrees, initial: true) { _, current in
-            let allWorktrees = current.values.flatMap { $0 }
-            let activeIDs = Set(allWorktrees.map(\.id))
-            statusStore.reconcile(activeIDs: activeIDs)
-            for worktree in allWorktrees {
-                statusStore.startWatching(
-                    worktreeID: worktree.id,
-                    path: worktree.path,
-                    kind: worktree.vcsKind
-                )
-            }
+            handleWorktreeStoreChange(current)
         }
     }
 
@@ -535,13 +544,6 @@ struct MainWindow: View {
         return "\(project.name) — \(tabTitle)"
     }
 
-    private var activeProjectWithWorkspace: Project? {
-        guard let project = activeProject,
-              appState.workspaceRoot(for: project.id) != nil
-        else { return nil }
-        return project
-    }
-
     private func resolvedActiveWorktree(for project: Project) -> Worktree? {
         worktreeStore.preferred(for: project.id, matching: appState.activeWorktreeID[project.id])
     }
@@ -555,10 +557,73 @@ struct MainWindow: View {
         )
     }
 
-    private func mountedWorktreeKeys(for project: Project) -> [WorktreeKey] {
-        appState.workspaceRoots.keys
-            .filter { $0.projectID == project.id }
-            .sorted { $0.worktreeID.uuidString < $1.worktreeID.uuidString }
+    private var mountedTerminalWorktrees: [MountedTerminalWorktree] {
+        let projectByID = Dictionary(uniqueKeysWithValues: projectStore.projects.map { ($0.id, $0) })
+        return MountedTerminalWorktreePolicy.displayKeys(
+            remembered: mountedTerminalWorktreeKeys,
+            active: activeWorktreeKey,
+            available: availableTerminalWorktreeKeys
+        )
+        .compactMap { key in
+            guard let project = projectByID[key.projectID] else { return nil }
+            return MountedTerminalWorktree(key: key, project: project)
+        }
+    }
+
+    private var availableTerminalWorktreeKeys: Set<WorktreeKey> {
+        let projectIDs = Set(projectStore.projects.map(\.id))
+        return Set(appState.workspaceRoots.keys.filter { projectIDs.contains($0.projectID) })
+    }
+
+    private func rememberMountedTerminalWorktree(_ key: WorktreeKey?) {
+        var remembered = mountedTerminalWorktreeKeys
+        MountedTerminalWorktreePolicy.remember(
+            active: key,
+            available: availableTerminalWorktreeKeys,
+            remembered: &remembered
+        )
+        mountedTerminalWorktreeKeys = remembered
+    }
+
+    private func pruneMountedTerminalWorktrees() {
+        var remembered = mountedTerminalWorktreeKeys
+        MountedTerminalWorktreePolicy.prune(
+            available: availableTerminalWorktreeKeys,
+            remembered: &remembered
+        )
+        mountedTerminalWorktreeKeys = remembered
+    }
+
+    private func handleVCSPruneSignatureChange() {
+        pruneVCSStates()
+        pruneFileTreeStates()
+    }
+
+    private func handleTerminalWorkspaceSignatureChange() {
+        pruneMountedTerminalWorktrees()
+        rememberMountedTerminalWorktree(activeWorktreeKey)
+    }
+
+    private func handleActiveWorktreeKeyChange(_ key: WorktreeKey?) {
+        rememberMountedTerminalWorktree(key)
+    }
+
+    private func handleVCSEnsureSignatureChange() {
+        scheduleSidePanelStateSync()
+    }
+
+    private func handleWorktreeStoreChange(_ current: [UUID: [Worktree]]) {
+        let allWorktrees = current.values.flatMap { $0 }
+        let activeIDs = Set(allWorktrees.map(\.id))
+        statusStore.reconcile(activeIDs: activeIDs)
+
+        for worktree in allWorktrees {
+            statusStore.startWatching(
+                worktreeID: worktree.id,
+                path: worktree.path,
+                kind: worktree.vcsKind
+            )
+        }
     }
 
     private func handleShortcutAction(_ action: ShortcutAction) -> Bool {
@@ -699,6 +764,26 @@ struct MainWindow: View {
         vcsStates[key] = VCSTabState(projectPath: activeWorktreePath(for: project))
     }
 
+    private func scheduleSidePanelStateSync() {
+        sidePanelStateSyncTask?.cancel()
+        let signature = vcsEnsureSignature
+        sidePanelStateSyncTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            guard !Task.isCancelled, signature == vcsEnsureSignature else { return }
+            syncVisibleSidePanelStates()
+        }
+    }
+
+    private func syncVisibleSidePanelStates() {
+        guard let project = activeProject else { return }
+        if vcsPanelVisible, VCSDisplayMode.current == .attached {
+            ensureVCSState(for: project)
+        }
+        if fileTreePanelVisible {
+            ensureFileTreeState(for: project)
+        }
+    }
+
     private func activeWorktreePath(for project: Project) -> String {
         guard let key = appState.activeWorktreeKey(for: project.id) else { return project.path }
         return worktreeStore
@@ -752,6 +837,14 @@ struct MainWindow: View {
         let projectID = appState.activeProjectID?.uuidString ?? ""
         let worktreeID = appState.activeProjectID.flatMap { appState.activeWorktreeID[$0] }?.uuidString ?? ""
         return "\(projectID):\(worktreeID)"
+    }
+
+    private var terminalWorkspaceSignature: [String] {
+        let projectIDs = Set(projectStore.projects.map(\.id))
+        return appState.workspaceRoots.keys
+            .filter { projectIDs.contains($0.projectID) }
+            .map { "\($0.projectID.uuidString):\($0.worktreeID.uuidString)" }
+            .sorted()
     }
 
     private func presentCloseConfirmation(_ kind: CloseConfirmationKind) {

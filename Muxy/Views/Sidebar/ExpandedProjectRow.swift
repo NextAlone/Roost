@@ -534,6 +534,14 @@ struct ExpandedProjectRow: View {
     }
 }
 
+enum ExpandedWorktreeRowLayout {
+    static let selectedStripeWidth: CGFloat = 3
+    static let leadingContentInset: CGFloat = 26
+    static let trailingContentInset: CGFloat = 10
+    static let statusDotHeight: CGFloat = 18
+    static let minContentHeight: CGFloat = statusDotHeight
+}
+
 private struct ExpandedWorktreeRow: View {
     let projectID: UUID
     let worktree: Worktree
@@ -602,14 +610,16 @@ private struct ExpandedWorktreeRow: View {
                 AgentActivityDotStack(dots: agentActivitySummary.dots)
             }
         }
-        .padding(.horizontal, 4)
+        .frame(minHeight: ExpandedWorktreeRowLayout.minContentHeight)
+        .padding(.leading, ExpandedWorktreeRowLayout.leadingContentInset)
+        .padding(.trailing, ExpandedWorktreeRowLayout.trailingContentInset)
         .padding(.vertical, 5)
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 6))
         .overlay(alignment: .leading) {
             if selected {
                 Capsule()
                     .fill(MuxyTheme.accent)
-                    .frame(width: 3)
+                    .frame(width: ExpandedWorktreeRowLayout.selectedStripeWidth)
                     .padding(.vertical, 4)
             }
         }
@@ -737,7 +747,7 @@ private struct AgentActivityDotStack: View {
                 AgentActivityStackDot(state: dot.state)
             }
         }
-        .frame(height: 18)
+        .frame(height: ExpandedWorktreeRowLayout.statusDotHeight)
         .help(helpText)
         .accessibilityLabel(helpText)
     }
@@ -762,7 +772,7 @@ private struct AgentActivityStackDot: View {
                 .frame(width: 13, height: 13)
             content
         }
-        .frame(width: 13, height: 18)
+        .frame(width: 13, height: ExpandedWorktreeRowLayout.statusDotHeight)
     }
 
     @ViewBuilder

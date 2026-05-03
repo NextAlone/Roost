@@ -13,9 +13,11 @@ let socketPath = {
 
 signal(SIGPIPE, SIG_IGN)
 
+let instanceLock = try HostdDaemonInstanceLock()
 let registry = try await HostdProcessRegistry(databaseURL: HostdStorage.defaultDatabaseURL())
 let server = HostdDaemonSocketServer(socketPath: socketPath, registry: registry)
 server.start()
 while true {
+    _ = instanceLock
     try await Task.sleep(for: .seconds(3600))
 }

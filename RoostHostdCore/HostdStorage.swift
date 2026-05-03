@@ -11,6 +11,12 @@ public enum HostdStorage {
             .appendingPathComponent("sessions.sqlite", isDirectory: false)
     }
 
+    public static func defaultDaemonLockURL() -> URL {
+        defaultDatabaseURL()
+            .deletingLastPathComponent()
+            .appendingPathComponent("daemon.lock", isDirectory: false)
+    }
+
     static func ensureParentDirectory(for url: URL) throws {
         let parent = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)

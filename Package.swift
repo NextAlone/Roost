@@ -10,7 +10,6 @@ let package = Package(
     ],
     products: [
         .library(name: "MuxyShared", targets: ["MuxyShared"]),
-        .executable(name: "roost-hostd-attach", targets: ["RoostHostdAttach"]),
         .executable(name: "roost-hostd-daemon", targets: ["RoostHostdDaemon"]),
         .executable(name: "RoostHostdXPCService", targets: ["RoostHostdXPCService"]),
     ],
@@ -81,13 +80,6 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "RoostHostdAttach",
-            dependencies: [
-                "RoostHostdCore",
-            ],
-            path: "RoostHostdAttach"
-        ),
-        .executableTarget(
             name: "RoostHostdDaemon",
             dependencies: [
                 "RoostHostdCore",
@@ -107,7 +99,6 @@ let package = Package(
             name: "RoostTests",
             dependencies: [
                 "Roost",
-                "RoostHostdAttach",
                 "RoostHostdXPCService",
                 "MuxyShared",
                 "MuxyServer",

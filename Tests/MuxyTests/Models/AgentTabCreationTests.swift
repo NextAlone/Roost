@@ -143,12 +143,13 @@ struct AgentTabCreationTests {
         #expect(request.environment["PATH"] == "/custom/bin")
         #expect(request.environment["CUSTOM"] == "1")
         #expect(request.environment["TERM"] == "xterm-256color")
+        #expect(request.environment["COLORTERM"] == "truecolor")
         #expect(request.environment["MUXY_PANE_ID"] == pane.id.uuidString)
         #expect(request.environment["MUXY_PROJECT_ID"] == projectID.uuidString)
         #expect(request.environment["MUXY_WORKTREE_ID"] == worktreeID.uuidString)
         #expect(request.command?.contains("export PATH=/custom/bin") == true)
         #expect(request.command?.contains("export SHELL=") == true)
-        #expect(request.command?.contains("export TERM=xterm-256color") == true)
+        #expect(request.command?.contains("export TERM=") == false)
         #expect(request.command?.hasSuffix("; codex") == true)
     }
 
@@ -432,8 +433,9 @@ struct AgentTabCreationTests {
         #expect(request.environment["MUXY_WORKTREE_ID"] == worktreeID.uuidString)
         #expect(request.environment["PATH"]?.contains("\(NSHomeDirectory())/.local/bin") == true)
         #expect(request.environment["TERM"] == "xterm-256color")
+        #expect(request.environment["COLORTERM"] == "truecolor")
         #expect(request.command?.contains("export PATH=") == true)
-        #expect(request.command?.contains("export TERM=xterm-256color") == true)
+        #expect(request.command?.contains("export TERM=") == false)
         #expect(request.command?.hasSuffix("; codex --dangerously-bypass-approvals-and-sandbox") == true)
     }
 

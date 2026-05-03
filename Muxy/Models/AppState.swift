@@ -343,7 +343,11 @@ final class AppState {
             configured: pane.env
         )
         let command = runtimeOwnership == .hostdOwnedProcess
-            ? TerminalPaneEnvironment.hostdLaunchCommand(pane.startupCommand, environment: environment)
+            ? TerminalPaneEnvironment.hostdLaunchCommand(
+                pane.startupCommand,
+                environment: environment,
+                exportTerm: agentKind == .terminal
+            )
             : pane.startupCommand
         pane.markHostdAttachPreparing()
         Task { @MainActor [hostdClient = effectiveHostdClient, pane] in
@@ -461,7 +465,11 @@ final class AppState {
                         configured: pane.env
                     )
                     let command = pane.hostdRuntimeOwnership == .hostdOwnedProcess
-                        ? TerminalPaneEnvironment.hostdLaunchCommand(pane.startupCommand, environment: environment)
+                        ? TerminalPaneEnvironment.hostdLaunchCommand(
+                            pane.startupCommand,
+                            environment: environment,
+                            exportTerm: pane.agentKind == .terminal
+                        )
                         : pane.startupCommand
                     return PendingHostdSession(
                         id: pane.id,

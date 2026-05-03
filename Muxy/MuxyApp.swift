@@ -67,7 +67,6 @@ struct MuxyApp: App {
                                 try? await client.markAllRunningExited()
                             }
                             hostdClient = client
-                            HostdAttachSocketServer.shared.updateClient(client)
                             await appState.recordRestoredAgentSessions(hostdClient: client)
                         }
                     }
@@ -255,7 +254,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UpdateService.shared.start()
         ModifierKeyMonitor.shared.start()
         NotificationSocketServer.shared.start()
-        HostdAttachSocketServer.shared.start()
         AIProviderRegistry.shared.installAll()
         _ = AIUsageSettingsStore.isUsageEnabled()
 
@@ -337,7 +335,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         onTerminate?()
         NotificationStore.shared.saveToDisk()
         NotificationSocketServer.shared.stop()
-        HostdAttachSocketServer.shared.stop()
         MainActor.assumeIsolated {
             MobileServerService.shared.stopForTermination()
         }

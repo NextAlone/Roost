@@ -84,7 +84,6 @@ echo "==> Building for $ARCH ($TRIPLE)"
 cd "$PROJECT_ROOT"
 swift build -c release --triple "$TRIPLE"
 swift build -c release --triple "$TRIPLE" --product RoostHostdXPCService
-swift build -c release --triple "$TRIPLE" --product roost-hostd-attach
 swift build -c release --triple "$TRIPLE" --product roost-hostd-daemon
 
 SPM_BUILD_DIR=$(swift build -c release --triple "$TRIPLE" --show-bin-path)
@@ -95,14 +94,11 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 cp "$SPM_BUILD_DIR/Roost" "$APP_BUNDLE/Contents/MacOS/Roost"
 install_name_tool -add_rpath @executable_path/../Frameworks "$APP_BUNDLE/Contents/MacOS/Roost"
-cp "$SPM_BUILD_DIR/roost-hostd-attach" "$APP_BUNDLE/Contents/MacOS/roost-hostd-attach"
-chmod 755 "$APP_BUNDLE/Contents/MacOS/roost-hostd-attach"
 cp "$SPM_BUILD_DIR/roost-hostd-daemon" "$APP_BUNDLE/Contents/MacOS/roost-hostd-daemon"
 chmod 755 "$APP_BUNDLE/Contents/MacOS/roost-hostd-daemon"
 
 echo "==> Stripping local and debug symbols"
 strip -Sx "$APP_BUNDLE/Contents/MacOS/Roost"
-strip -Sx "$APP_BUNDLE/Contents/MacOS/roost-hostd-attach"
 strip -Sx "$APP_BUNDLE/Contents/MacOS/roost-hostd-daemon"
 
 if [[ -d "$SPM_BUILD_DIR/Roost_Roost.bundle" ]]; then
@@ -180,11 +176,6 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     /usr/bin/codesign --force --options runtime \
         --sign "$SIGN_IDENTITY" \
         "$XPC_BUNDLE"
-
-    echo "==> Signing hostd attach helper"
-    /usr/bin/codesign --force --options runtime \
-        --sign "$SIGN_IDENTITY" \
-        "$APP_BUNDLE/Contents/MacOS/roost-hostd-attach"
 
     echo "==> Signing hostd daemon"
     /usr/bin/codesign --force --options runtime \

@@ -13,7 +13,7 @@ Build the first-party archive with:
 ```bash
 scripts/build-release.sh \
   --arch arm64 \
-  --version 1.0.0 \
+  --version 1.1.0 \
   --zip \
   --sign-identity -
 ```
@@ -26,7 +26,7 @@ The Nix package fetches the GitHub release ZIP by version and validates it with 
 
 ```bash
 nix --extra-experimental-features 'nix-command flakes' build .#packages.aarch64-darwin.default --no-link
-nix --extra-experimental-features 'nix-command flakes' build github:NextAlone/Roost/v1.0.0#packages.aarch64-darwin.default --refresh --no-link
+nix --extra-experimental-features 'nix-command flakes' build github:NextAlone/Roost/v1.1.0#packages.aarch64-darwin.default --refresh --no-link
 ```
 
 ## Sparkle Appcast
@@ -45,7 +45,7 @@ Build an update-enabled app by injecting the derived public key and feed URL:
 PUBLIC_KEY="$(scripts/derive-sparkle-public-key.swift "$SPARKLE_PRIVATE_KEY")"
 scripts/build-release.sh \
   --arch arm64 \
-  --version 1.0.0 \
+  --version 1.1.0 \
   --zip \
   --sign-identity - \
   --sparkle-public-key "$PUBLIC_KEY" \
@@ -57,8 +57,8 @@ Generate an appcast entry for the ZIP:
 ```bash
 SPARKLE_PRIVATE_KEY="$SPARKLE_PRIVATE_KEY" \
   scripts/generate-appcast.sh \
-  build/Roost-1.0.0-arm64.zip \
-  v1.0.0 \
+  build/Roost-1.1.0-arm64.zip \
+  v1.1.0 \
   1 \
   build/appcast.xml
 ```

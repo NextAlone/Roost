@@ -22,6 +22,7 @@ struct TerminalPaneEnvironmentTests {
         #expect(env["PATH"] == "/Users/me/.local/bin:/etc/profiles/per-user/me/bin:/usr/bin:/bin")
         #expect(env["SHELL"] == "/run/current-system/sw/bin/fish")
         #expect(env["TERM"] == "xterm-256color")
+        #expect(env["COLORTERM"] == "truecolor")
         #expect(env["MUXY_PANE_ID"] == "00000000-0000-0000-0000-000000000001")
     }
 
@@ -44,12 +45,13 @@ struct TerminalPaneEnvironmentTests {
         let env = TerminalPaneEnvironment.build(
             paneID: UUID(),
             worktreeKey: WorktreeKey(projectID: UUID(), worktreeID: UUID()),
-            configured: ["TERM": "xterm-ghostty"],
+            configured: ["COLORTERM": "24bit", "TERM": "xterm-ghostty"],
             shellPath: "/Users/me/.local/bin:/usr/bin:/bin",
             shell: "/run/current-system/sw/bin/fish"
         )
 
         #expect(env["TERM"] == "xterm-ghostty")
+        #expect(env["COLORTERM"] == "24bit")
     }
 
     @Test("keeps configured shell environment without resolving defaults")
@@ -105,23 +107,46 @@ struct TerminalPaneEnvironmentTests {
         #expect(command == "export PATH='/Users/me/bin with space:/usr/bin'; export SHELL='/tmp/it'\\''s/zsh'; codex")
     }
 
-    @Test("hostd attach command uses helper path and session id")
-    func hostdAttachCommandUsesHelperPathAndSessionID() {
-        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000123")!
-        let command = TerminalPaneEnvironment.hostdAttachCommand(
-            sessionID: id,
-            helperPath: "/tmp/Roost Hostd Attach",
-            socketPath: "/tmp/roost attach.sock"
+    @Test("hostd tmux command leaves terminal type to tmux")
+    func hostdTmuxCommandLeavesTerminalTypeToTmux() {
+        let command = TerminalPaneEnvironment.hostdLaunchCommand(
+            "codex",
+            environment: [
+                "PATH": "/custom/bin:/usr/bin",
+                "SHELL": "/bin/zsh",
+                "TERM": "xterm-256color",
+            ],
+            exportTerm: false
         )
 
-        #expect(command == "'/tmp/Roost Hostd Attach' --session 00000000-0000-0000-0000-000000000123 --socket '/tmp/roost attach.sock'")
+        #expect(command == "export PATH=/custom/bin:/usr/bin; export SHELL=/bin/zsh; codex")
     }
 
-    @Test("hostd attach command reports missing helper")
-    func hostdAttachCommandReportsMissingHelper() {
-        let command = TerminalPaneEnvironment.hostdAttachCommand(sessionID: UUID(), helperPath: nil)
+    @Test("hostd attach command configures tmux session before attach")
+    func hostdAttachCommandConfiguresTmuxSessionBeforeAttach() {
+        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000123")!
+        let command = TerminalPaneEnvironment.hostdAttachCommand(sessionID: id, tmuxPath: "tmux")
 
-        #expect(command.contains("roost-hostd-attach helper not found"))
-        #expect(command.contains("exit 127"))
+        #expect(command == [
+            "tmux set-option -gq 'terminal-features[100]' xterm-256color:RGB",
+            "set-option -gq 'terminal-features[101]' xterm-ghostty:RGB",
+            "set-option -gq 'terminal-features[102]' 'ghostty*:RGB'",
+            "set-option -t roost-00000000-0000-0000-0000-000000000123 mouse on",
+            "set-option -t roost-00000000-0000-0000-0000-000000000123 status off",
+            "set-option -t roost-00000000-0000-0000-0000-000000000123 prefix None",
+            "set-option -t roost-00000000-0000-0000-0000-000000000123 prefix2 None",
+            "attach-session -t roost-00000000-0000-0000-0000-000000000123",
+        ].joined(separator: " \\; "))
+    }
+
+    @Test("hostd attach command quotes tmux path")
+    func hostdAttachCommandQuotesTmuxPath() {
+        let id = UUID(uuidString: "00000000-0000-0000-0000-000000000123")!
+        let command = TerminalPaneEnvironment.hostdAttachCommand(sessionID: id, tmuxPath: "/opt/homebrew/bin/tmux with space")
+
+        #expect(command.hasPrefix(
+            "'/opt/homebrew/bin/tmux with space' set-option -gq 'terminal-features[100]' xterm-256color:RGB"
+        ))
+        #expect(command.hasSuffix("attach-session -t roost-00000000-0000-0000-0000-000000000123"))
     }
 }

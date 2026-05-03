@@ -2,12 +2,12 @@
 
 This checklist tracks the current self-signed/ad-hoc local signature release path. Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, telemetry, and crash reporting are future work.
 
-## Current Release: 1.0.0 Self-Signed / Ad-Hoc ZIP
+## Current Release: 1.1.0 Self-Signed / Ad-Hoc ZIP
 
 - [ ] Run `scripts/checks.sh`.
-- [ ] Run `scripts/build-release.sh --arch arm64 --version 1.0.0 --zip --sign-identity -` to produce `build/Roost-1.0.0-arm64.zip`.
+- [ ] Run `scripts/build-release.sh --arch arm64 --version 1.1.0 --zip --sign-identity -` to produce `build/Roost-1.1.0-arm64.zip`.
 - [ ] Confirm `--sign-identity -` uses ad-hoc local signing and does not provide Developer ID or notarization trust.
-- [ ] Verify `build/Roost-1.0.0-arm64.zip` exists.
+- [ ] Verify `build/Roost-1.1.0-arm64.zip` exists.
 - [ ] Verify `build/SHA256SUMS.txt` exists and contains the versioned archive.
 - [ ] Verify checksum:
 
@@ -20,7 +20,7 @@ This checklist tracks the current self-signed/ad-hoc local signature release pat
 
   ```bash
   nix --extra-experimental-features 'nix-command flakes' build .#packages.aarch64-darwin.default --no-link
-  nix --extra-experimental-features 'nix-command flakes' build github:NextAlone/Roost/v1.0.0#packages.aarch64-darwin.default --refresh --no-link
+  nix --extra-experimental-features 'nix-command flakes' build github:NextAlone/Roost/v1.1.0#packages.aarch64-darwin.default --refresh --no-link
   ```
 
 - [ ] Verify local code signature integrity (this is not notarization or Gatekeeper trust):
@@ -76,7 +76,7 @@ This checklist tracks the current self-signed/ad-hoc local signature release pat
 ## Hostd Runtime
 
 - [ ] Verify `RoostHostdXPCService.xpc` is embedded in `Roost.app/Contents/XPCServices/`.
-- [ ] Verify `roost-hostd-attach` and `roost-hostd-daemon` are embedded in `Roost.app/Contents/MacOS/`.
+- [ ] Verify `roost-hostd-daemon` is embedded in `Roost.app/Contents/MacOS/`.
 - [ ] Smoke-test hostd-owned runtime mode on a disposable project before enabling it by default.
 
 ## Future: Telemetry and Crash Reporting

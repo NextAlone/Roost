@@ -13,7 +13,7 @@ Add Roost to your `nix-darwin` flake inputs:
     nix-darwin.url = "github:nix-darwin/nix-darwin/master";
     nix-darwin.inputs.nixpkgs.follows = "nixpkgs";
 
-    roost.url = "github:NextAlone/Roost/v1.0.0";
+    roost.url = "github:NextAlone/Roost/v1.1.0";
     roost.inputs.nixpkgs.follows = "nixpkgs";
   };
 }

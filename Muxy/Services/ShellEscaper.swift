@@ -2,7 +2,7 @@ import Foundation
 
 enum ShellEscaper {
     private static let metaCharacters: Set<Character> = [
-        " ", "(", ")", "'", "\"", "\\", "&", "|", ";", "$", "`", "!",
+        " ", "(", ")", "'", "\"", "\\", "&", "|", ";", "$", "`", "!", "*", "?", "[", "]", "{", "}", "<", ">",
     ]
 
     static func escape(_ path: String) -> String {

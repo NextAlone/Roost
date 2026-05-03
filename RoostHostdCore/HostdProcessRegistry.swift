@@ -45,6 +45,8 @@ public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
     case resizeFailed(code: Int32, message: String)
     case signalFailed(code: Int32, message: String)
     case terminateFailed(code: Int32, message: String)
+    case tmuxUnavailable(message: String)
+    case tmuxCommandFailed(operation: String, status: Int32, message: String)
 
     public var errorDescription: String? {
         switch self {
@@ -70,6 +72,10 @@ public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
             "Hostd failed to signal session process: \(message) (\(code))"
         case let .terminateFailed(code, message):
             "Hostd failed to terminate session process: \(message) (\(code))"
+        case let .tmuxUnavailable(message):
+            "Hostd tmux backend is unavailable: \(message)"
+        case let .tmuxCommandFailed(operation, status, message):
+            "Hostd tmux \(operation) failed: \(message) (\(status))"
         }
     }
 }
@@ -77,20 +83,29 @@ public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
 public actor HostdProcessRegistry {
     private let store: SessionStore
     private let keepalive: any HostdProcessKeepalive
+    private let tmux: any HostdTmuxControlling
     private var sessions: [UUID: HostdPTYSession] = [:]
     private var liveSessionIDs = Set<UUID>()
+    private var tmuxAttachedClientCounts: [UUID: Int] = [:]
 
-    init(store: SessionStore, keepalive: any HostdProcessKeepalive = NoopHostdProcessKeepalive()) {
+    init(
+        store: SessionStore,
+        keepalive: any HostdProcessKeepalive = NoopHostdProcessKeepalive(),
+        tmux: any HostdTmuxControlling = HostdTmuxController()
+    ) {
         self.store = store
         self.keepalive = keepalive
+        self.tmux = tmux
     }
 
     public init(
         databaseURL: URL = HostdStorage.defaultDatabaseURL(),
-        keepalive: any HostdProcessKeepalive = NoopHostdProcessKeepalive()
+        keepalive: any HostdProcessKeepalive = NoopHostdProcessKeepalive(),
+        tmux: any HostdTmuxControlling = HostdTmuxController()
     ) async throws {
         self.store = try await SessionStore(url: databaseURL)
         self.keepalive = keepalive
+        self.tmux = tmux
     }
 
     public func launchSession(_ request: HostdLaunchSessionRequest) async throws -> HostdAttachSessionResponse {
@@ -107,6 +122,9 @@ public actor HostdProcessRegistry {
             createdAt: request.createdAt,
             lastState: .running
         )
+        if request.agentKind != .terminal {
+            return try await launchTmuxSession(record: record, command: command, environment: request.environment)
+        }
         let session = try HostdPTYSession.launch(record: record, command: command, environment: request.environment)
         do {
             try await store.record(record)
@@ -122,48 +140,84 @@ public actor HostdProcessRegistry {
     }
 
     public func attachSession(id: UUID) async throws -> HostdAttachSessionResponse {
-        guard let session = sessions[id], session.isRunning else {
-            try await markExitedIfKnown(id: id)
-            throw HostdProcessRegistryError.sessionNotFound(id)
+        if let session = sessions[id], session.isRunning {
+            let count = session.attach()
+            return HostdAttachSessionResponse(
+                record: session.record,
+                ownership: .hostdOwnedProcess,
+                attachedClientCount: count
+            )
         }
-        let count = session.attach()
-        return HostdAttachSessionResponse(
-            record: session.record,
-            ownership: .hostdOwnedProcess,
-            attachedClientCount: count
-        )
+        if let record = try await storedRecord(id: id),
+           record.agentKind != .terminal,
+           await tmux.hasSession(named: HostdTmuxSessionName.name(for: id))
+        {
+            let count = (tmuxAttachedClientCounts[id] ?? 0) + 1
+            tmuxAttachedClientCounts[id] = count
+            return HostdAttachSessionResponse(
+                record: record,
+                ownership: .hostdOwnedProcess,
+                attachedClientCount: count
+            )
+        }
+        if sessions[id] != nil {
+            try await markExitedIfKnown(id: id)
+        }
+        throw HostdProcessRegistryError.sessionNotFound(id)
     }
 
     public func releaseSession(id: UUID) async throws {
-        guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
-        try session.release()
+        if let session = sessions[id] {
+            try session.release()
+            return
+        }
+        guard let count = tmuxAttachedClientCounts[id], count > 0 else {
+            throw HostdProcessRegistryError.sessionNotAttached(id)
+        }
+        let nextCount = count - 1
+        if nextCount == 0 {
+            tmuxAttachedClientCounts.removeValue(forKey: id)
+        } else {
+            tmuxAttachedClientCounts[id] = nextCount
+        }
     }
 
     public func terminateSession(id: UUID) async throws {
-        guard let session = sessions.removeValue(forKey: id) else {
+        if let session = sessions.removeValue(forKey: id) {
+            releaseKeepaliveIfLive(id: id)
+            try session.terminate()
+            try await store.update(id: id, lastState: .exited)
+            return
+        }
+        guard let record = try await storedRecord(id: id), record.agentKind != .terminal else {
             throw HostdProcessRegistryError.sessionNotFound(id)
         }
-        releaseKeepaliveIfLive(id: id)
-        try session.terminate()
+        try await tmux.killSession(named: HostdTmuxSessionName.name(for: id))
+        tmuxAttachedClientCounts.removeValue(forKey: id)
         try await store.update(id: id, lastState: .exited)
     }
 
     public func listLiveSessions() async throws -> [SessionRecord] {
         let persistedLive = try await store.listLive()
         var liveRecords: [SessionRecord] = []
-        for (id, session) in sessions {
-            if session.isRunning {
-                liveRecords.append(session.record)
+        for record in persistedLive {
+            if record.agentKind != .terminal {
+                if await tmux.hasSession(named: HostdTmuxSessionName.name(for: record.id)) {
+                    liveRecords.append(record)
+                } else {
+                    try await store.update(id: record.id, lastState: .exited)
+                    tmuxAttachedClientCounts.removeValue(forKey: record.id)
+                }
+                continue
+            }
+            if let session = sessions[record.id], session.isRunning {
+                liveRecords.append(record)
             } else {
-                try await markExitedIfKnown(id: id)
+                try await markExitedIfKnown(id: record.id)
             }
         }
 
         liveRecords.sort { $0.createdAt > $1.createdAt }
-        let liveIDs = Set(liveRecords.map(\.id))
-        for record in persistedLive where !liveIDs.contains(record.id) {
-            try await store.update(id: record.id, lastState: .exited)
-        }
         return liveRecords
     }
 
@@ -175,6 +229,9 @@ public actor HostdProcessRegistry {
         if let session = sessions.removeValue(forKey: id) {
             releaseKeepaliveIfLive(id: id)
             try session.terminate()
+        } else if let record = try await storedRecord(id: id), record.agentKind != .terminal {
+            try? await tmux.killSession(named: HostdTmuxSessionName.name(for: id))
+            tmuxAttachedClientCounts.removeValue(forKey: id)
         }
         try await store.delete(id: id)
     }
@@ -229,7 +286,33 @@ public actor HostdProcessRegistry {
         if sessions[id] != nil {
             releaseKeepaliveIfLive(id: id)
         }
+        tmuxAttachedClientCounts.removeValue(forKey: id)
         try await store.update(id: id, lastState: .exited)
+    }
+
+    private func launchTmuxSession(
+        record: SessionRecord,
+        command: String,
+        environment: [String: String]
+    ) async throws -> HostdAttachSessionResponse {
+        let sessionName = HostdTmuxSessionName.name(for: record.id)
+        try await tmux.launch(
+            sessionName: sessionName,
+            workspacePath: record.workspacePath,
+            command: command,
+            environment: environment
+        )
+        do {
+            try await store.record(record)
+            return HostdAttachSessionResponse(record: record, ownership: .hostdOwnedProcess)
+        } catch {
+            try? await tmux.killSession(named: sessionName)
+            throw error
+        }
+    }
+
+    private func storedRecord(id: UUID) async throws -> SessionRecord? {
+        try await store.list().first { $0.id == id }
     }
 
     private func startExitWatcher(id: UUID, session: HostdPTYSession) {

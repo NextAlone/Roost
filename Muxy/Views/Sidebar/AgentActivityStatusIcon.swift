@@ -18,6 +18,7 @@ struct AgentActivityStatusBadge: View {
                     height: AgentActivityStatusBadgeLayout.diameter
                 )
             AgentActivityStatusIcon(state: state)
+                .id(state.rawValue)
         }
         .frame(
             width: AgentActivityStatusBadgeLayout.diameter,
@@ -28,69 +29,95 @@ struct AgentActivityStatusBadge: View {
 
 struct AgentActivityStatusIcon: View {
     let state: AgentActivityState
-    var runningSize: CGFloat = 11
-    var waitingSize: CGFloat = 6
 
     var body: some View {
-        switch state {
-        case .running:
-            AgentActivityRunningStatusIcon(size: runningSize)
-        case .needsInput:
-            AgentActivityWaitingStatusIcon(size: waitingSize)
-        case .completed:
-            Circle()
-                .fill(MuxyTheme.diffAddFg)
-                .frame(width: 9, height: 9)
-        case .idle:
-            Circle()
-                .fill(MuxyTheme.fgDim.opacity(0.45))
-                .frame(width: 6, height: 6)
-        case .exited:
-            Circle()
-                .fill(MuxyTheme.fgDim)
-                .frame(width: 9, height: 9)
-        }
+        AgentActivityPulsingStatusIcon(style: AgentActivityStatusPulseStyle(state: state))
     }
 }
 
-private struct AgentActivityRunningStatusIcon: View {
-    let size: CGFloat
-    @State private var spinning = false
+struct AgentActivityStatusPulseStyle: Equatable {
+    let state: AgentActivityState
+
+    var breathes: Bool {
+        switch state {
+        case .running,
+             .needsInput,
+             .completed:
+            true
+        case .idle,
+             .exited:
+            false
+        }
+    }
+
+    var duration: Double {
+        1.24
+    }
+
+    var restingDiameter: CGFloat {
+        switch state {
+        case .running: 7
+        case .needsInput: 6
+        case .completed: 8
+        case .idle: 6
+        case .exited: 9
+        }
+    }
+
+    var expandedDiameter: CGFloat {
+        switch state {
+        case .running,
+             .needsInput,
+             .completed:
+            AgentActivityStatusBadgeLayout.diameter * 0.94
+        case .idle: restingDiameter
+        case .exited: restingDiameter
+        }
+    }
+
+    var expandedOpacity: Double {
+        breathes ? 0.38 : 0.92
+    }
+}
+
+private struct AgentActivityPulsingStatusIcon: View {
+    let style: AgentActivityStatusPulseStyle
+    @State private var expanded = false
 
     var body: some View {
         Circle()
-            .trim(from: 0.18, to: 0.82)
-            .stroke(
-                MuxyTheme.accent,
-                style: StrokeStyle(lineWidth: 2, lineCap: .round)
-            )
-            .frame(width: size, height: size)
-            .rotationEffect(.degrees(spinning ? 360 : 0))
-            .animation(.linear(duration: 1.0).repeatForever(autoreverses: false), value: spinning)
+            .fill(color)
+            .frame(width: style.restingDiameter, height: style.restingDiameter)
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .animation(animation, value: expanded)
             .onAppear {
-                spinning = true
+                expanded = style.breathes
             }
     }
-}
 
-private struct AgentActivityWaitingStatusIcon: View {
-    let size: CGFloat
-    @State private var pulsing = false
+    private var color: Color {
+        switch style.state {
+        case .running: MuxyTheme.accent
+        case .needsInput: MuxyTheme.diffRemoveFg
+        case .completed: MuxyTheme.diffAddFg
+        case .idle: MuxyTheme.fgDim.opacity(0.45)
+        case .exited: MuxyTheme.fgDim
+        }
+    }
 
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(MuxyTheme.diffRemoveFg.opacity(0.18))
-                .frame(width: size * 2.6, height: size * 2.6)
-                .scaleEffect(pulsing ? 1.2 : 0.72)
-                .opacity(pulsing ? 0.18 : 0.55)
-                .animation(.easeInOut(duration: 1.25).repeatForever(autoreverses: true), value: pulsing)
-            Circle()
-                .fill(MuxyTheme.diffRemoveFg)
-                .frame(width: size, height: size)
-        }
-        .onAppear {
-            pulsing = true
-        }
+    private var scale: CGFloat {
+        guard style.breathes, expanded else { return 1 }
+        return style.expandedDiameter / style.restingDiameter
+    }
+
+    private var opacity: Double {
+        guard style.breathes, expanded else { return 0.92 }
+        return style.expandedOpacity
+    }
+
+    private var animation: Animation? {
+        guard style.breathes else { return nil }
+        return .easeInOut(duration: style.duration).repeatForever(autoreverses: true)
     }
 }

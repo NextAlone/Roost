@@ -4,12 +4,14 @@ enum MountedTerminalWorktreePolicy {
     static func displayKeys(
         remembered: Set<WorktreeKey>,
         active: WorktreeKey?,
-        available: Set<WorktreeKey>
+        available: Set<WorktreeKey>,
+        agentBearing: Set<WorktreeKey> = []
     ) -> [WorktreeKey] {
         var keys = remembered.intersection(available)
         if let active, available.contains(active) {
             keys.insert(active)
         }
+        keys.formUnion(agentBearing.intersection(available))
         return keys.sorted { lhs, rhs in
             if lhs.projectID != rhs.projectID {
                 return lhs.projectID.uuidString < rhs.projectID.uuidString

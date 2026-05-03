@@ -562,7 +562,8 @@ struct MainWindow: View {
         return MountedTerminalWorktreePolicy.displayKeys(
             remembered: mountedTerminalWorktreeKeys,
             active: activeWorktreeKey,
-            available: availableTerminalWorktreeKeys
+            available: availableTerminalWorktreeKeys,
+            agentBearing: agentBearingTerminalWorktreeKeys
         )
         .compactMap { key in
             guard let project = projectByID[key.projectID] else { return nil }
@@ -573,6 +574,17 @@ struct MainWindow: View {
     private var availableTerminalWorktreeKeys: Set<WorktreeKey> {
         let projectIDs = Set(projectStore.projects.map(\.id))
         return Set(appState.workspaceRoots.keys.filter { projectIDs.contains($0.projectID) })
+    }
+
+    private var agentBearingTerminalWorktreeKeys: Set<WorktreeKey> {
+        Set(appState.workspaceRoots.compactMap { key, root in
+            root.allAreas().contains { area in
+                area.tabs.contains { tab in
+                    guard let agentKind = tab.content.pane?.agentKind else { return false }
+                    return agentKind != .terminal
+                }
+            } ? key : nil
+        })
     }
 
     private func rememberMountedTerminalWorktree(_ key: WorktreeKey?) {

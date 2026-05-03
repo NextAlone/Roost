@@ -70,4 +70,28 @@ struct ExpandedProjectRowSelectionTests {
         #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .completed, hovered: false) == .completed)
         #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .running, hovered: true) == .hover)
     }
+
+    @Test("project expands for active or agent-bearing vcs projects")
+    func projectExpandsForActiveOrAgentBearingVcsProjects() {
+        #expect(ExpandedProjectRow.shouldExpandProjectWorktrees(
+            isActive: true,
+            isVcsRepo: true,
+            hasAgentTabs: false
+        ))
+        #expect(ExpandedProjectRow.shouldExpandProjectWorktrees(
+            isActive: false,
+            isVcsRepo: true,
+            hasAgentTabs: true
+        ))
+        #expect(!ExpandedProjectRow.shouldExpandProjectWorktrees(
+            isActive: false,
+            isVcsRepo: true,
+            hasAgentTabs: false
+        ))
+        #expect(!ExpandedProjectRow.shouldExpandProjectWorktrees(
+            isActive: true,
+            isVcsRepo: false,
+            hasAgentTabs: true
+        ))
+    }
 }

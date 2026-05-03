@@ -34,6 +34,22 @@ struct MountedTerminalWorktreePolicyTests {
         #expect(Set(keys) == [active, remembered])
     }
 
+    @Test("includes agent-bearing workspaces even when inactive")
+    func includesAgentBearingWorkspaces() {
+        let active = key(project: 1, worktree: 1)
+        let agentBearing = key(project: 2, worktree: 1)
+        let unavailableAgentBearing = key(project: 3, worktree: 1)
+
+        let keys = MountedTerminalWorktreePolicy.displayKeys(
+            remembered: [],
+            active: active,
+            available: [active, agentBearing],
+            agentBearing: [agentBearing, unavailableAgentBearing]
+        )
+
+        #expect(Set(keys) == [active, agentBearing])
+    }
+
     private func key(project: UInt8, worktree: UInt8) -> WorktreeKey {
         WorktreeKey(
             projectID: UUID(uuid: (project, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)),

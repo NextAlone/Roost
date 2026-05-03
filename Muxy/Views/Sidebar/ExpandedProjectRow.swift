@@ -45,6 +45,16 @@ struct ExpandedProjectRow: View {
         worktrees.first { $0.id == activeWorktreeID }
     }
 
+    private var hasAgentTabs: Bool {
+        worktrees.contains { worktree in
+            let key = WorktreeKey(projectID: project.id, worktreeID: worktree.id)
+            return appState.allTabs(forKey: key).contains { tab in
+                guard let agentKind = tab.content.pane?.agentKind else { return false }
+                return agentKind != .terminal
+            }
+        }
+    }
+
     private var displayLetter: String {
         String(project.name.prefix(1)).uppercased()
     }
@@ -58,12 +68,32 @@ struct ExpandedProjectRow: View {
         }
         .task(id: project.path) {
             isVcsRepo = VcsKindDetector.isVcsRepository(at: project.path)
-            if isActive, isVcsRepo {
+            if Self.shouldExpandProjectWorktrees(
+                isActive: isActive,
+                isVcsRepo: isVcsRepo,
+                hasAgentTabs: hasAgentTabs
+            ) {
                 worktreesExpanded = true
             }
         }
         .onChange(of: isActive) { _, active in
-            guard active, isVcsRepo else { return }
+            guard Self.shouldExpandProjectWorktrees(
+                isActive: active,
+                isVcsRepo: isVcsRepo,
+                hasAgentTabs: hasAgentTabs
+            )
+            else { return }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                worktreesExpanded = true
+            }
+        }
+        .onChange(of: hasAgentTabs) { _, hasAgentTabs in
+            guard Self.shouldExpandProjectWorktrees(
+                isActive: isActive,
+                isVcsRepo: isVcsRepo,
+                hasAgentTabs: hasAgentTabs
+            )
+            else { return }
             withAnimation(.easeInOut(duration: 0.15)) {
                 worktreesExpanded = true
             }
@@ -515,6 +545,14 @@ struct ExpandedProjectRow: View {
         let activeKey = WorktreeKey(projectID: project.id, worktreeID: activeWorktreeID)
         guard activeKey == key else { return false }
         return appState.focusedArea(for: project.id)?.activeTabID == tab.id
+    }
+
+    nonisolated static func shouldExpandProjectWorktrees(
+        isActive: Bool,
+        isVcsRepo: Bool,
+        hasAgentTabs: Bool
+    ) -> Bool {
+        isVcsRepo && (isActive || hasAgentTabs)
     }
 
     nonisolated static func isWorktreeSelected(

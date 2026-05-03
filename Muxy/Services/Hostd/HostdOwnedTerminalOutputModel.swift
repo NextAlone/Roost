@@ -48,9 +48,24 @@ final class HostdOwnedTerminalOutputModel {
         let idleSleep = idleSleepNanoseconds ?? defaultIdleSleepNanoseconds
         let errorSleep = errorSleepNanoseconds ?? defaultErrorSleepNanoseconds
         status = text.isEmpty ? .waiting : .streaming
+        var attached = false
+        func releaseIfNeeded() async {
+            guard attached else { return }
+            try? await client.releaseSession(id: paneID)
+            attached = false
+        }
 
         while !Task.isCancelled {
             do {
+                if !attached {
+                    let response = try await client.attachSession(id: paneID)
+                    guard response.ownership == .hostdOwnedProcess else {
+                        status = .failed("Hostd session is not hostd-owned")
+                        await releaseIfNeeded()
+                        return
+                    }
+                    attached = true
+                }
                 let data = try await client.readSessionOutput(id: paneID, timeout: readTimeout)
                 if !data.isEmpty {
                     append(data)
@@ -62,12 +77,15 @@ final class HostdOwnedTerminalOutputModel {
                     try? await Task.sleep(nanoseconds: idleSleep)
                 }
             } catch is CancellationError {
+                await releaseIfNeeded()
                 return
             } catch {
                 status = .failed(error.localizedDescription)
                 try? await Task.sleep(nanoseconds: errorSleep)
             }
         }
+
+        await releaseIfNeeded()
     }
 
     func sendInput(client: (any RoostHostdClient)?, paneID: UUID, data: Data) async {

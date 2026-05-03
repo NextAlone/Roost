@@ -34,6 +34,31 @@ struct HostdOwnedTerminalOutputModelTests {
         #expect(model.status == .streaming)
     }
 
+    @Test("stream attaches before reading and releases after cancellation")
+    func streamAttachesBeforeReadingAndReleasesAfterCancellation() async throws {
+        let client = FakeHostdOutputClient(outputs: [
+            Data("attached".utf8),
+        ])
+        let model = HostdOwnedTerminalOutputModel(bufferLimit: 1024)
+        let paneID = UUID()
+
+        let task = Task {
+            await model.stream(
+                client: client,
+                paneID: paneID,
+                timeout: 0,
+                idleSleepNanoseconds: 1_000_000,
+                errorSleepNanoseconds: 1_000_000
+            )
+        }
+        try await client.waitForReadCount(1)
+        task.cancel()
+        await task.value
+
+        #expect(await client.attachRequests() == [paneID])
+        #expect(await client.releaseRequests() == [paneID])
+    }
+
     @Test("stream caps output buffer")
     func streamCapsOutputBuffer() async throws {
         let client = FakeHostdOutputClient(outputs: [
@@ -135,6 +160,8 @@ private actor FakeHostdOutputClient: RoostHostdClient {
     let runtimeOwnershipHint: HostdRuntimeOwnership? = .hostdOwnedProcess
     private var outputs: [Data]
     private var readCount = 0
+    private var attachRecords: [UUID] = []
+    private var releaseRecords: [UUID] = []
     private var inputs: [Data] = []
     private var resizeRecords: [HostdResizeRequest] = []
     private var signalRecords: [HostdSignalRequest] = []
@@ -148,6 +175,29 @@ private actor FakeHostdOutputClient: RoostHostdClient {
     }
 
     func createSession(_ request: HostdCreateSessionRequest) async throws {}
+
+    func attachSession(id: UUID) async throws -> HostdAttachSessionResponse {
+        attachRecords.append(id)
+        return HostdAttachSessionResponse(
+            record: SessionRecord(
+                id: id,
+                projectID: UUID(),
+                worktreeID: UUID(),
+                workspacePath: "/tmp",
+                agentKind: .terminal,
+                command: nil,
+                createdAt: Date(timeIntervalSince1970: 0),
+                lastState: .running
+            ),
+            ownership: .hostdOwnedProcess
+        )
+    }
+
+    func releaseSession(id: UUID) async throws {
+        releaseRecords.append(id)
+    }
+
+    func terminateSession(id: UUID) async throws {}
 
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data {
         readCount += 1
@@ -185,6 +235,14 @@ private actor FakeHostdOutputClient: RoostHostdClient {
             try await Task.sleep(nanoseconds: 1_000_000)
         }
         Issue.record("Expected \(target) output reads, got \(readCount)")
+    }
+
+    func attachRequests() -> [UUID] {
+        attachRecords
+    }
+
+    func releaseRequests() -> [UUID] {
+        releaseRecords
     }
 
     func writtenInputs() -> [Data] {

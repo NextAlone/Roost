@@ -669,6 +669,12 @@ Exit criteria:
 - The renderer supports reset, foreground/background 16-color and 256-color palette indexes, bold, dim, normal intensity, and default foreground/background resets, using the active Ghostty palette.
 - Non-SGR CSI and OSC title sequences are stripped from the visible output, and incomplete trailing escape sequences are hidden until more output arrives. Live Ghostty attach remains next.
 
+**Status (2026-05-03): Phase 6p (hostd-owned attach lifecycle) landed.**
+
+- Hostd-owned pane streaming now calls `attachSession` before the first output read and validates that the attached session is still hostd-owned.
+- When the stream task exits or is cancelled after attach, the pane calls `releaseSession`, making the UI/hostd session occupancy boundary explicit.
+- Current bundled GhosttyKit exposes `ghostty_surface_new(app, config)` with command/cwd/env inputs but no public API for adopting an existing hostd-owned PTY fd. Full live Ghostty attach therefore still requires a lower-level GhosttyKit/hostd rendering bridge rather than a SwiftUI-only change.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

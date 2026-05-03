@@ -11,6 +11,8 @@ struct TerminalPane: View {
     let onSplitRequest: (SplitDirection, SplitPosition) -> Void
 
     @Bindable private var ownership = PaneOwnershipStore.shared
+    @Environment(\.roostHostdClient) private var hostdClient
+    @State private var hostdOutput = HostdOwnedTerminalOutputModel()
 
     private var remoteOwnerName: String? {
         if case let .remote(_, name) = ownership.owner(for: state.id) { name } else { nil }
@@ -19,7 +21,13 @@ struct TerminalPane: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             if state.hostdRuntimeOwnership == .hostdOwnedProcess {
-                HostdOwnedTerminalPlaceholder(agentName: state.agentKind.displayName)
+                HostdOwnedTerminalView(agentName: state.agentKind.displayName, output: hostdOutput)
+                    .task(id: HostdOwnedTerminalStreamKey(
+                        paneID: state.id,
+                        clientAvailable: hostdClient != nil
+                    )) {
+                        await hostdOutput.stream(client: hostdClient, paneID: state.id)
+                    }
             } else {
                 TerminalBridge(
                     state: state,
@@ -74,10 +82,31 @@ struct TerminalPane: View {
     }
 }
 
-struct HostdOwnedTerminalPlaceholder: View {
+private struct HostdOwnedTerminalStreamKey: Equatable {
+    let paneID: UUID
+    let clientAvailable: Bool
+}
+
+struct HostdOwnedTerminalView: View {
     let agentName: String
+    @Bindable var output: HostdOwnedTerminalOutputModel
 
     var body: some View {
+        ZStack(alignment: .topTrailing) {
+            if output.text.isEmpty {
+                emptyState
+            } else {
+                outputScroll
+            }
+
+            statusBadge
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(MuxyTheme.bg)
+        .accessibilityLabel("\(agentName), running in hostd")
+    }
+
+    private var emptyState: some View {
         VStack(spacing: 12) {
             Spacer()
             Image(systemName: "server.rack")
@@ -86,14 +115,77 @@ struct HostdOwnedTerminalPlaceholder: View {
             Text(agentName)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(MuxyTheme.fg)
-            Text("Running in hostd")
-                .font(.system(size: 12))
-                .foregroundStyle(MuxyTheme.fgMuted)
+            switch output.status {
+            case .waiting,
+                 .streaming:
+                Text("Waiting for output")
+                    .font(.system(size: 12))
+                    .foregroundStyle(MuxyTheme.fgMuted)
+            case let .failed(message):
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(MuxyTheme.warning)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+            }
             Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(MuxyTheme.bg)
-        .accessibilityLabel("\(agentName), running in hostd")
+    }
+
+    private var outputScroll: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: true) {
+                Text(output.text)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(MuxyTheme.fg)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(14)
+                Color.clear
+                    .frame(height: 1)
+                    .id("hostd-output-bottom")
+            }
+            .onChange(of: output.text) { _, _ in
+                proxy.scrollTo("hostd-output-bottom", anchor: .bottom)
+            }
+        }
+    }
+
+    private var statusBadge: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 7, height: 7)
+            Text(statusLabel)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(statusColor)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(statusColor.opacity(0.12), in: Capsule())
+        .padding(10)
+    }
+
+    private var statusLabel: String {
+        switch output.status {
+        case .waiting:
+            "WAIT"
+        case .streaming:
+            "HOSTD"
+        case .failed:
+            "ERROR"
+        }
+    }
+
+    private var statusColor: Color {
+        switch output.status {
+        case .waiting:
+            MuxyTheme.fgMuted
+        case .streaming:
+            MuxyTheme.accent
+        case .failed:
+            MuxyTheme.warning
+        }
     }
 }
 

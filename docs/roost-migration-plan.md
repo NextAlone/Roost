@@ -639,6 +639,12 @@ Exit criteria:
 - `TerminalTabSnapshot` persists the runtime ownership marker with decode-tolerant metadata-only defaults for older workspace files.
 - Hostd-owned panes render a lightweight hostd placeholder instead of mounting `TerminalBridge`, so hidden hostd launch mode does not also start a duplicate app-owned Ghostty process. Continuous output streaming, stdin forwarding from UI, signal delivery, and live Ghostty attach remain next.
 
+**Status (2026-05-03): Phase 6k (hostd-owned output view) landed.**
+
+- Hostd-owned panes now poll `readSessionOutput` through the app's `RoostHostdClient` and render bounded raw UTF-8 output in the pane.
+- Output polling retries after transient hostd errors and exposes a visible waiting / hostd / error state.
+- This is still not full terminal emulation: stdin forwarding, signal delivery, PTY resize from pane geometry, ANSI rendering, and live Ghostty attach remain next.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

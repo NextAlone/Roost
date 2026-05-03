@@ -19,6 +19,7 @@ Muxy/Resources/terminfo
 appcast*.xml
 .plans/
 .muxy/
+.roost/
 /muxy-markdown-remote-image-urlcache
 
 # Roost local workspaces and legacy build artifacts kept out of the Muxy-based mainline.

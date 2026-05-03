@@ -13,7 +13,8 @@ struct HostdXPCCodecTests {
             worktreeID: UUID(),
             workspacePath: "/tmp/wt",
             agentKind: .codex,
-            command: "codex"
+            command: "codex",
+            environment: ["PATH": "/custom/bin", "CUSTOM": "1"]
         )
         let data = try HostdXPCCodec.encode(original)
         let decoded = try HostdXPCCodec.decode(HostdCreateSessionRequest.self, from: data)
@@ -65,6 +66,26 @@ struct HostdXPCCodecTests {
         let data = try HostdXPCCodec.encode(original)
         let decoded = try HostdXPCCodec.decode(HostdSendSessionSignalRequest.self, from: data)
         #expect(decoded == original)
+    }
+
+    @Test("stream output request and response round-trip through shared XPC schema")
+    func streamOutputRoundTrip() throws {
+        let request = HostdReadSessionOutputStreamRequest(id: UUID(), after: 42, timeout: 0.25)
+        let requestData = try HostdXPCCodec.encode(request)
+        let decodedRequest = try HostdXPCCodec.decode(HostdReadSessionOutputStreamRequest.self, from: requestData)
+        #expect(decodedRequest == request)
+
+        let response = HostdReadSessionOutputStreamResponse(output: HostdOutputRead(
+            chunks: [HostdOutputChunk(sequence: 42, data: Data("output".utf8))],
+            nextSequence: 48,
+            truncated: false
+        ))
+        let responseData = try HostdXPCCodec.success(response)
+        let decodedResponse = try HostdXPCCodec.decodeReply(
+            HostdReadSessionOutputStreamResponse.self,
+            from: responseData
+        )
+        #expect(decodedResponse == response)
     }
 
     @Test("failure reply throws the remote message")

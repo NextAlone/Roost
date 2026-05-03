@@ -15,6 +15,7 @@ protocol HostdXPCTransport: Sendable {
     func releaseSession(_ request: Data) async throws -> Data
     func terminateSession(_ request: Data) async throws -> Data
     func readSessionOutput(_ request: Data) async throws -> Data
+    func readSessionOutputStream(_ request: Data) async throws -> Data
     func writeSessionInput(_ request: Data) async throws -> Data
     func resizeSession(_ request: Data) async throws -> Data
     func sendSessionSignal(_ request: Data) async throws -> Data
@@ -118,6 +119,12 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
         }
     }
 
+    func readSessionOutputStream(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.readSessionOutputStream(request, reply: reply)
+        }
+    }
+
     func writeSessionInput(_ request: Data) async throws -> Data {
         try await call { proxy, reply in
             proxy.writeSessionInput(request, reply: reply)
@@ -172,97 +179,164 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
 
 struct XPCHostdClient: RoostHostdClient {
     private let transport: any HostdXPCTransport
+    private let requestTimeout: TimeInterval
 
-    init(transport: any HostdXPCTransport = NSXPCHostdTransport()) {
+    init(transport: any HostdXPCTransport = NSXPCHostdTransport(), requestTimeout: TimeInterval = 8) {
         self.transport = transport
+        self.requestTimeout = requestTimeout
     }
 
     func runtimeOwnership() async throws -> HostdRuntimeOwnership {
-        let response = try await transport.runtimeOwnership()
+        let response = try await withRequestTimeout("runtime ownership") {
+            try await transport.runtimeOwnership()
+        }
         return try HostdXPCCodec.decodeReply(HostdRuntimeOwnership.self, from: response)
     }
 
     func createSession(_ request: HostdCreateSessionRequest) async throws {
-        let response = try await transport.createSession(HostdXPCCodec.encode(request))
+        let encoded = try HostdXPCCodec.encode(request)
+        let response = try await withRequestTimeout("create session") {
+            try await transport.createSession(encoded)
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func attachSession(id: UUID) async throws -> HostdAttachSessionResponse {
-        let response = try await transport.attachSession(HostdXPCCodec.encode(HostdSessionIDRequest(id: id)))
+        let request = try HostdXPCCodec.encode(HostdSessionIDRequest(id: id))
+        let response = try await withRequestTimeout("attach session") {
+            try await transport.attachSession(request)
+        }
         return try HostdXPCCodec.decodeReply(HostdAttachSessionResponse.self, from: response)
     }
 
     func releaseSession(id: UUID) async throws {
-        let response = try await transport.releaseSession(HostdXPCCodec.encode(HostdSessionIDRequest(id: id)))
+        let request = try HostdXPCCodec.encode(HostdSessionIDRequest(id: id))
+        let response = try await withRequestTimeout("release session") {
+            try await transport.releaseSession(request)
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func terminateSession(id: UUID) async throws {
-        let response = try await transport.terminateSession(HostdXPCCodec.encode(HostdSessionIDRequest(id: id)))
+        let request = try HostdXPCCodec.encode(HostdSessionIDRequest(id: id))
+        let response = try await withRequestTimeout("terminate session") {
+            try await transport.terminateSession(request)
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func readSessionOutput(id: UUID, timeout: TimeInterval = 0) async throws -> Data {
-        let response = try await transport.readSessionOutput(HostdXPCCodec.encode(HostdReadSessionOutputRequest(
+        let request = try HostdXPCCodec.encode(HostdReadSessionOutputRequest(
             id: id,
             timeout: timeout
-        )))
+        ))
+        let response = try await withRequestTimeout("read session output", seconds: max(requestTimeout, timeout + 1)) {
+            try await transport.readSessionOutput(request)
+        }
         let output = try HostdXPCCodec.decodeReply(HostdReadSessionOutputResponse.self, from: response)
         return output.data
     }
 
+    func readSessionOutputStream(id: UUID, after sequence: UInt64?, timeout: TimeInterval = 0) async throws -> HostdOutputRead {
+        let request = try HostdXPCCodec.encode(HostdReadSessionOutputStreamRequest(
+            id: id,
+            after: sequence,
+            timeout: timeout
+        ))
+        let response = try await withRequestTimeout("read session output stream", seconds: max(requestTimeout, timeout + 1)) {
+            try await transport.readSessionOutputStream(request)
+        }
+        let output = try HostdXPCCodec.decodeReply(HostdReadSessionOutputStreamResponse.self, from: response)
+        return output.output
+    }
+
     func writeSessionInput(id: UUID, data: Data) async throws {
-        let response = try await transport.writeSessionInput(HostdXPCCodec.encode(HostdWriteSessionInputRequest(
+        let request = try HostdXPCCodec.encode(HostdWriteSessionInputRequest(
             id: id,
             data: data
-        )))
+        ))
+        let response = try await withRequestTimeout("write session input") {
+            try await transport.writeSessionInput(request)
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws {
-        let response = try await transport.resizeSession(HostdXPCCodec.encode(HostdResizeSessionRequest(
+        let request = try HostdXPCCodec.encode(HostdResizeSessionRequest(
             id: id,
             columns: columns,
             rows: rows
-        )))
+        ))
+        let response = try await withRequestTimeout("resize session") {
+            try await transport.resizeSession(request)
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func sendSessionSignal(id: UUID, signal: HostdSessionSignal) async throws {
-        let response = try await transport.sendSessionSignal(HostdXPCCodec.encode(HostdSendSessionSignalRequest(
+        let request = try HostdXPCCodec.encode(HostdSendSessionSignalRequest(
             id: id,
             signal: signal
-        )))
+        ))
+        let response = try await withRequestTimeout("send session signal") {
+            try await transport.sendSessionSignal(request)
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func markExited(sessionID: UUID) async throws {
-        let response = try await transport.markExited(HostdXPCCodec.encode(HostdSessionIDRequest(id: sessionID)))
+        let request = try HostdXPCCodec.encode(HostdSessionIDRequest(id: sessionID))
+        let response = try await withRequestTimeout("mark session exited") {
+            try await transport.markExited(request)
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func listLiveSessions() async throws -> [SessionRecord] {
-        let response = try await transport.listLiveSessions()
+        let response = try await withRequestTimeout("list live sessions") {
+            try await transport.listLiveSessions()
+        }
         return try HostdXPCCodec.decodeReply([SessionRecord].self, from: response)
     }
 
     func listAllSessions() async throws -> [SessionRecord] {
-        let response = try await transport.listAllSessions()
+        let response = try await withRequestTimeout("list sessions") {
+            try await transport.listAllSessions()
+        }
         return try HostdXPCCodec.decodeReply([SessionRecord].self, from: response)
     }
 
     func deleteSession(id: UUID) async throws {
-        let response = try await transport.deleteSession(HostdXPCCodec.encode(HostdSessionIDRequest(id: id)))
+        let request = try HostdXPCCodec.encode(HostdSessionIDRequest(id: id))
+        let response = try await withRequestTimeout("delete session") {
+            try await transport.deleteSession(request)
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func pruneExited() async throws {
-        let response = try await transport.pruneExited()
+        let response = try await withRequestTimeout("prune exited sessions") {
+            try await transport.pruneExited()
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func markAllRunningExited() async throws {
-        let response = try await transport.markAllRunningExited()
+        let response = try await withRequestTimeout("mark running sessions exited") {
+            try await transport.markAllRunningExited()
+        }
         try HostdXPCCodec.decodeEmptyReply(from: response)
+    }
+
+    private func withRequestTimeout<T: Sendable>(
+        _ operation: String,
+        seconds: TimeInterval? = nil,
+        _ work: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await HostdAsyncTimeout.run(
+            seconds: seconds ?? requestTimeout,
+            operation: operation,
+            work
+        )
     }
 }

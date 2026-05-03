@@ -77,15 +77,17 @@ struct TabAreaView: View {
                         onFocus: onFocus,
                         onProcessExit: {
                             if let pane = tab.content.pane {
-                                pane.lastState = .exited
-                                pane.activityState = .exited
-                                let paneID = pane.id
-                                if let hostdClient {
-                                    Task { [hostdClient] in
-                                        try? await hostdClient.markExited(sessionID: paneID)
+                                if TabProcessExitPolicy.representsPaneSessionExit(pane) {
+                                    pane.lastState = .exited
+                                    pane.activityState = .exited
+                                    let paneID = pane.id
+                                    if let hostdClient {
+                                        Task { [hostdClient] in
+                                            try? await hostdClient.markExited(sessionID: paneID)
+                                        }
                                     }
                                 }
-                                if pane.agentKind == .terminal {
+                                if TabProcessExitPolicy.shouldForceCloseTabAfterPaneSessionExit(pane) {
                                     onForceCloseTab(tab.id)
                                 }
                             } else {

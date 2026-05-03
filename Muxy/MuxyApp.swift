@@ -12,12 +12,14 @@ struct MuxyApp: App {
     @State private var worktreeStore: WorktreeStore
     @State private var statusStore: WorkspaceStatusStore
     @State private var hostdClient: (any RoostHostdClient)?
+    private let initialHostdRuntimeOwnership: HostdRuntimeOwnership
     private let updateService = UpdateService.shared
 
     init() {
         _ = MuxyApp.launchDate
         let environment = AppEnvironment.live
         let projectStore = ProjectStore(persistence: environment.projectPersistence)
+        let hostdRuntimeOwnership = Self.configuredHostdRuntimeOwnership()
         let worktreeStore = WorktreeStore(
             persistence: environment.worktreePersistence,
             projects: projectStore.projects
@@ -25,9 +27,11 @@ struct MuxyApp: App {
         let appState = AppState(
             selectionStore: environment.selectionStore,
             terminalViews: environment.terminalViews,
-            workspacePersistence: environment.workspacePersistence
+            workspacePersistence: environment.workspacePersistence,
+            hostdRuntimeOwnership: hostdRuntimeOwnership
         )
         let statusStore = WorkspaceStatusStore()
+        initialHostdRuntimeOwnership = hostdRuntimeOwnership
         appState.restoreSelection(
             projects: projectStore.projects,
             worktrees: worktreeStore.worktrees
@@ -51,13 +55,19 @@ struct MuxyApp: App {
                 .environment(\.roostHostdClient, hostdClient)
                 .task {
                     if hostdClient == nil {
-                        if let client = await RoostHostdClientFactory.make() {
+                        if let client = await RoostHostdClientFactory.make(
+                            preferredOwnership: initialHostdRuntimeOwnership
+                        ) {
                             let ownership = try? await client.runtimeOwnership()
+                            if let ownership {
+                                appState.applyHostdRuntimeOwnership(ownership)
+                            }
                             if ownership == .appOwnedMetadataOnly {
                                 try? await client.markAllRunningExited()
                             }
-                            await appState.recordRestoredAgentSessions(hostdClient: client)
                             hostdClient = client
+                            HostdAttachSocketServer.shared.updateClient(client)
+                            await appState.recordRestoredAgentSessions(hostdClient: client)
                         }
                     }
                 }
@@ -149,6 +159,11 @@ struct MuxyApp: App {
                 .focusEffectDisabled()
         }
     }
+
+    private static func configuredHostdRuntimeOwnership() -> HostdRuntimeOwnership {
+        guard let config = try? RoostAppConfigStore.load() else { return .appOwnedMetadataOnly }
+        return config.hostdRuntime == .hostdOwnedProcess ? .hostdOwnedProcess : .appOwnedMetadataOnly
+    }
 }
 
 @MainActor
@@ -239,6 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UpdateService.shared.start()
         ModifierKeyMonitor.shared.start()
         NotificationSocketServer.shared.start()
+        HostdAttachSocketServer.shared.start()
         AIProviderRegistry.shared.installAll()
         _ = AIUsageSettingsStore.isUsageEnabled()
 
@@ -320,6 +336,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         onTerminate?()
         NotificationStore.shared.saveToDisk()
         NotificationSocketServer.shared.stop()
+        HostdAttachSocketServer.shared.stop()
         MainActor.assumeIsolated {
             MobileServerService.shared.stopForTermination()
         }

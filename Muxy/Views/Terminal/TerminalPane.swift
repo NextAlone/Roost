@@ -11,8 +11,6 @@ struct TerminalPane: View {
     let onSplitRequest: (SplitDirection, SplitPosition) -> Void
 
     @Bindable private var ownership = PaneOwnershipStore.shared
-    @Environment(\.roostHostdClient) private var hostdClient
-    @State private var hostdOutput = HostdOwnedTerminalOutputModel()
 
     private var remoteOwnerName: String? {
         if case let .remote(_, name) = ownership.owner(for: state.id) { name } else { nil }
@@ -20,38 +18,7 @@ struct TerminalPane: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            if state.hostdRuntimeOwnership == .hostdOwnedProcess {
-                HostdOwnedTerminalView(agentName: state.agentKind.displayName, output: hostdOutput)
-                    .overlay {
-                        HostdOwnedTerminalResizeReporter(clientAvailable: hostdClient != nil) { size in
-                            Task {
-                                await hostdOutput.resize(client: hostdClient, paneID: state.id, size: size)
-                            }
-                        }
-                    }
-                    .overlay {
-                        HostdOwnedTerminalInputBridge(
-                            focused: focused,
-                            visible: visible,
-                            onFocus: onFocus
-                        ) { action in
-                            Task {
-                                switch action {
-                                case let .input(data):
-                                    await hostdOutput.sendInput(client: hostdClient, paneID: state.id, data: data)
-                                case let .signal(signal):
-                                    await hostdOutput.sendSignal(client: hostdClient, paneID: state.id, signal: signal)
-                                }
-                            }
-                        }
-                    }
-                    .task(id: HostdOwnedTerminalStreamKey(
-                        paneID: state.id,
-                        clientAvailable: hostdClient != nil
-                    )) {
-                        await hostdOutput.stream(client: hostdClient, paneID: state.id)
-                    }
-            } else {
+            if shouldMountTerminalBridge {
                 TerminalBridge(
                     state: state,
                     focused: focused,
@@ -64,6 +31,11 @@ struct TerminalPane: View {
                 .accessibilityAddTraits(.allowsDirectInteraction)
                 .opacity(remoteOwnerName == nil ? 1 : 0)
                 .allowsHitTesting(remoteOwnerName == nil)
+            } else {
+                HostdAttachPlaceholder(
+                    agentName: state.title,
+                    state: state.hostdAttachState
+                )
             }
 
             if let name = remoteOwnerName {
@@ -103,110 +75,50 @@ struct TerminalPane: View {
             }
         }
     }
+
+    private var shouldMountTerminalBridge: Bool {
+        state.hostdRuntimeOwnership != .hostdOwnedProcess || state.hostdAttachState == .ready
+    }
 }
 
-private struct HostdOwnedTerminalStreamKey: Equatable {
-    let paneID: UUID
-    let clientAvailable: Bool
-}
-
-struct HostdOwnedTerminalView: View {
+struct HostdAttachPlaceholder: View {
     let agentName: String
-    @Bindable var output: HostdOwnedTerminalOutputModel
+    let state: HostdAttachState
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            if output.text.isEmpty {
-                emptyState
-            } else {
-                outputScroll
-            }
-
-            statusBadge
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(MuxyTheme.bg)
-        .accessibilityLabel("\(agentName), running in hostd")
-    }
-
-    private var emptyState: some View {
         VStack(spacing: 12) {
             Spacer()
-            Image(systemName: "server.rack")
-                .font(.system(size: 28))
-                .foregroundStyle(MuxyTheme.fgMuted)
-            Text(agentName)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(MuxyTheme.fg)
-            switch output.status {
-            case .waiting,
-                 .streaming:
-                Text("Waiting for output")
+            switch state {
+            case .preparing:
+                ProgressView()
+                    .controlSize(.small)
+                Text("Starting \(agentName)")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(MuxyTheme.fg)
+                Text("Preparing the persistent session.")
                     .font(.system(size: 12))
                     .foregroundStyle(MuxyTheme.fgMuted)
             case let .failed(message):
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 26))
+                    .foregroundStyle(.orange)
+                Text("\(agentName) did not start")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(MuxyTheme.fg)
                 Text(message)
                     .font(.system(size: 12))
-                    .foregroundStyle(MuxyTheme.warning)
+                    .foregroundStyle(MuxyTheme.fgMuted)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: 420)
+                    .frame(maxWidth: 520)
+                    .textSelection(.enabled)
+            case .ready,
+                 .inactive:
+                EmptyView()
             }
             Spacer()
         }
-    }
-
-    private var outputScroll: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: true) {
-                Text(AttributedString(HostdANSITextRenderer.attributedString(from: output.text)))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .padding(14)
-                Color.clear
-                    .frame(height: 1)
-                    .id("hostd-output-bottom")
-            }
-            .onChange(of: output.text) { _, _ in
-                proxy.scrollTo("hostd-output-bottom", anchor: .bottom)
-            }
-        }
-    }
-
-    private var statusBadge: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 7, height: 7)
-            Text(statusLabel)
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .foregroundStyle(statusColor)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(statusColor.opacity(0.12), in: Capsule())
-        .padding(10)
-    }
-
-    private var statusLabel: String {
-        switch output.status {
-        case .waiting:
-            "WAIT"
-        case .streaming:
-            "HOSTD"
-        case .failed:
-            "ERROR"
-        }
-    }
-
-    private var statusColor: Color {
-        switch output.status {
-        case .waiting:
-            MuxyTheme.fgMuted
-        case .streaming:
-            MuxyTheme.accent
-        case .failed:
-            MuxyTheme.warning
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(MuxyTheme.bg)
     }
 }
 
@@ -270,8 +182,8 @@ struct TerminalBridge: NSViewRepresentable {
         let view = registry.view(
             for: state.id,
             workingDirectory: state.currentWorkingDirectory ?? state.projectPath,
-            command: state.startupCommand,
-            commandInteractive: state.startupCommandInteractive
+            command: startupCommand,
+            commandInteractive: startupCommandInteractive
         )
         if view.envVars.isEmpty, let key = worktreeKey {
             view.envVars = TerminalPaneEnvironment.ordered(paneID: state.id, worktreeKey: key, configured: state.env)
@@ -349,6 +261,16 @@ struct TerminalBridge: NSViewRepresentable {
         } else if !focused, wasFocused {
             nsView.notifySurfaceUnfocused()
         }
+    }
+
+    private var startupCommand: String? {
+        state.hostdRuntimeOwnership == .hostdOwnedProcess
+            ? TerminalPaneEnvironment.hostdAttachCommand(sessionID: state.id)
+            : state.startupCommand
+    }
+
+    private var startupCommandInteractive: Bool {
+        state.hostdRuntimeOwnership == .hostdOwnedProcess ? false : state.startupCommandInteractive
     }
 
     private func configureFileOpenCallback(_ view: GhosttyTerminalNSView) {

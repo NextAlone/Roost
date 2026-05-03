@@ -14,6 +14,7 @@ private struct PendingHostdSession: Sendable {
     let agentKind: AgentKind
     let command: String?
     let createdAt: Date
+    let environment: [String: String]
 }
 
 @MainActor
@@ -76,6 +77,8 @@ final class AppState {
     private let selectionStore: any ActiveProjectSelectionStoring
     private let terminalViews: any TerminalViewRemoving
     private let workspacePersistence: any WorkspacePersisting
+    private var hostdRuntimeOwnership: HostdRuntimeOwnership
+    private var hostdClient: (any RoostHostdClient)?
     var onProjectsEmptied: (([UUID]) -> Void)?
 
     var activeProjectID: UUID?
@@ -100,11 +103,13 @@ final class AppState {
     init(
         selectionStore: any ActiveProjectSelectionStoring,
         terminalViews: any TerminalViewRemoving,
-        workspacePersistence: any WorkspacePersisting
+        workspacePersistence: any WorkspacePersisting,
+        hostdRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly
     ) {
         self.selectionStore = selectionStore
         self.terminalViews = terminalViews
         self.workspacePersistence = workspacePersistence
+        self.hostdRuntimeOwnership = hostdRuntimeOwnership
     }
 
     func restoreSelection(projects: [Project], worktrees: [UUID: [Worktree]]) {
@@ -118,7 +123,8 @@ final class AppState {
         let restored = WorkspaceRestorer.restoreAll(
             from: snapshots,
             projects: projects,
-            worktrees: worktrees
+            worktrees: worktrees,
+            agentRuntimeOwnership: hostdRuntimeOwnership
         )
         for entry in restored {
             workspaceRoots[entry.key] = entry.root
@@ -281,48 +287,136 @@ final class AppState {
         areaID: UUID? = nil,
         hostdClient: (any RoostHostdClient)?
     ) {
-        let runtimeOwnership = hostdClient?.runtimeOwnershipHint ?? .appOwnedMetadataOnly
+        let effectiveHostdClient = hostdClient ?? self.hostdClient
+        let runtimeOwnership = effectiveHostdClient?.runtimeOwnershipHint ?? hostdRuntimeOwnership
         dispatch(.createAgentTab(
             projectID: projectID,
             areaID: areaID,
             kind: kind,
             runtimeOwnership: runtimeOwnership
         ))
-        guard let hostdClient,
-              let area = focusedArea(for: projectID),
+        guard let area = focusedArea(for: projectID),
               let tab = area.activeTab,
               let pane = tab.content.pane,
               let worktreeID = activeWorktreeID[projectID]
         else { return }
+        guard let effectiveHostdClient else {
+            if runtimeOwnership == .hostdOwnedProcess {
+                pane.markHostdAttachFailed("Roost hostd is still starting. The session will start when hostd is ready.")
+            }
+            return
+        }
         let paneID = pane.id
         let workspacePath = pane.projectPath
         let agentKind = pane.agentKind
-        let command = pane.startupCommand
-        Task { [hostdClient] in
-            try? await hostdClient.createSession(HostdCreateSessionRequest(
-                id: paneID,
-                projectID: projectID,
-                worktreeID: worktreeID,
-                workspacePath: workspacePath,
-                agentKind: agentKind,
-                command: command
-            ))
+        let environment = TerminalPaneEnvironment.build(
+            paneID: paneID,
+            worktreeKey: WorktreeKey(projectID: projectID, worktreeID: worktreeID),
+            configured: pane.env
+        )
+        let command = runtimeOwnership == .hostdOwnedProcess
+            ? TerminalPaneEnvironment.hostdLaunchCommand(pane.startupCommand, environment: environment)
+            : pane.startupCommand
+        pane.markHostdAttachPreparing()
+        Task { @MainActor [hostdClient = effectiveHostdClient, pane] in
+            do {
+                try await hostdClient.createSession(HostdCreateSessionRequest(
+                    id: paneID,
+                    projectID: projectID,
+                    worktreeID: worktreeID,
+                    workspacePath: workspacePath,
+                    agentKind: agentKind,
+                    command: command,
+                    environment: environment
+                ))
+                pane.markHostdAttachReady()
+            } catch {
+                pane.markHostdAttachFailed(Self.hostdErrorMessage(error))
+            }
+        }
+    }
+
+    private static func hostdErrorMessage(_ error: Error) -> String {
+        let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return String(describing: error) }
+        return message
+    }
+
+    private func markHostdAttachReady(sessionID: UUID) {
+        pane(forSessionID: sessionID)?.markHostdAttachReady()
+    }
+
+    private func markHostdAttachFailed(sessionID: UUID, error: Error) {
+        pane(forSessionID: sessionID)?.markHostdAttachFailed(Self.hostdErrorMessage(error))
+    }
+
+    private func markHostdAttachFailed(sessionID: UUID, message: String, lastState: SessionLifecycleState? = nil) {
+        guard let pane = pane(forSessionID: sessionID) else { return }
+        if let lastState {
+            pane.lastState = lastState
+        }
+        pane.markHostdAttachFailed(message)
+    }
+
+    private func pane(forSessionID sessionID: UUID) -> TerminalPaneState? {
+        for root in workspaceRoots.values {
+            for area in root.allAreas() {
+                if let pane = area.tabs.compactMap(\.content.pane).first(where: { $0.id == sessionID }) {
+                    return pane
+                }
+            }
+        }
+        return nil
+    }
+
+    func applyHostdRuntimeOwnership(_ ownership: HostdRuntimeOwnership) {
+        hostdRuntimeOwnership = ownership
+        for root in workspaceRoots.values {
+            for area in root.allAreas() {
+                for tab in area.tabs {
+                    guard let pane = tab.content.pane,
+                          pane.agentKind != .terminal
+                    else { continue }
+                    pane.hostdRuntimeOwnership = ownership
+                }
+            }
         }
     }
 
     func recordRestoredAgentSessions(hostdClient: any RoostHostdClient) async {
+        self.hostdClient = hostdClient
         let sessions = restoredAgentSessions()
         guard !sessions.isEmpty else { return }
+        let liveSessions: [SessionRecord]
+        do {
+            liveSessions = try await hostdClient.listLiveSessions()
+        } catch {
+            for session in sessions {
+                markHostdAttachFailed(sessionID: session.id, error: error)
+            }
+            return
+        }
+        let liveSessionIDs = Set(liveSessions.map(\.id))
         for session in sessions {
-            try? await hostdClient.createSession(HostdCreateSessionRequest(
-                id: session.id,
-                projectID: session.projectID,
-                worktreeID: session.worktreeID,
-                workspacePath: session.workspacePath,
-                agentKind: session.agentKind,
-                command: session.command,
-                createdAt: session.createdAt
-            ))
+            if liveSessionIDs.contains(session.id) {
+                markHostdAttachReady(sessionID: session.id)
+                continue
+            }
+            do {
+                try await hostdClient.createSession(HostdCreateSessionRequest(
+                    id: session.id,
+                    projectID: session.projectID,
+                    worktreeID: session.worktreeID,
+                    workspacePath: session.workspacePath,
+                    agentKind: session.agentKind,
+                    command: session.command,
+                    createdAt: session.createdAt,
+                    environment: session.environment
+                ))
+                markHostdAttachReady(sessionID: session.id)
+            } catch {
+                markHostdAttachFailed(sessionID: session.id, error: error)
+            }
         }
     }
 
@@ -333,14 +427,23 @@ final class AppState {
                     guard let pane = tab.content.pane,
                           pane.agentKind != .terminal
                     else { return nil }
+                    let environment = TerminalPaneEnvironment.build(
+                        paneID: pane.id,
+                        worktreeKey: key,
+                        configured: pane.env
+                    )
+                    let command = pane.hostdRuntimeOwnership == .hostdOwnedProcess
+                        ? TerminalPaneEnvironment.hostdLaunchCommand(pane.startupCommand, environment: environment)
+                        : pane.startupCommand
                     return PendingHostdSession(
                         id: pane.id,
                         projectID: key.projectID,
                         worktreeID: key.worktreeID,
                         workspacePath: pane.projectPath,
                         agentKind: pane.agentKind,
-                        command: pane.startupCommand,
-                        createdAt: pane.createdAt
+                        command: command,
+                        createdAt: pane.createdAt,
+                        environment: environment
                     )
                 }
             }

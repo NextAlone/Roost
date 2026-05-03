@@ -50,6 +50,62 @@ struct HostdProcessRegistryTests {
         #expect(records.first?.lastState == .exited)
     }
 
+    @Test("launched PTY session has a controlling terminal")
+    func launchedPTYSessionHasControllingTerminal() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "if true </dev/tty; then printf controlling-tty; else printf missing-tty; fi; sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        let text = try await readText(
+            from: registry,
+            id: id,
+            until: { $0.contains("controlling-tty") || $0.contains("missing-tty") }
+        )
+        #expect(text.contains("controlling-tty"))
+
+        try await registry.terminateSession(id: id)
+    }
+
+    @Test("launched PTY session starts with a usable window size")
+    func launchedPTYSessionStartsWithUsableWindowSize() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "stty size; sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        let text = try await readText(
+            from: registry,
+            id: id,
+            until: { $0.contains("40 120") || $0.contains("0 0") }
+        )
+        #expect(text.contains("40 120"))
+
+        try await registry.terminateSession(id: id)
+    }
+
     @Test("attach count increments and release decrements")
     func attachCountIncrementsAndReleaseDecrements() async throws {
         let url = makeTempStoreURL()
@@ -131,6 +187,32 @@ struct HostdProcessRegistryTests {
         #expect(keepalive.snapshot == .init(retains: 1, releases: 1, active: 0))
     }
 
+    @Test("list live sessions ignores stale persisted records")
+    func listLiveSessionsIgnoresStalePersistedRecords() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let id = UUID()
+        try await store.record(SessionRecord(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .codex,
+            command: "codex",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            lastState: .running
+        ))
+        let registry = HostdProcessRegistry(store: store)
+
+        let live = try await registry.listLiveSessions()
+        let records = try await store.list()
+
+        #expect(live.isEmpty)
+        #expect(records.first?.id == id)
+        #expect(records.first?.lastState == .exited)
+    }
+
     @Test("keepalive is released when process exits naturally")
     func keepaliveIsReleasedWhenProcessExitsNaturally() async throws {
         let url = makeTempStoreURL()
@@ -188,6 +270,68 @@ struct HostdProcessRegistryTests {
         try await registry.terminateSession(id: id)
     }
 
+    @Test("output pump retains output before attach read")
+    func outputPumpRetainsOutputBeforeAttachRead() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "printf retained; sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        let output = try await waitForHostdOutput(
+            from: registry,
+            id: id,
+            after: nil,
+            contains: "retained"
+        )
+
+        #expect(String(decoding: output.chunks.flatMap(\.data), as: UTF8.self).contains("retained"))
+
+        try await registry.terminateSession(id: id)
+    }
+
+    @Test("stream reads do not steal bytes from other clients")
+    func streamReadsDoNotStealBytesFromOtherClients() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "printf shared; sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        let first = try await waitForHostdOutput(
+            from: registry,
+            id: id,
+            after: nil,
+            contains: "shared"
+        )
+        let second = try await registry.readSessionOutputStream(id: id, after: nil, timeout: 0)
+
+        #expect(String(decoding: first.chunks.flatMap(\.data), as: UTF8.self).contains("shared"))
+        #expect(String(decoding: second.chunks.flatMap(\.data), as: UTF8.self).contains("shared"))
+
+        try await registry.terminateSession(id: id)
+    }
+
     @Test("sends interrupt signal to a running PTY session")
     func sendsInterruptSignalToRunningPTYSession() async throws {
         let url = makeTempStoreURL()
@@ -221,6 +365,22 @@ struct HostdProcessRegistryTests {
         #expect(text.contains("interrupted"))
     }
 
+    private func waitForHostdOutput(
+        from registry: HostdProcessRegistry,
+        id: UUID,
+        after sequence: UInt64?,
+        contains needle: String
+    ) async throws -> HostdOutputRead {
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline {
+            let output = try await registry.readSessionOutputStream(id: id, after: sequence, timeout: 0.25)
+            if String(decoding: output.chunks.flatMap(\.data), as: UTF8.self).contains(needle) {
+                return output
+            }
+        }
+        throw HostdProcessRegistryTestError.outputTimeout
+    }
+
     private func readText(
         from registry: HostdProcessRegistry,
         id: UUID,
@@ -243,6 +403,10 @@ struct HostdProcessRegistryTests {
         }
         #expect(try await condition())
     }
+}
+
+private enum HostdProcessRegistryTestError: Error {
+    case outputTimeout
 }
 
 private final class RecordingHostdProcessKeepalive: HostdProcessKeepalive, @unchecked Sendable {

@@ -5,10 +5,21 @@ import SQLite3
 private let sqliteTransient = unsafeBitCast(OpaquePointer(bitPattern: -1), to: sqlite3_destructor_type.self)
 
 actor SessionStore {
-    enum StoreError: Error {
+    enum StoreError: Error, LocalizedError {
         case openFailed(code: Int32, message: String)
         case prepareFailed(code: Int32, message: String)
         case stepFailed(code: Int32, message: String)
+
+        var errorDescription: String? {
+            switch self {
+            case let .openFailed(code, message):
+                "SQLite open failed: \(message) (\(code))"
+            case let .prepareFailed(code, message):
+                "SQLite prepare failed: \(message) (\(code))"
+            case let .stepFailed(code, message):
+                "SQLite step failed: \(message) (\(code))"
+            }
+        }
     }
 
     private let url: URL
@@ -42,6 +53,21 @@ actor SessionStore {
             throw StoreError.openFailed(code: result, message: msg)
         }
         self.db = handle
+        do {
+            try configureConnection(handle)
+        } catch {
+            sqlite3_close_v2(handle)
+            self.db = nil
+            throw error
+        }
+    }
+
+    private func configureConnection(_ handle: OpaquePointer) throws {
+        sqlite3_busy_timeout(handle, 5000)
+        try exec("""
+        PRAGMA journal_mode = WAL;
+        PRAGMA synchronous = NORMAL;
+        """)
     }
 
     private func migrate() throws {

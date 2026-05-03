@@ -26,10 +26,15 @@ final class TabArea: Identifiable {
         activeTabID = tab.id
     }
 
-    init(restoring snapshot: TabAreaSnapshot) {
+    init(
+        restoring snapshot: TabAreaSnapshot,
+        agentRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly
+    ) {
         id = snapshot.id
         projectPath = snapshot.projectPath
-        tabs = snapshot.tabs.map { TerminalTab(restoring: $0) }
+        tabs = snapshot.tabs.map {
+            TerminalTab(restoring: $0, agentRuntimeOwnership: agentRuntimeOwnership)
+        }
         if let index = snapshot.activeTabIndex, index >= 0, index < tabs.count {
             activeTabID = tabs[index].id
         } else {

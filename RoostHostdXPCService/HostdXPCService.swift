@@ -104,7 +104,8 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
                     workspacePath: request.workspacePath,
                     agentKind: request.agentKind,
                     command: command,
-                    createdAt: request.createdAt
+                    createdAt: request.createdAt,
+                    environment: request.environment
                 ))
                 return try HostdXPCCodec.success()
             }
@@ -258,6 +259,27 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
         rejectRuntimeControl("read output", request: request, as: HostdReadSessionOutputRequest.self, reply: reply)
     }
 
+    func readSessionOutputStream(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdReadSessionOutputStreamRequest.self, from: request)
+                let output = try await registry.readSessionOutputStream(
+                    id: request.id,
+                    after: request.after,
+                    timeout: request.timeout
+                )
+                return try HostdXPCCodec.success(HostdReadSessionOutputStreamResponse(output: output))
+            }
+            return
+        }
+        rejectRuntimeControl(
+            "read output stream",
+            request: request,
+            as: HostdReadSessionOutputStreamRequest.self,
+            reply: reply
+        )
+    }
+
     func writeSessionInput(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
         if runtime.ownership == .hostdOwnedProcess {
             respondRegistry(reply) { registry in
@@ -307,7 +329,7 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
                 let hostd = try await hostdTask.value
                 await reply(try work(hostd))
             } catch {
-                reply(HostdXPCCodec.failure(String(describing: error)))
+                reply(HostdXPCCodec.failure(Self.errorMessage(error)))
             }
         }
     }
@@ -325,9 +347,15 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
                 let registry = try await processRegistryTask.value
                 await reply(try work(registry))
             } catch {
-                reply(HostdXPCCodec.failure(String(describing: error)))
+                reply(HostdXPCCodec.failure(Self.errorMessage(error)))
             }
         }
+    }
+
+    private static func errorMessage(_ error: Error) -> String {
+        let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return String(describing: error) }
+        return message
     }
 
     private func rejectRuntimeControl(
@@ -348,7 +376,7 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
             _ = try HostdXPCCodec.decode(type, from: request)
             reply(HostdXPCCodec.failure("Hostd \(operation) is unavailable in metadata-only runtime"))
         } catch {
-            reply(HostdXPCCodec.failure(String(describing: error)))
+            reply(HostdXPCCodec.failure(Self.errorMessage(error)))
         }
     }
 }

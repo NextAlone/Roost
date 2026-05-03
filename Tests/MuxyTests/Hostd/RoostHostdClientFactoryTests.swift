@@ -26,6 +26,23 @@ struct RoostHostdClientFactoryTests {
         func markAllRunningExited() async throws {}
     }
 
+    private struct HangingRuntimeClient: RoostHostdClient {
+        var runtimeOwnershipHint: HostdRuntimeOwnership? { nil }
+
+        func runtimeOwnership() async throws -> HostdRuntimeOwnership {
+            try await Task.sleep(nanoseconds: 10_000_000_000)
+            return .hostdOwnedProcess
+        }
+
+        func createSession(_ request: HostdCreateSessionRequest) async throws {}
+        func markExited(sessionID: UUID) async throws {}
+        func listLiveSessions() async throws -> [SessionRecord] { [] }
+        func listAllSessions() async throws -> [SessionRecord] { [] }
+        func deleteSession(id: UUID) async throws {}
+        func pruneExited() async throws {}
+        func markAllRunningExited() async throws {}
+    }
+
     @Test("uses XPC client when bundled service is healthy")
     func usesXPCWhenAvailable() async throws {
         let client = await RoostHostdClientFactory.make(
@@ -35,6 +52,20 @@ struct RoostHostdClientFactoryTests {
         )
         #expect(try await client?.runtimeOwnership() == .appOwnedMetadataOnly)
         #expect(client?.runtimeOwnershipHint == .appOwnedMetadataOnly)
+    }
+
+    @Test("hostd-owned preference uses standalone daemon client")
+    func hostdOwnedPreferenceUsesDaemon() async throws {
+        let client = await RoostHostdClientFactory.make(
+            preferredOwnership: .hostdOwnedProcess,
+            makeDaemonClient: { FakeClient(ownership: .hostdOwnedProcess, runtimeFails: false) },
+            xpcServiceExists: { true },
+            makeXPCClient: { FakeClient(ownership: .appOwnedMetadataOnly, runtimeFails: false) },
+            makeLocalClient: { FakeClient(ownership: .appOwnedMetadataOnly, runtimeFails: false) }
+        )
+
+        #expect(try await client?.runtimeOwnership() == .hostdOwnedProcess)
+        #expect(client?.runtimeOwnershipHint == .hostdOwnedProcess)
     }
 
     @Test("uses local client when service bundle is missing")
@@ -53,6 +84,18 @@ struct RoostHostdClientFactoryTests {
             xpcServiceExists: { true },
             makeXPCClient: { FakeClient(ownership: .hostdOwnedProcess, runtimeFails: true) },
             makeLocalClient: { FakeClient(ownership: .appOwnedMetadataOnly, runtimeFails: false) }
+        )
+        #expect(try await client?.runtimeOwnership() == .appOwnedMetadataOnly)
+        #expect(client?.runtimeOwnershipHint == .appOwnedMetadataOnly)
+    }
+
+    @Test("falls back to local when XPC runtime check hangs")
+    func fallsBackWhenXPCRuntimeCheckHangs() async throws {
+        let client = await RoostHostdClientFactory.make(
+            xpcServiceExists: { true },
+            makeXPCClient: { HangingRuntimeClient() },
+            makeLocalClient: { FakeClient(ownership: .appOwnedMetadataOnly, runtimeFails: false) },
+            runtimeCheckTimeout: 0.01
         )
         #expect(try await client?.runtimeOwnership() == .appOwnedMetadataOnly)
         #expect(client?.runtimeOwnershipHint == .appOwnedMetadataOnly)

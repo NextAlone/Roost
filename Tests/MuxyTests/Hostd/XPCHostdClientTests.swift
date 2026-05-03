@@ -13,6 +13,7 @@ struct XPCHostdClientTests {
         private var lastInput: Data?
         private var lastResize: HostdResizeSessionRequest?
         private var lastSignal: HostdSendSessionSignalRequest?
+        private var lastStreamRequest: HostdReadSessionOutputStreamRequest?
 
         func runtimeOwnership() async throws -> Data {
             try HostdXPCCodec.success(HostdRuntimeOwnership.appOwnedMetadataOnly)
@@ -125,6 +126,17 @@ struct XPCHostdClientTests {
             return try HostdXPCCodec.success(HostdReadSessionOutputResponse(data: Data("xpc-output".utf8)))
         }
 
+        func readSessionOutputStream(_ data: Data) async throws -> Data {
+            let request = try HostdXPCCodec.decode(HostdReadSessionOutputStreamRequest.self, from: data)
+            controlIDs["stream"] = request.id
+            lastStreamRequest = request
+            return try HostdXPCCodec.success(HostdReadSessionOutputStreamResponse(output: HostdOutputRead(
+                chunks: [HostdOutputChunk(sequence: request.after ?? 0, data: Data("xpc-stream".utf8))],
+                nextSequence: (request.after ?? 0) + 10,
+                truncated: false
+            )))
+        }
+
         func writeSessionInput(_ data: Data) async throws -> Data {
             let request = try HostdXPCCodec.decode(HostdWriteSessionInputRequest.self, from: data)
             controlIDs["write"] = request.id
@@ -161,6 +173,10 @@ struct XPCHostdClientTests {
         func recordedSignal() -> HostdSendSessionSignalRequest? {
             lastSignal
         }
+
+        func recordedStreamRequest() -> HostdReadSessionOutputStreamRequest? {
+            lastStreamRequest
+        }
     }
 
     private struct FailingTransport: HostdXPCTransport {
@@ -178,9 +194,34 @@ struct XPCHostdClientTests {
         func releaseSession(_ request: Data) async throws -> Data { throw Failure() }
         func terminateSession(_ request: Data) async throws -> Data { throw Failure() }
         func readSessionOutput(_ request: Data) async throws -> Data { throw Failure() }
+        func readSessionOutputStream(_ request: Data) async throws -> Data { throw Failure() }
         func writeSessionInput(_ request: Data) async throws -> Data { throw Failure() }
         func resizeSession(_ request: Data) async throws -> Data { throw Failure() }
         func sendSessionSignal(_ request: Data) async throws -> Data { throw Failure() }
+    }
+
+    private struct HangingTransport: HostdXPCTransport {
+        func runtimeOwnership() async throws -> Data { try await never() }
+        func createSession(_ request: Data) async throws -> Data { try await never() }
+        func markExited(_ request: Data) async throws -> Data { try await never() }
+        func listLiveSessions() async throws -> Data { try await never() }
+        func listAllSessions() async throws -> Data { try await never() }
+        func deleteSession(_ request: Data) async throws -> Data { try await never() }
+        func pruneExited() async throws -> Data { try await never() }
+        func markAllRunningExited() async throws -> Data { try await never() }
+        func attachSession(_ request: Data) async throws -> Data { try await never() }
+        func releaseSession(_ request: Data) async throws -> Data { try await never() }
+        func terminateSession(_ request: Data) async throws -> Data { try await never() }
+        func readSessionOutput(_ request: Data) async throws -> Data { try await never() }
+        func readSessionOutputStream(_ request: Data) async throws -> Data { try await never() }
+        func writeSessionInput(_ request: Data) async throws -> Data { try await never() }
+        func resizeSession(_ request: Data) async throws -> Data { try await never() }
+        func sendSessionSignal(_ request: Data) async throws -> Data { try await never() }
+
+        private func never() async throws -> Data {
+            try await Task.sleep(nanoseconds: 10_000_000_000)
+            return Data()
+        }
     }
 
     @Test("creates, lists, exits, and deletes through transport")
@@ -221,6 +262,7 @@ struct XPCHostdClientTests {
         try await client.releaseSession(id: id)
         try await client.terminateSession(id: id)
         let output = try await client.readSessionOutput(id: id, timeout: 0.25)
+        let stream = try await client.readSessionOutputStream(id: id, after: 12, timeout: 0.25)
         try await client.writeSessionInput(id: id, data: Data("hello\n".utf8))
         try await client.resizeSession(id: id, columns: 100, rows: 40)
         try await client.sendSessionSignal(id: id, signal: .interrupt)
@@ -229,13 +271,17 @@ struct XPCHostdClientTests {
         #expect(attach.record.id == id)
         #expect(attach.ownership == .hostdOwnedProcess)
         #expect(String(decoding: output, as: UTF8.self) == "xpc-output")
+        #expect(String(decoding: stream.chunks.flatMap(\.data), as: UTF8.self) == "xpc-stream")
         #expect(ids["attach"] == id)
         #expect(ids["release"] == id)
         #expect(ids["terminate"] == id)
         #expect(ids["read"] == id)
+        #expect(ids["stream"] == id)
         #expect(ids["write"] == id)
         #expect(ids["resize"] == id)
         #expect(ids["signal"] == id)
+        #expect(await transport.recordedStreamRequest()?.after == 12)
+        #expect(await transport.recordedStreamRequest()?.timeout == 0.25)
         #expect(await transport.recordedInput() == Data("hello\n".utf8))
         #expect(await transport.recordedResize()?.columns == 100)
         #expect(await transport.recordedResize()?.rows == 40)
@@ -251,6 +297,22 @@ struct XPCHostdClientTests {
         } catch is FailingTransport.Failure {
         } catch {
             Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("create session times out when transport does not reply")
+    func createSessionTimesOutWhenTransportHangs() async {
+        let client = XPCHostdClient(transport: HangingTransport(), requestTimeout: 0.01)
+
+        await #expect(throws: HostdAsyncTimeoutError.self) {
+            try await client.createSession(HostdCreateSessionRequest(
+                id: UUID(),
+                projectID: UUID(),
+                worktreeID: UUID(),
+                workspacePath: "/tmp/wt",
+                agentKind: .codex,
+                command: "codex"
+            ))
         }
     }
 }

@@ -190,7 +190,8 @@ enum WorkspaceRestorer {
     static func restoreAll(
         from snapshots: [WorkspaceSnapshot],
         projects: [Project],
-        worktrees: [UUID: [Worktree]]
+        worktrees: [UUID: [Worktree]],
+        agentRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly
     ) -> [RestoredWorkspace] {
         let projectByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
         var results: [RestoredWorkspace] = []
@@ -198,7 +199,7 @@ enum WorkspaceRestorer {
             guard projectByID[snapshot.projectID] != nil else { continue }
             let worktreeList = worktrees[snapshot.projectID] ?? []
             guard let targetWorktree = resolveWorktree(for: snapshot, in: worktreeList) else { continue }
-            let root = restoreSplitNode(from: snapshot.root)
+            let root = restoreSplitNode(from: snapshot.root, agentRuntimeOwnership: agentRuntimeOwnership)
             let areas = root.allAreas()
             guard !areas.isEmpty else { continue }
             let focusedID: UUID = if let areaID = snapshot.focusedAreaID, root.findArea(id: areaID) != nil {
@@ -247,13 +248,25 @@ enum WorkspaceRestorer {
         return snapshots
     }
 
-    private static func restoreSplitNode(from snapshot: SplitNodeSnapshot) -> SplitNode {
+    private static func restoreSplitNode(
+        from snapshot: SplitNodeSnapshot,
+        agentRuntimeOwnership: HostdRuntimeOwnership
+    ) -> SplitNode {
         switch snapshot {
         case let .tabArea(areaSnapshot):
-            return .tabArea(TabArea(restoring: areaSnapshot))
+            return .tabArea(TabArea(
+                restoring: areaSnapshot,
+                agentRuntimeOwnership: agentRuntimeOwnership
+            ))
         case let .split(branchSnapshot):
-            let first = restoreSplitNode(from: branchSnapshot.first)
-            let second = restoreSplitNode(from: branchSnapshot.second)
+            let first = restoreSplitNode(
+                from: branchSnapshot.first,
+                agentRuntimeOwnership: agentRuntimeOwnership
+            )
+            let second = restoreSplitNode(
+                from: branchSnapshot.second,
+                agentRuntimeOwnership: agentRuntimeOwnership
+            )
             let direction: SplitDirection = switch branchSnapshot.direction {
             case .horizontal: .horizontal
             case .vertical: .vertical

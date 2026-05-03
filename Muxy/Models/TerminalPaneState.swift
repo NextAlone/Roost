@@ -2,6 +2,13 @@ import Foundation
 import MuxyShared
 import RoostHostdCore
 
+enum HostdAttachState: Equatable {
+    case inactive
+    case preparing
+    case ready
+    case failed(String)
+}
+
 @MainActor
 @Observable
 final class TerminalPaneState: Identifiable {
@@ -14,7 +21,17 @@ final class TerminalPaneState: Identifiable {
     let env: [String: String]
     let externalEditorFilePath: String?
     let agentKind: AgentKind
-    let hostdRuntimeOwnership: HostdRuntimeOwnership
+    var hostdRuntimeOwnership: HostdRuntimeOwnership {
+        didSet {
+            guard hostdRuntimeOwnership != oldValue else { return }
+            hostdAttachState = Self.initialHostdAttachState(
+                agentKind: agentKind,
+                ownership: hostdRuntimeOwnership
+            )
+        }
+    }
+
+    var hostdAttachState: HostdAttachState
     let createdAt: Date
     var lastState: SessionLifecycleState = .running
     var activityState: AgentActivityState
@@ -44,6 +61,10 @@ final class TerminalPaneState: Identifiable {
         self.externalEditorFilePath = externalEditorFilePath
         self.agentKind = agentKind
         self.hostdRuntimeOwnership = hostdRuntimeOwnership
+        self.hostdAttachState = Self.initialHostdAttachState(
+            agentKind: agentKind,
+            ownership: hostdRuntimeOwnership
+        )
         self.createdAt = createdAt
         activityState = agentKind == .terminal ? .running : .idle
     }
@@ -59,5 +80,34 @@ final class TerminalPaneState: Identifiable {
 
     func setWorkingDirectory(_ path: String) {
         currentWorkingDirectory = path
+    }
+
+    func markHostdAttachPreparing() {
+        guard hostdRuntimeOwnership == .hostdOwnedProcess, agentKind != .terminal else {
+            hostdAttachState = .inactive
+            return
+        }
+        hostdAttachState = .preparing
+    }
+
+    func markHostdAttachReady() {
+        guard hostdRuntimeOwnership == .hostdOwnedProcess, agentKind != .terminal else {
+            hostdAttachState = .inactive
+            return
+        }
+        hostdAttachState = .ready
+    }
+
+    func markHostdAttachFailed(_ message: String) {
+        guard hostdRuntimeOwnership == .hostdOwnedProcess, agentKind != .terminal else {
+            hostdAttachState = .inactive
+            return
+        }
+        hostdAttachState = .failed(message)
+    }
+
+    private static func initialHostdAttachState(agentKind: AgentKind, ownership: HostdRuntimeOwnership) -> HostdAttachState {
+        guard ownership == .hostdOwnedProcess, agentKind != .terminal else { return .inactive }
+        return .preparing
     }
 }

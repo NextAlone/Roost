@@ -70,6 +70,16 @@ struct HostdXPCServiceRuntimeTests {
             try HostdXPCCodec.decodeReply(HostdReadSessionOutputResponse.self, from: outputReply)
         }
 
+        let streamReply = await call {
+            service.readSessionOutputStream(
+                try HostdXPCCodec.encode(HostdReadSessionOutputStreamRequest(id: id)),
+                reply: $0
+            )
+        }
+        #expect(throws: HostdXPCError.self) {
+            try HostdXPCCodec.decodeReply(HostdReadSessionOutputStreamResponse.self, from: streamReply)
+        }
+
         let signalReply = await call {
             service.sendSessionSignal(
                 try HostdXPCCodec.encode(HostdSendSessionSignalRequest(id: id, signal: .interrupt)),
@@ -162,6 +172,53 @@ struct HostdXPCServiceRuntimeTests {
         )
         #expect(text.contains("40 100"))
         #expect(text.contains("input:hello"))
+
+        let terminateReply = await call {
+            service.terminateSession(try HostdXPCCodec.encode(HostdSessionIDRequest(id: id)), reply: $0)
+        }
+        try HostdXPCCodec.decodeEmptyReply(from: terminateReply)
+    }
+
+    @Test("hostd-owned mode launches with request environment")
+    func hostdOwnedRuntimeRequestEnvironment() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let service = HostdXPCService(runtime: .hostdOwnedProcess(databaseURL: url))
+        let id = UUID()
+        let request = HostdCreateSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "printf \"$ROOST_ENV_TEST\"; sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            environment: ["ROOST_ENV_TEST": "xpc-env"]
+        )
+
+        let createReply = await call {
+            service.createSession(try HostdXPCCodec.encode(request), reply: $0)
+        }
+        try HostdXPCCodec.decodeEmptyReply(from: createReply)
+
+        let outputReply = await call {
+            service.readSessionOutput(
+                try HostdXPCCodec.encode(HostdReadSessionOutputRequest(id: id, timeout: 1)),
+                reply: $0
+            )
+        }
+        let output = try HostdXPCCodec.decodeReply(HostdReadSessionOutputResponse.self, from: outputReply)
+        let text = String(decoding: output.data, as: UTF8.self)
+        #expect(text.contains("xpc-env"))
+
+        let streamReply = await call {
+            service.readSessionOutputStream(
+                try HostdXPCCodec.encode(HostdReadSessionOutputStreamRequest(id: id, after: nil, timeout: 0)),
+                reply: $0
+            )
+        }
+        let stream = try HostdXPCCodec.decodeReply(HostdReadSessionOutputStreamResponse.self, from: streamReply)
+        #expect(String(decoding: stream.output.chunks.flatMap(\.data), as: UTF8.self).contains("xpc-env"))
 
         let terminateReply = await call {
             service.terminateSession(try HostdXPCCodec.encode(HostdSessionIDRequest(id: id)), reply: $0)

@@ -4,16 +4,31 @@ import RoostHostdCore
 
 enum RoostHostdClientFactory {
     static func make(
+        preferredOwnership: HostdRuntimeOwnership? = nil,
+        makeDaemonClient: @escaping @Sendable () async throws -> any RoostHostdClient = {
+            try await HostdDaemonLauncher.makeClient()
+        },
         xpcServiceExists: @escaping @Sendable () -> Bool = defaultXPCServiceExists,
         makeXPCClient: @escaping @Sendable () -> any RoostHostdClient = { XPCHostdClient() },
         makeLocalClient: @escaping @Sendable () async throws -> any RoostHostdClient = {
             let hostd = try await RoostHostd()
             return LocalHostdClient(hostd: hostd)
-        }
+        },
+        runtimeCheckTimeout: TimeInterval = 2
     ) async -> (any RoostHostdClient)? {
+        if preferredOwnership == .hostdOwnedProcess {
+            if let client = try? await makeDaemonClient() {
+                return RuntimeHintHostdClient(client: client, runtimeOwnershipHint: .hostdOwnedProcess)
+            }
+        }
         if xpcServiceExists() {
             let client = makeXPCClient()
-            let ownership = try? await client.runtimeOwnership()
+            let ownership = try? await HostdAsyncTimeout.run(
+                seconds: runtimeCheckTimeout,
+                operation: "runtime ownership"
+            ) {
+                try await client.runtimeOwnership()
+            }
             if let ownership {
                 return RuntimeHintHostdClient(client: client, runtimeOwnershipHint: ownership)
             }
@@ -57,6 +72,10 @@ private struct RuntimeHintHostdClient: RoostHostdClient {
 
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data {
         try await client.readSessionOutput(id: id, timeout: timeout)
+    }
+
+    func readSessionOutputStream(id: UUID, after sequence: UInt64?, timeout: TimeInterval) async throws -> HostdOutputRead {
+        try await client.readSessionOutputStream(id: id, after: sequence, timeout: timeout)
     }
 
     func writeSessionInput(id: UUID, data: Data) async throws {

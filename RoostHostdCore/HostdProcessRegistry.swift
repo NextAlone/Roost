@@ -147,7 +147,23 @@ public actor HostdProcessRegistry {
     }
 
     public func listLiveSessions() async throws -> [SessionRecord] {
-        try await store.listLive()
+        let persistedLive = try await store.listLive()
+        let liveSessions = sessions.filter { $0.value.isRunning }
+        let deadIDs = Set(sessions.keys).subtracting(liveSessions.keys)
+        for id in deadIDs {
+            sessions.removeValue(forKey: id)
+            keepalive.releaseSession()
+            try await store.update(id: id, lastState: .exited)
+        }
+
+        let liveRecords = liveSessions.values
+            .map(\.record)
+            .sorted { $0.createdAt > $1.createdAt }
+        let liveIDs = Set(liveRecords.map(\.id))
+        for record in persistedLive where !liveIDs.contains(record.id) {
+            try await store.update(id: record.id, lastState: .exited)
+        }
+        return liveRecords
     }
 
     public func listAllSessions() async throws -> [SessionRecord] {
@@ -168,7 +184,16 @@ public actor HostdProcessRegistry {
 
     public func readAvailableOutput(id: UUID, timeout: TimeInterval = 0) async throws -> Data {
         guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
-        return try await session.readAvailableOutput(timeout: timeout)
+        return await session.readAvailableOutput(timeout: timeout)
+    }
+
+    public func readSessionOutputStream(
+        id: UUID,
+        after sequence: UInt64?,
+        timeout: TimeInterval = 0
+    ) async throws -> HostdOutputRead {
+        guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
+        return await session.readOutput(after: sequence, timeout: timeout)
     }
 
     public func writeSessionInput(id: UUID, data: Data) async throws {
@@ -213,6 +238,11 @@ public actor HostdProcessRegistry {
 }
 
 private final class HostdPTYSession: @unchecked Sendable {
+    private static let outputBufferLimit = 4 * 1024 * 1024
+    private static let outputPollNanoseconds: UInt64 = 10_000_000
+    private static let defaultRows: UInt16 = 40
+    private static let defaultColumns: UInt16 = 120
+
     let record: SessionRecord
     private let pid: pid_t
     private let masterFD: CInt
@@ -220,6 +250,9 @@ private final class HostdPTYSession: @unchecked Sendable {
     private var closed = false
     private var reaped = false
     private var attachedClientCount = 0
+    private var outputBuffer = HostdOutputRingBuffer(limit: HostdPTYSession.outputBufferLimit)
+    private var compatibilityReadSequence: UInt64?
+    private var outputPumpTask: Task<Void, Never>?
 
     init(record: SessionRecord, pid: pid_t, masterFD: CInt) {
         self.record = record
@@ -266,14 +299,35 @@ private final class HostdPTYSession: @unchecked Sendable {
     static func launch(record: SessionRecord, command: String, environment: [String: String]) throws -> HostdPTYSession {
         var masterFD: CInt = -1
         var slaveFD: CInt = -1
-        guard openpty(&masterFD, &slaveFD, nil, nil, nil) == 0 else {
+        var slavePathBuffer = [CChar](repeating: 0, count: 1024)
+        var initialSize = winsize(
+            ws_row: HostdPTYSession.defaultRows,
+            ws_col: HostdPTYSession.defaultColumns,
+            ws_xpixel: 0,
+            ws_ypixel: 0
+        )
+        let openResult = slavePathBuffer.withUnsafeMutableBufferPointer { buffer in
+            openpty(&masterFD, &slaveFD, buffer.baseAddress, nil, &initialSize)
+        }
+        guard openResult == 0 else {
             throw HostdProcessRegistryError.openPTYFailed(code: errno, message: errnoMessage())
         }
+        let slavePathLength = slavePathBuffer.firstIndex(of: 0) ?? slavePathBuffer.count
+        let slavePath = String(decoding: slavePathBuffer.prefix(slavePathLength).map { UInt8(bitPattern: $0) }, as: UTF8.self)
         do {
             try configureNonBlocking(fd: masterFD)
-            let pid = try spawn(command: command, cwd: record.workspacePath, environment: environment, masterFD: masterFD, slaveFD: slaveFD)
+            let pid = try spawn(
+                command: command,
+                cwd: record.workspacePath,
+                environment: environment,
+                masterFD: masterFD,
+                slaveFD: slaveFD,
+                slavePath: slavePath
+            )
             close(slaveFD)
-            return HostdPTYSession(record: record, pid: pid, masterFD: masterFD)
+            let session = HostdPTYSession(record: record, pid: pid, masterFD: masterFD)
+            session.startOutputPump()
+            return session
         } catch {
             close(masterFD)
             close(slaveFD)
@@ -281,30 +335,27 @@ private final class HostdPTYSession: @unchecked Sendable {
         }
     }
 
-    func readAvailableOutput(timeout: TimeInterval) async throws -> Data {
+    func readAvailableOutput(timeout: TimeInterval) async -> Data {
+        let sequence = lock.withLock { compatibilityReadSequence }
+        let output = await readOutput(after: sequence, timeout: timeout)
+        lock.withLock {
+            compatibilityReadSequence = output.nextSequence
+        }
+        return output.chunks.reduce(into: Data()) { data, chunk in
+            data.append(chunk.data)
+        }
+    }
+
+    func readOutput(after sequence: UInt64?, timeout: TimeInterval) async -> HostdOutputRead {
         let deadline = Date().addingTimeInterval(max(0, timeout))
-        var output = Data()
         while true {
-            var buffer = [UInt8](repeating: 0, count: 4096)
-            let count = buffer.withUnsafeMutableBytes { rawBuffer in
-                read(masterFD, rawBuffer.baseAddress, rawBuffer.count)
+            let output = lock.withLock {
+                outputBuffer.read(after: sequence)
             }
-            if count > 0 {
-                output.append(contentsOf: buffer.prefix(count))
-                continue
-            }
-            if count == 0 || errno == EIO {
+            if !output.chunks.isEmpty || Date() >= deadline || !isRunning {
                 return output
             }
-            let code = errno
-            if code == EAGAIN || code == EWOULDBLOCK {
-                if !output.isEmpty || Date() >= deadline {
-                    return output
-                }
-                try await Task.sleep(nanoseconds: 10_000_000)
-                continue
-            }
-            throw HostdProcessRegistryError.readFailed(code: code, message: errnoMessage(code))
+            try? await Task.sleep(nanoseconds: HostdPTYSession.outputPollNanoseconds)
         }
     }
 
@@ -400,10 +451,61 @@ private final class HostdPTYSession: @unchecked Sendable {
     }
 
     private func closeMaster() {
-        lock.withLock {
-            guard !closed else { return }
+        let task = lock.withLock {
+            guard !closed else { return nil as Task<Void, Never>? }
             close(masterFD)
             closed = true
+            return outputPumpTask
+        }
+        task?.cancel()
+    }
+
+    private func startOutputPump() {
+        outputPumpTask = Task.detached { [weak self] in
+            await self?.pumpOutput()
+        }
+    }
+
+    private func pumpOutput() async {
+        while !Task.isCancelled {
+            do {
+                let result = try readPTYAvailable()
+                if !result.data.isEmpty {
+                    lock.withLock {
+                        outputBuffer.append(result.data)
+                    }
+                }
+                if result.closed || !isRunning {
+                    return
+                }
+                if result.data.isEmpty {
+                    try? await Task.sleep(nanoseconds: HostdPTYSession.outputPollNanoseconds)
+                }
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func readPTYAvailable() throws -> HostdPTYReadResult {
+        var output = Data()
+        while true {
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            let count = buffer.withUnsafeMutableBytes { rawBuffer in
+                read(masterFD, rawBuffer.baseAddress, rawBuffer.count)
+            }
+            if count > 0 {
+                output.append(contentsOf: buffer.prefix(count))
+                continue
+            }
+            if count == 0 || errno == EIO {
+                return HostdPTYReadResult(data: output, closed: true)
+            }
+            let code = errno
+            if code == EAGAIN || code == EWOULDBLOCK {
+                return HostdPTYReadResult(data: output, closed: false)
+            }
+            throw HostdProcessRegistryError.readFailed(code: code, message: errnoMessage(code))
         }
     }
 
@@ -422,7 +524,8 @@ private final class HostdPTYSession: @unchecked Sendable {
         cwd: String,
         environment: [String: String],
         masterFD: CInt,
-        slaveFD: CInt
+        slaveFD: CInt,
+        slavePath: String
     ) throws -> pid_t {
         var actions: posix_spawn_file_actions_t?
         var actionResult = posix_spawn_file_actions_init(&actions)
@@ -431,13 +534,15 @@ private final class HostdPTYSession: @unchecked Sendable {
         }
         defer { posix_spawn_file_actions_destroy(&actions) }
 
-        actionResult = posix_spawn_file_actions_adddup2(&actions, slaveFD, STDIN_FILENO)
+        actionResult = slavePath.withCString { path in
+            posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, path, O_RDWR, mode_t(0))
+        }
         guard actionResult == 0
         else { throw HostdProcessRegistryError.spawnFailed(code: actionResult, message: errnoMessage(actionResult)) }
-        actionResult = posix_spawn_file_actions_adddup2(&actions, slaveFD, STDOUT_FILENO)
+        actionResult = posix_spawn_file_actions_adddup2(&actions, STDIN_FILENO, STDOUT_FILENO)
         guard actionResult == 0
         else { throw HostdProcessRegistryError.spawnFailed(code: actionResult, message: errnoMessage(actionResult)) }
-        actionResult = posix_spawn_file_actions_adddup2(&actions, slaveFD, STDERR_FILENO)
+        actionResult = posix_spawn_file_actions_adddup2(&actions, STDIN_FILENO, STDERR_FILENO)
         guard actionResult == 0
         else { throw HostdProcessRegistryError.spawnFailed(code: actionResult, message: errnoMessage(actionResult)) }
         actionResult = posix_spawn_file_actions_addclose(&actions, masterFD)
@@ -457,9 +562,6 @@ private final class HostdPTYSession: @unchecked Sendable {
         }
         defer { posix_spawnattr_destroy(&attributes) }
 
-        attrResult = posix_spawnattr_setpgroup(&attributes, 0)
-        guard attrResult == 0
-        else { throw HostdProcessRegistryError.spawnFailed(code: attrResult, message: errnoMessage(attrResult)) }
         var defaultSignals = sigset_t()
         sigemptyset(&defaultSignals)
         sigaddset(&defaultSignals, SIGINT)
@@ -476,7 +578,7 @@ private final class HostdPTYSession: @unchecked Sendable {
         else { throw HostdProcessRegistryError.spawnFailed(code: attrResult, message: errnoMessage(attrResult)) }
         attrResult = posix_spawnattr_setflags(
             &attributes,
-            Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK)
+            Int16(POSIX_SPAWN_SETSID | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK)
         )
         guard attrResult == 0
         else { throw HostdProcessRegistryError.spawnFailed(code: attrResult, message: errnoMessage(attrResult)) }
@@ -500,6 +602,11 @@ private final class HostdPTYSession: @unchecked Sendable {
         }
         return pid
     }
+}
+
+private struct HostdPTYReadResult {
+    let data: Data
+    let closed: Bool
 }
 
 private extension HostdSessionSignal {

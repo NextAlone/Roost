@@ -1,5 +1,6 @@
 import Foundation
 import MuxyShared
+import SQLite3
 import Testing
 
 @testable import Roost
@@ -113,5 +114,75 @@ struct SessionStoreTests {
         let all = try await store2.list()
         #expect(all.count == 1)
         #expect(all.first?.id == record.id)
+    }
+
+    @Test("record waits for a transient external write lock")
+    func waitsForTransientExternalWriteLock() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let lock = try SQLiteWriteLock(url: url)
+        defer { lock.close() }
+        try lock.beginImmediate()
+
+        let record = SessionRecord(
+            id: UUID(),
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: "/tmp/wt",
+            agentKind: .codex,
+            command: "codex",
+            createdAt: Date(),
+            lastState: .running
+        )
+        let task = Task {
+            try await store.record(record)
+        }
+        try await Task.sleep(nanoseconds: 100_000_000)
+        try lock.commit()
+        try await task.value
+
+        let all = try await store.list()
+        #expect(all.map(\.id) == [record.id])
+    }
+}
+
+private final class SQLiteWriteLock {
+    private var db: OpaquePointer?
+
+    init(url: URL) throws {
+        let result = sqlite3_open_v2(
+            url.path(percentEncoded: false),
+            &db,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX,
+            nil
+        )
+        guard result == SQLITE_OK else {
+            let msg = db.flatMap { String(cString: sqlite3_errmsg($0)) } ?? "open failed"
+            throw SessionStore.StoreError.openFailed(code: result, message: msg)
+        }
+    }
+
+    func beginImmediate() throws {
+        try exec("BEGIN IMMEDIATE;")
+    }
+
+    func commit() throws {
+        try exec("COMMIT;")
+    }
+
+    func close() {
+        if let db {
+            sqlite3_close_v2(db)
+            self.db = nil
+        }
+    }
+
+    private func exec(_ sql: String) throws {
+        let result = sqlite3_exec(db, sql, nil, nil, nil)
+        guard result == SQLITE_OK else {
+            let msg = db.flatMap { String(cString: sqlite3_errmsg($0)) } ?? "exec failed"
+            throw SessionStore.StoreError.stepFailed(code: result, message: msg)
+        }
     }
 }

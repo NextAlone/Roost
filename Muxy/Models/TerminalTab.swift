@@ -97,7 +97,10 @@ final class TerminalTab: Identifiable {
         content = .diffViewer(diffViewerState)
     }
 
-    init(restoring snapshot: TerminalTabSnapshot) {
+    init(
+        restoring snapshot: TerminalTabSnapshot,
+        agentRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly
+    ) {
         customTitle = snapshot.customTitle
         colorID = snapshot.colorID
         isPinned = snapshot.isPinned
@@ -111,7 +114,10 @@ final class TerminalTab: Identifiable {
                 startupCommand: snapshot.startupCommand,
                 startupCommandInteractive: snapshot.startupCommand != nil,
                 agentKind: snapshot.agentKind,
-                hostdRuntimeOwnership: snapshot.hostdRuntimeOwnership,
+                hostdRuntimeOwnership: Self.restoredHostdRuntimeOwnership(
+                    snapshot: snapshot,
+                    agentRuntimeOwnership: agentRuntimeOwnership
+                ),
                 createdAt: snapshot.createdAt
             ))
         case .vcs:
@@ -125,6 +131,13 @@ final class TerminalTab: Identifiable {
         case .diffViewer:
             content = .terminal(TerminalPaneState(projectPath: snapshot.projectPath, title: snapshot.paneTitle))
         }
+    }
+
+    private static func restoredHostdRuntimeOwnership(
+        snapshot: TerminalTabSnapshot,
+        agentRuntimeOwnership: HostdRuntimeOwnership
+    ) -> HostdRuntimeOwnership {
+        snapshot.agentKind == .terminal ? snapshot.hostdRuntimeOwnership : agentRuntimeOwnership
     }
 
     func snapshot() -> TerminalTabSnapshot {

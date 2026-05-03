@@ -10,6 +10,8 @@ let package = Package(
     ],
     products: [
         .library(name: "MuxyShared", targets: ["MuxyShared"]),
+        .executable(name: "roost-hostd-attach", targets: ["RoostHostdAttach"]),
+        .executable(name: "roost-hostd-daemon", targets: ["RoostHostdDaemon"]),
         .executable(name: "RoostHostdXPCService", targets: ["RoostHostdXPCService"]),
     ],
     dependencies: [
@@ -76,6 +78,20 @@ let package = Package(
                 .linkedFramework("QuartzCore"),
                 .linkedLibrary("c++"),
             ]
+        ),
+        .executableTarget(
+            name: "RoostHostdAttach",
+            dependencies: [
+                "RoostHostdCore",
+            ],
+            path: "RoostHostdAttach"
+        ),
+        .executableTarget(
+            name: "RoostHostdDaemon",
+            dependencies: [
+                "RoostHostdCore",
+            ],
+            path: "RoostHostdDaemon"
         ),
         .executableTarget(
             name: "RoostHostdXPCService",

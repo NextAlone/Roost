@@ -9,6 +9,7 @@ public struct HostdCreateSessionRequest: Sendable, Codable, Equatable {
     public let agentKind: AgentKind
     public let command: String?
     public let createdAt: Date
+    public let environment: [String: String]
 
     public init(
         id: UUID,
@@ -17,7 +18,8 @@ public struct HostdCreateSessionRequest: Sendable, Codable, Equatable {
         workspacePath: String,
         agentKind: AgentKind,
         command: String?,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        environment: [String: String] = [:]
     ) {
         self.id = id
         self.projectID = projectID
@@ -26,6 +28,7 @@ public struct HostdCreateSessionRequest: Sendable, Codable, Equatable {
         self.agentKind = agentKind
         self.command = command
         self.createdAt = createdAt
+        self.environment = environment
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -36,6 +39,7 @@ public struct HostdCreateSessionRequest: Sendable, Codable, Equatable {
         case agentKind
         case command
         case createdAt
+        case environment
     }
 
     public init(from decoder: Decoder) throws {
@@ -47,6 +51,7 @@ public struct HostdCreateSessionRequest: Sendable, Codable, Equatable {
         agentKind = try container.decode(AgentKind.self, forKey: .agentKind)
         command = try container.decodeIfPresent(String.self, forKey: .command)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        environment = try container.decodeIfPresent([String: String].self, forKey: .environment) ?? [:]
     }
 }
 
@@ -98,6 +103,26 @@ public struct HostdReadSessionOutputResponse: Sendable, Codable, Equatable {
 
     public init(data: Data) {
         self.data = data
+    }
+}
+
+public struct HostdReadSessionOutputStreamRequest: Sendable, Codable, Equatable {
+    public let id: UUID
+    public let after: UInt64?
+    public let timeout: TimeInterval
+
+    public init(id: UUID, after: UInt64? = nil, timeout: TimeInterval = 0) {
+        self.id = id
+        self.after = after
+        self.timeout = timeout
+    }
+}
+
+public struct HostdReadSessionOutputStreamResponse: Sendable, Codable, Equatable {
+    public let output: HostdOutputRead
+
+    public init(output: HostdOutputRead) {
+        self.output = output
     }
 }
 

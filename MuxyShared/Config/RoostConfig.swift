@@ -5,6 +5,7 @@ public struct RoostConfig: Sendable, Codable {
     public let env: [String: String]
     public let keychainEnv: [String: RoostConfigKeychainEnv]
     public let defaultWorkspaceLocation: String?
+    public let hostdRuntime: RoostConfigHostdRuntime
     public let setup: [RoostConfigSetupCommand]
     public let teardown: [RoostConfigSetupCommand]
     public let agentPresets: [RoostConfigAgentPreset]
@@ -15,6 +16,7 @@ public struct RoostConfig: Sendable, Codable {
         env: [String: String] = [:],
         keychainEnv: [String: RoostConfigKeychainEnv] = [:],
         defaultWorkspaceLocation: String? = nil,
+        hostdRuntime: RoostConfigHostdRuntime = .metadataOnly,
         setup: [RoostConfigSetupCommand] = [],
         teardown: [RoostConfigSetupCommand] = [],
         agentPresets: [RoostConfigAgentPreset] = [],
@@ -24,6 +26,7 @@ public struct RoostConfig: Sendable, Codable {
         self.env = env
         self.keychainEnv = keychainEnv
         self.defaultWorkspaceLocation = defaultWorkspaceLocation
+        self.hostdRuntime = hostdRuntime
         self.setup = setup
         self.teardown = teardown
         self.agentPresets = agentPresets
@@ -34,6 +37,7 @@ public struct RoostConfig: Sendable, Codable {
         case schemaVersion
         case env
         case defaultWorkspaceLocation
+        case hostdRuntime
         case setup
         case teardown
         case agentPresets
@@ -47,6 +51,7 @@ public struct RoostConfig: Sendable, Codable {
         env = decodedEnv.plain
         keychainEnv = decodedEnv.keychain
         defaultWorkspaceLocation = try container.decodeIfPresent(String.self, forKey: .defaultWorkspaceLocation)
+        hostdRuntime = (try? container.decodeIfPresent(RoostConfigHostdRuntime.self, forKey: .hostdRuntime)) ?? .metadataOnly
         setup = (try? container.decodeIfPresent([RoostConfigSetupCommand].self, forKey: .setup)) ?? []
         teardown = (try? container.decodeIfPresent([RoostConfigSetupCommand].self, forKey: .teardown)) ?? []
 
@@ -60,11 +65,19 @@ public struct RoostConfig: Sendable, Codable {
         try container.encode(schemaVersion, forKey: .schemaVersion)
         try container.encode(EncodedEnv(plain: env, keychain: keychainEnv), forKey: .env)
         try container.encodeIfPresent(defaultWorkspaceLocation, forKey: .defaultWorkspaceLocation)
+        try container.encode(hostdRuntime, forKey: .hostdRuntime)
         try container.encode(setup, forKey: .setup)
         try container.encode(teardown, forKey: .teardown)
         try container.encode(agentPresets, forKey: .agentPresets)
         try container.encodeIfPresent(notifications, forKey: .notifications)
     }
+}
+
+public enum RoostConfigHostdRuntime: String, Sendable, Codable, Hashable, CaseIterable, Identifiable {
+    case metadataOnly
+    case hostdOwnedProcess
+
+    public var id: String { rawValue }
 }
 
 public struct RoostConfigNotifications: Sendable, Codable, Hashable {

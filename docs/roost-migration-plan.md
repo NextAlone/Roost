@@ -687,6 +687,12 @@ Exit criteria:
 - `RoostHostdXPCService` wires that dependency to an XPC transaction, so hidden hostd-owned runtime sessions keep the XPC service alive after the main app releases its connection.
 - Each launched session gets a background exit watcher. Natural process exit removes the in-memory session, marks the history record exited, and releases the keepalive without waiting for the UI to reattach.
 
+**Status (2026-05-03): Phase 6s (hostd runtime configuration) landed.**
+
+- `RoostConfig.hostdRuntime` now defaults to `metadataOnly` and supports `hostdOwnedProcess`.
+- The Roost settings UI exposes app-wide hostd runtime mode alongside the default workspace location, preserving existing env, setup, teardown, agent preset, and notification config when saving.
+- `RoostHostdXPCService` still honors `ROOST_HOSTD_RUNTIME` as a development override; when the env var is absent, it reads app-wide `hostdRuntime` from `~/Library/Application Support/Roost/config.json`. Runtime config changes apply on the next XPC service launch.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.
@@ -703,6 +709,7 @@ Initial fields (define a versioned JSON Schema before first read site lands):
 - `teardown: [{ name, command, cwd?, env? }]`
 - `agentPresets: [{ name, kind, command, env?, cardinality: "shared" | "dedicated" }]`
 - `defaultWorkspaceLocation: string`
+- `hostdRuntime: "metadataOnly" | "hostdOwnedProcess"`
 - `env: { [key: string]: string | { fromKeychain: string } }`
 - `notifications: { ... }`
 

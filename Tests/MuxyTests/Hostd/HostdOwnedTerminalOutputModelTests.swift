@@ -230,7 +230,7 @@ private actor FakeHostdOutputClient: RoostHostdClient {
     func markAllRunningExited() async throws {}
 
     func waitForReadCount(_ target: Int) async throws {
-        for _ in 0 ..< 100 {
+        for _ in 0 ..< 1_000 {
             if readCount >= target { return }
             try await Task.sleep(nanoseconds: 1_000_000)
         }

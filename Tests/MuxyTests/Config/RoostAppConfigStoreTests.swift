@@ -27,7 +27,10 @@ struct RoostAppConfigStoreTests {
         let base = try makeBase()
         defer { try? FileManager.default.removeItem(at: base) }
 
-        let config = RoostConfig(defaultWorkspaceLocation: "~/Documents/Repos/.workspaces")
+        let config = RoostConfig(
+            defaultWorkspaceLocation: "~/Documents/Repos/.workspaces",
+            hostdRuntime: .hostdOwnedProcess
+        )
         try RoostAppConfigStore.save(config, baseDirectory: base)
 
         let loaded = try RoostAppConfigStore.load(baseDirectory: base)
@@ -37,6 +40,7 @@ struct RoostAppConfigStoreTests {
         let permissions = attrs[.posixPermissions] as? NSNumber
 
         #expect(loaded?.defaultWorkspaceLocation == "~/Documents/Repos/.workspaces")
+        #expect(loaded?.hostdRuntime == .hostdOwnedProcess)
         #expect(permissions?.intValue == 0o600)
         #expect(RoostAppConfigStore.fileSecurity(baseDirectory: base) == .secure)
     }

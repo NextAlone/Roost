@@ -1,16 +1,44 @@
 import Foundation
+import MuxyShared
 import RoostHostdCore
 
 enum HostdXPCServiceRuntime: Sendable {
     case metadataOnly(databaseURL: URL)
     case hostdOwnedProcess(databaseURL: URL)
 
-    static func fromEnvironment() -> HostdXPCServiceRuntime {
-        let value = ProcessInfo.processInfo.environment["ROOST_HOSTD_RUNTIME"] ?? ""
-        if value == "hostd-owned-process" || value == "hostdOwnedProcess" {
-            return .hostdOwnedProcess(databaseURL: HostdStorage.defaultDatabaseURL())
+    static func fromEnvironment(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        databaseURL: URL = HostdStorage.defaultDatabaseURL(),
+        configLoader: () -> RoostConfig? = loadAppConfig
+    ) -> HostdXPCServiceRuntime {
+        if let value = environment["ROOST_HOSTD_RUNTIME"] {
+            return runtime(for: value, databaseURL: databaseURL) ?? .metadataOnly(databaseURL: databaseURL)
         }
-        return .metadataOnly(databaseURL: HostdStorage.defaultDatabaseURL())
+        if configLoader()?.hostdRuntime == .hostdOwnedProcess {
+            return .hostdOwnedProcess(databaseURL: databaseURL)
+        }
+        return .metadataOnly(databaseURL: databaseURL)
+    }
+
+    private static func runtime(for value: String, databaseURL: URL) -> HostdXPCServiceRuntime? {
+        switch value {
+        case "hostd-owned-process",
+             "hostdOwnedProcess":
+            return .hostdOwnedProcess(databaseURL: databaseURL)
+        case "metadata-only",
+             "metadataOnly",
+             "":
+            return .metadataOnly(databaseURL: databaseURL)
+        default:
+            return nil
+        }
+    }
+
+    private static func loadAppConfig() -> RoostConfig? {
+        let url = RoostAppConfigLocation.configURL()
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(RoostConfig.self, from: data)
     }
 
     var databaseURL: URL {

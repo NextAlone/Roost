@@ -6,13 +6,11 @@ enum RoostAppConfigStore {
     static let directoryPermissions = 0o700
 
     static func configURL() -> URL {
-        configURL(baseDirectory: appSupportBaseDirectory())
+        RoostAppConfigLocation.configURL()
     }
 
     static func configURL(baseDirectory: URL) -> URL {
-        baseDirectory
-            .appendingPathComponent("Roost", isDirectory: true)
-            .appendingPathComponent("config.json")
+        RoostAppConfigLocation.configURL(baseDirectory: baseDirectory)
     }
 
     static func load() throws -> RoostConfig? {

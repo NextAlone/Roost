@@ -6,11 +6,13 @@ struct RoostConfigSettingsView: View {
     @Environment(ProjectStore.self) private var projectStore
     @State private var selectedProjectID: UUID?
     @State private var defaultWorkspaceLocation = ""
+    @State private var hostdRuntime = RoostConfigHostdRuntime.metadataOnly
     @State private var notificationsEnabled = true
     @State private var toastEnabled = true
     @State private var sound = NotificationSound.funk.rawValue
     @State private var toastPosition = ToastPosition.topCenter.rawValue
     @State private var statusMessage: String?
+    @State private var hostdRuntimeRestartRequired = false
     @State private var fileSecurity: RoostConfigFileSecurity = .missing
     @State private var appFileSecurity: RoostConfigFileSecurity = .missing
 
@@ -37,6 +39,16 @@ struct RoostConfigSettingsView: View {
                     TextField("~/Documents/Repos/.workspaces", text: $defaultWorkspaceLocation)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: SettingsMetrics.controlWidth)
+                }
+
+                SettingsRow("Hostd Runtime") {
+                    Picker("", selection: $hostdRuntime) {
+                        ForEach(RoostConfigHostdRuntime.allCases) { option in
+                            Text(option.settingsTitle).tag(option)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: SettingsMetrics.controlWidth, alignment: .trailing)
                 }
             }
 
@@ -156,6 +168,7 @@ struct RoostConfigSettingsView: View {
         appFileSecurity = RoostAppConfigStore.fileSecurity()
         let config = try? RoostAppConfigStore.load()
         defaultWorkspaceLocation = config?.defaultWorkspaceLocation ?? ""
+        hostdRuntime = config?.hostdRuntime ?? .metadataOnly
     }
 
     private func loadSelectedProject() {
@@ -179,10 +192,11 @@ struct RoostConfigSettingsView: View {
     private func save() {
         guard saveAppConfig() else { return }
         guard saveProjectConfig() else { return }
+        let restartText = hostdRuntimeRestartRequired ? " Restart Roost to apply hostd runtime." : ""
         if selectedProject == nil {
-            statusMessage = "Saved \(RoostAppConfigStore.configURL().path)"
+            statusMessage = "Saved \(RoostAppConfigStore.configURL().path).\(restartText)"
         } else {
-            statusMessage = "Saved Roost and project config."
+            statusMessage = "Saved Roost and project config.\(restartText)"
         }
     }
 
@@ -190,11 +204,13 @@ struct RoostConfigSettingsView: View {
     private func saveAppConfig() -> Bool {
         let existing = try? RoostAppConfigStore.load()
         let location = defaultWorkspaceLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+        hostdRuntimeRestartRequired = (existing?.hostdRuntime ?? .metadataOnly) != hostdRuntime
         let config = RoostConfig(
             schemaVersion: existing?.schemaVersion ?? 1,
             env: existing?.env ?? [:],
             keychainEnv: existing?.keychainEnv ?? [:],
             defaultWorkspaceLocation: location.isEmpty ? nil : location,
+            hostdRuntime: hostdRuntime,
             setup: existing?.setup ?? [],
             teardown: existing?.teardown ?? [],
             agentPresets: existing?.agentPresets ?? [],
@@ -220,6 +236,7 @@ struct RoostConfigSettingsView: View {
             env: existing?.env ?? [:],
             keychainEnv: existing?.keychainEnv ?? [:],
             defaultWorkspaceLocation: existing?.defaultWorkspaceLocation,
+            hostdRuntime: existing?.hostdRuntime ?? .metadataOnly,
             setup: existing?.setup ?? [],
             teardown: existing?.teardown ?? [],
             agentPresets: existing?.agentPresets ?? [],
@@ -302,5 +319,14 @@ struct RoostConfigSettingsView: View {
         toastEnabled = true
         sound = NotificationSound.funk.rawValue
         toastPosition = ToastPosition.topCenter.rawValue
+    }
+}
+
+private extension RoostConfigHostdRuntime {
+    var settingsTitle: String {
+        switch self {
+        case .metadataOnly: "Metadata Only"
+        case .hostdOwnedProcess: "Hostd Owned Process"
+        }
     }
 }

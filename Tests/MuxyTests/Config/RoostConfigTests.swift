@@ -11,8 +11,21 @@ struct RoostConfigTests {
         """
         let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
         #expect(config.schemaVersion == 1)
+        #expect(config.hostdRuntime == .metadataOnly)
         #expect(config.setup.isEmpty)
         #expect(config.agentPresets.isEmpty)
+    }
+
+    @Test("decodes hostd runtime mode")
+    func hostdRuntimeMode() throws {
+        let json = """
+        {
+          "schemaVersion": 1,
+          "hostdRuntime": "hostdOwnedProcess"
+        }
+        """
+        let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
+        #expect(config.hostdRuntime == .hostdOwnedProcess)
     }
 
     @Test("decodes setup commands as objects")

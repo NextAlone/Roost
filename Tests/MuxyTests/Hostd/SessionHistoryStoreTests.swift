@@ -1,5 +1,6 @@
 import Foundation
 import MuxyShared
+import RoostHostdCore
 import Testing
 
 @testable import Roost
@@ -15,7 +16,11 @@ struct SessionHistoryStoreTests {
             sessions = records
         }
 
-        func createSession(id: UUID, projectID: UUID, worktreeID: UUID, workspacePath: String, agentKind: AgentKind, command: String?) async throws {}
+        func runtimeOwnership() async throws -> HostdRuntimeOwnership {
+            .appOwnedMetadataOnly
+        }
+
+        func createSession(_ request: HostdCreateSessionRequest) async throws {}
         func markExited(sessionID: UUID) async throws {}
         func listLiveSessions() async throws -> [SessionRecord] {
             sessions.filter { $0.lastState == .running }
@@ -55,6 +60,36 @@ struct SessionHistoryStoreTests {
         await store.refresh()
         #expect(store.records.count == 1)
         #expect(store.records.first?.agentKind == .claudeCode)
+    }
+
+    @Test("refresh uses the latest client")
+    func refreshUsesLatestClient() async throws {
+        let first = StubClient()
+        let second = StubClient()
+        let record = SessionRecord(
+            id: UUID(),
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: "/tmp/wt",
+            agentKind: .codex,
+            command: "codex",
+            createdAt: Date(),
+            lastState: .running
+        )
+        second.setSessions([record])
+        let store = SessionHistoryStore(client: first)
+        await store.refresh()
+        #expect(store.records.isEmpty)
+        store.updateClient(second)
+        await store.refresh()
+        #expect(store.records.first?.id == record.id)
+    }
+
+    @Test("refresh reports unavailable client")
+    func refreshWithoutClientReportsUnavailable() async throws {
+        let store = SessionHistoryStore()
+        await store.refresh()
+        #expect(store.errorMessage == "Session history is not ready yet")
     }
 
     @Test("prune calls client + refreshes")

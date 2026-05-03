@@ -103,6 +103,7 @@ final class TerminalTab: Identifiable {
         switch snapshot.kind {
         case .terminal:
             content = .terminal(TerminalPaneState(
+                id: snapshot.paneID ?? UUID(),
                 projectPath: snapshot.projectPath,
                 title: snapshot.paneTitle,
                 initialWorkingDirectory: snapshot.currentWorkingDirectory,
@@ -126,6 +127,7 @@ final class TerminalTab: Identifiable {
 
     func snapshot() -> TerminalTabSnapshot {
         TerminalTabSnapshot(
+            paneID: content.pane?.id,
             kind: content.kind,
             customTitle: customTitle,
             colorID: colorID,

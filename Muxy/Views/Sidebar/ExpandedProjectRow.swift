@@ -15,6 +15,7 @@ struct ExpandedProjectRow: View {
     @Environment(AppState.self) private var appState
     @Environment(WorktreeStore.self) private var worktreeStore
     @Environment(\.vcsStatusProbeResolver) private var statusProbeResolver
+    @Environment(\.roostHostdClient) private var hostdClient
 
     @State private var hovered = false
     @State private var isRenaming = false
@@ -401,7 +402,7 @@ struct ExpandedProjectRow: View {
             appState.selectWorktree(projectID: project.id, worktree: worktree)
             worktreesExpanded = true
             if let pending {
-                appState.createAgentTab(pending, projectID: project.id)
+                appState.createAgentTab(pending, projectID: project.id, hostdClient: hostdClient)
             }
             if runSetup,
                let paneID = appState.focusedArea(for: project.id)?.activeTab?.content.pane?.id

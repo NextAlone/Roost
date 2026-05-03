@@ -1,5 +1,6 @@
 import Foundation
 import MuxyShared
+import RoostHostdCore
 import Testing
 
 @testable import Roost
@@ -81,4 +82,114 @@ struct AgentTabCreationTests {
         tab?.customTitle = "Codex (debug)"
         #expect(tab?.title == "Codex (debug)")
     }
+
+    @Test("AppState createAgentTab records a hostd session")
+    func appStateCreateAgentTabRecordsSession() async throws {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let area = TabArea(projectPath: "/tmp/wt")
+        let appState = AppState(
+            selectionStore: AgentTabSelectionStoreStub(),
+            terminalViews: AgentTabTerminalViewRemovingStub(),
+            workspacePersistence: AgentTabWorkspacePersistenceStub()
+        )
+        appState.activeProjectID = projectID
+        appState.activeWorktreeID[projectID] = worktreeID
+        appState.workspaceRoots[key] = .tabArea(area)
+        appState.focusedAreaID[key] = area.id
+        let client = RecordingHostdClient()
+
+        appState.createAgentTab(.codex, projectID: projectID, hostdClient: client)
+
+        let records = try await client.waitForRecords()
+        #expect(records.count == 1)
+        #expect(records.first?.projectID == projectID)
+        #expect(records.first?.worktreeID == worktreeID)
+        #expect(records.first?.workspacePath == "/tmp/wt")
+        #expect(records.first?.agentKind == .codex)
+        #expect(records.first?.command == "codex")
+    }
+
+    @Test("AppState records restored agent panes")
+    func appStateRecordsRestoredAgentPanes() async throws {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = try #require(area.activeTab?.content.pane)
+        let appState = AppState(
+            selectionStore: AgentTabSelectionStoreStub(),
+            terminalViews: AgentTabTerminalViewRemovingStub(),
+            workspacePersistence: AgentTabWorkspacePersistenceStub()
+        )
+        appState.workspaceRoots[key] = .tabArea(area)
+        let client = RecordingHostdClient()
+
+        await appState.recordRestoredAgentSessions(hostdClient: client)
+
+        let records = try await client.waitForRecords()
+        #expect(records.map(\.id) == [pane.id])
+        #expect(records.first?.agentKind == .codex)
+        #expect(records.first?.workspacePath == "/tmp/wt")
+    }
+}
+
+private actor RecordingHostdClient: RoostHostdClient {
+    private var created: [SessionRecord] = []
+
+    func runtimeOwnership() async throws -> HostdRuntimeOwnership {
+        .appOwnedMetadataOnly
+    }
+
+    func createSession(_ request: HostdCreateSessionRequest) async throws {
+        created.append(SessionRecord(
+            id: request.id,
+            projectID: request.projectID,
+            worktreeID: request.worktreeID,
+            workspacePath: request.workspacePath,
+            agentKind: request.agentKind,
+            command: request.command,
+            createdAt: request.createdAt,
+            lastState: .running
+        ))
+    }
+
+    func markExited(sessionID: UUID) async throws {}
+    func listLiveSessions() async throws -> [SessionRecord] { created }
+    func listAllSessions() async throws -> [SessionRecord] { created }
+    func deleteSession(id: UUID) async throws {}
+    func pruneExited() async throws {}
+    func markAllRunningExited() async throws {}
+
+    func waitForRecords() async throws -> [SessionRecord] {
+        for _ in 0..<20 {
+            if !created.isEmpty { return created }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        return created
+    }
+}
+
+@MainActor
+private final class AgentTabSelectionStoreStub: ActiveProjectSelectionStoring {
+    private var activeProjectID: UUID?
+    private var activeWorktreeIDs: [UUID: UUID] = [:]
+    func loadActiveProjectID() -> UUID? { activeProjectID }
+    func saveActiveProjectID(_ id: UUID?) { activeProjectID = id }
+    func loadActiveWorktreeIDs() -> [UUID: UUID] { activeWorktreeIDs }
+    func saveActiveWorktreeIDs(_ ids: [UUID: UUID]) { activeWorktreeIDs = ids }
+}
+
+@MainActor
+private final class AgentTabTerminalViewRemovingStub: TerminalViewRemoving {
+    func removeView(for paneID: UUID) {}
+    func needsConfirmQuit(for paneID: UUID) -> Bool { false }
+}
+
+private final class AgentTabWorkspacePersistenceStub: WorkspacePersisting {
+    private var snapshots: [WorkspaceSnapshot] = []
+    func loadWorkspaces() throws -> [WorkspaceSnapshot] { snapshots }
+    func saveWorkspaces(_ workspaces: [WorkspaceSnapshot]) throws { snapshots = workspaces }
 }

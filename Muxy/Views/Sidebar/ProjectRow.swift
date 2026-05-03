@@ -14,6 +14,7 @@ struct ProjectRow: View {
 
     @Environment(AppState.self) private var appState
     @Environment(WorktreeStore.self) private var worktreeStore
+    @Environment(\.roostHostdClient) private var hostdClient
 
     @State private var hovered = false
     @State private var isRenaming = false
@@ -233,7 +234,7 @@ struct ProjectRow: View {
         case let .created(worktree, runSetup):
             appState.selectWorktree(projectID: project.id, worktree: worktree)
             if let pending {
-                appState.createAgentTab(pending, projectID: project.id)
+                appState.createAgentTab(pending, projectID: project.id, hostdClient: hostdClient)
             }
             if runSetup,
                let paneID = appState.focusedArea(for: project.id)?.activeTab?.content.pane?.id

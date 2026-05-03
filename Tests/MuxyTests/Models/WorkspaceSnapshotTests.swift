@@ -11,7 +11,9 @@ struct WorkspaceSnapshotTests {
 
     @Test("TerminalTabSnapshot Codable round-trip for terminal")
     func terminalTabSnapshotRoundTrip() throws {
+        let paneID = UUID()
         let snapshot = TerminalTabSnapshot(
+            paneID: paneID,
             kind: .terminal,
             customTitle: "My Tab",
             colorID: "blue",
@@ -23,6 +25,7 @@ struct WorkspaceSnapshotTests {
         let decoded = try JSONDecoder().decode(TerminalTabSnapshot.self, from: data)
 
         #expect(decoded.kind == .terminal)
+        #expect(decoded.paneID == paneID)
         #expect(decoded.customTitle == "My Tab")
         #expect(decoded.colorID == "blue")
         #expect(decoded.isPinned == true)
@@ -63,7 +66,27 @@ struct WorkspaceSnapshotTests {
         let decoded = try JSONDecoder().decode(TerminalTabSnapshot.self, from: json)
 
         #expect(decoded.currentWorkingDirectory == nil)
+        #expect(decoded.paneID == nil)
         #expect(decoded.projectPath == testPath)
+    }
+
+    @Test("restored terminal tab preserves pane ID")
+    func restoredTerminalTabPreservesPaneID() throws {
+        let paneID = UUID()
+        let snapshot = TerminalTabSnapshot(
+            paneID: paneID,
+            kind: .terminal,
+            customTitle: nil,
+            colorID: nil,
+            isPinned: false,
+            projectPath: testPath,
+            paneTitle: "Codex",
+            agentKind: .codex,
+            startupCommand: "codex"
+        )
+        let tab = TerminalTab(restoring: snapshot)
+        #expect(tab.content.pane?.id == paneID)
+        #expect(tab.content.pane?.agentKind == .codex)
     }
 
     @Test("TerminalTabSnapshot Codable round-trip for editor")

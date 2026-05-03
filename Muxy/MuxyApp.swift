@@ -1,4 +1,5 @@
 import AppKit
+import RoostHostdCore
 import SwiftUI
 
 @main
@@ -50,9 +51,13 @@ struct MuxyApp: App {
                 .environment(\.roostHostdClient, hostdClient)
                 .task {
                     if hostdClient == nil {
-                        if let hostd = try? await RoostHostd() {
-                            try? await hostd.markAllRunningExited()
-                            hostdClient = LocalHostdClient(hostd: hostd)
+                        if let client = await RoostHostdClientFactory.make() {
+                            let ownership = try? await client.runtimeOwnership()
+                            if ownership == .appOwnedMetadataOnly {
+                                try? await client.markAllRunningExited()
+                            }
+                            await appState.recordRestoredAgentSessions(hostdClient: client)
+                            hostdClient = client
                         }
                     }
                 }

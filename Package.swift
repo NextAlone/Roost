@@ -10,6 +10,7 @@ let package = Package(
     ],
     products: [
         .library(name: "MuxyShared", targets: ["MuxyShared"]),
+        .executable(name: "RoostHostdXPCService", targets: ["RoostHostdXPCService"]),
     ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.1"),
@@ -19,6 +20,13 @@ let package = Package(
         .target(
             name: "MuxyShared",
             path: "MuxyShared"
+        ),
+        .target(
+            name: "RoostHostdCore",
+            dependencies: [
+                "MuxyShared",
+            ],
+            path: "RoostHostdCore"
         ),
         .target(
             name: "GhosttyKit",
@@ -38,6 +46,7 @@ let package = Package(
                 "GhosttyKit",
                 "MuxyShared",
                 "MuxyServer",
+                "RoostHostdCore",
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Muxy",
@@ -68,12 +77,22 @@ let package = Package(
                 .linkedLibrary("c++"),
             ]
         ),
+        .executableTarget(
+            name: "RoostHostdXPCService",
+            dependencies: [
+                "MuxyShared",
+                "RoostHostdCore",
+            ],
+            path: "RoostHostdXPCService",
+            exclude: ["Info.plist"]
+        ),
         .testTarget(
             name: "RoostTests",
             dependencies: [
                 "Roost",
                 "MuxyShared",
                 "MuxyServer",
+                "RoostHostdCore",
             ],
             path: "Tests/MuxyTests",
             linkerSettings: [

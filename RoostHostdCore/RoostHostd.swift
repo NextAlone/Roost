@@ -1,15 +1,14 @@
 import Foundation
 import MuxyShared
-import SwiftUI
 
-actor RoostHostd {
+public actor RoostHostd {
     private let store: SessionStore
 
-    init(databaseURL: URL = HostdStorage.defaultDatabaseURL()) async throws {
+    public init(databaseURL: URL = HostdStorage.defaultDatabaseURL()) async throws {
         self.store = try await SessionStore(url: databaseURL)
     }
 
-    func createSession(
+    public func createSession(
         id: UUID,
         projectID: UUID,
         worktreeID: UUID,
@@ -31,27 +30,27 @@ actor RoostHostd {
         try await store.record(record)
     }
 
-    func markExited(sessionID: UUID) async throws {
+    public func markExited(sessionID: UUID) async throws {
         try await store.update(id: sessionID, lastState: .exited)
     }
 
-    func listLiveSessions() async throws -> [SessionRecord] {
+    public func listLiveSessions() async throws -> [SessionRecord] {
         try await store.listLive()
     }
 
-    func listAllSessions() async throws -> [SessionRecord] {
+    public func listAllSessions() async throws -> [SessionRecord] {
         try await store.list()
     }
 
-    func deleteSession(id: UUID) async throws {
+    public func deleteSession(id: UUID) async throws {
         try await store.delete(id: id)
     }
 
-    func pruneExited() async throws {
+    public func pruneExited() async throws {
         try await store.pruneExited()
     }
 
-    func markAllRunningExited() async throws {
+    public func markAllRunningExited() async throws {
         let live = try await store.list().filter { $0.lastState == .running }
         for record in live {
             try await store.update(id: record.id, lastState: .exited)

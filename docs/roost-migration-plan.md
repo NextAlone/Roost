@@ -603,6 +603,13 @@ Exit criteria:
 - Sidebar gains a clock-arrow button (in both collapsed + expanded footer layouts) that opens the history sheet.
 - **Phase 6 in-process work complete.** Real cross-process XPC service is queued as a separate infrastructure task (Xcode project surgery + xcodebuild + codesign work).
 
+**Status (2026-05-03): Phase 6e (XPC metadata path) landed.**
+
+- Hostd storage, store, actor, XPC protocol, XPC DTOs, and runtime ownership enum now live in the shared `RoostHostdCore` target.
+- `RoostHostdXPCService` is an embedded Swift XPC service at `Roost.app/Contents/XPCServices/RoostHostdXPCService.xpc`; release packaging builds, versions, embeds, and signs it before signing the app.
+- `XPCHostdClient` wraps the service behind `RoostHostdClient`; `RoostHostdClientFactory` uses the bundled service when present and healthy, otherwise falls back to `LocalHostdClient` for development builds.
+- Current runtime ownership remains `.appOwnedMetadataOnly`: the XPC service stores session metadata only. PTY ownership, attach / release, and persistent live sessions remain the next Phase 6 work.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

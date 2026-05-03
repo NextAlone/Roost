@@ -99,6 +99,7 @@ struct TabAreaSnapshot: Codable {
 }
 
 struct TerminalTabSnapshot: Codable {
+    let paneID: UUID?
     let kind: TerminalTab.Kind
     let customTitle: String?
     let colorID: String?
@@ -112,6 +113,7 @@ struct TerminalTabSnapshot: Codable {
     let createdAt: Date
 
     init(
+        paneID: UUID? = nil,
         kind: TerminalTab.Kind,
         customTitle: String?,
         colorID: String?,
@@ -124,6 +126,7 @@ struct TerminalTabSnapshot: Codable {
         startupCommand: String? = nil,
         createdAt: Date = Date()
     ) {
+        self.paneID = paneID
         self.kind = kind
         self.customTitle = customTitle
         self.colorID = colorID
@@ -138,6 +141,7 @@ struct TerminalTabSnapshot: Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case paneID
         case kind
         case customTitle
         case colorID
@@ -153,6 +157,7 @@ struct TerminalTabSnapshot: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        paneID = try container.decodeIfPresent(UUID.self, forKey: .paneID)
         kind = try container.decodeIfPresent(TerminalTab.Kind.self, forKey: .kind) ?? .terminal
         customTitle = try container.decodeIfPresent(String.self, forKey: .customTitle)
         colorID = try container.decodeIfPresent(String.self, forKey: .colorID)

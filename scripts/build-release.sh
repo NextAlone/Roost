@@ -83,6 +83,7 @@ rm -rf "$APP_BUNDLE"
 echo "==> Building for $ARCH ($TRIPLE)"
 cd "$PROJECT_ROOT"
 swift build -c release --triple "$TRIPLE"
+swift build -c release --triple "$TRIPLE" --product RoostHostdXPCService
 
 SPM_BUILD_DIR=$(swift build -c release --triple "$TRIPLE" --show-bin-path)
 
@@ -101,6 +102,15 @@ if [[ -d "$SPM_BUILD_DIR/Roost_Roost.bundle" ]]; then
 elif [[ -d "$SPM_BUILD_DIR/Muxy_Muxy.bundle" ]]; then
     cp -R "$SPM_BUILD_DIR/Muxy_Muxy.bundle" "$APP_BUNDLE/Contents/Resources/Muxy_Muxy.bundle"
 fi
+
+echo "==> Embedding hostd XPC service"
+XPC_BUNDLE="$APP_BUNDLE/Contents/XPCServices/RoostHostdXPCService.xpc"
+mkdir -p "$XPC_BUNDLE/Contents/MacOS"
+cp "$SPM_BUILD_DIR/RoostHostdXPCService" "$XPC_BUNDLE/Contents/MacOS/RoostHostdXPCService"
+cp "$PROJECT_ROOT/RoostHostdXPCService/Info.plist" "$XPC_BUNDLE/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$XPC_BUNDLE/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$XPC_BUNDLE/Contents/Info.plist"
+strip -Sx "$XPC_BUNDLE/Contents/MacOS/RoostHostdXPCService"
 
 cp "$PROJECT_ROOT/Muxy/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_BUNDLE/Contents/Info.plist"
@@ -157,6 +167,11 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
     /usr/bin/codesign --force --options runtime \
         --sign "$SIGN_IDENTITY" \
         "$SPARKLE_DIR"
+
+    echo "==> Signing hostd XPC service"
+    /usr/bin/codesign --force --options runtime \
+        --sign "$SIGN_IDENTITY" \
+        "$XPC_BUNDLE"
 
     echo "==> Signing app bundle"
     /usr/bin/codesign --force --options runtime \

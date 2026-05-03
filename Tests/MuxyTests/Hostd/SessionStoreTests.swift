@@ -3,6 +3,7 @@ import MuxyShared
 import Testing
 
 @testable import Roost
+@testable import RoostHostdCore
 
 @Suite("SessionStore")
 struct SessionStoreTests {

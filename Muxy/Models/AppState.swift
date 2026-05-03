@@ -1,9 +1,20 @@
 import Foundation
 import MuxyShared
 import os
+import RoostHostdCore
 import SwiftUI
 
 private let logger = Logger(subsystem: "app.muxy", category: "AppState")
+
+private struct PendingHostdSession: Sendable {
+    let id: UUID
+    let projectID: UUID
+    let worktreeID: UUID
+    let workspacePath: String
+    let agentKind: AgentKind
+    let command: String?
+    let createdAt: Date
+}
 
 @MainActor
 @Observable
@@ -263,7 +274,7 @@ final class AppState {
         _ kind: AgentKind,
         projectID: UUID,
         areaID: UUID? = nil,
-        hostdClient: (any RoostHostdClient)? = nil
+        hostdClient: (any RoostHostdClient)?
     ) {
         dispatch(.createAgentTab(projectID: projectID, areaID: areaID, kind: kind))
         guard let hostdClient,
@@ -277,14 +288,51 @@ final class AppState {
         let agentKind = pane.agentKind
         let command = pane.startupCommand
         Task { [hostdClient] in
-            try? await hostdClient.createSession(
+            try? await hostdClient.createSession(HostdCreateSessionRequest(
                 id: paneID,
                 projectID: projectID,
                 worktreeID: worktreeID,
                 workspacePath: workspacePath,
                 agentKind: agentKind,
                 command: command
-            )
+            ))
+        }
+    }
+
+    func recordRestoredAgentSessions(hostdClient: any RoostHostdClient) async {
+        let sessions = restoredAgentSessions()
+        guard !sessions.isEmpty else { return }
+        for session in sessions {
+            try? await hostdClient.createSession(HostdCreateSessionRequest(
+                id: session.id,
+                projectID: session.projectID,
+                worktreeID: session.worktreeID,
+                workspacePath: session.workspacePath,
+                agentKind: session.agentKind,
+                command: session.command,
+                createdAt: session.createdAt
+            ))
+        }
+    }
+
+    private func restoredAgentSessions() -> [PendingHostdSession] {
+        workspaceRoots.flatMap { key, root in
+            root.allAreas().flatMap { area in
+                area.tabs.compactMap { tab in
+                    guard let pane = tab.content.pane,
+                          pane.agentKind != .terminal
+                    else { return nil }
+                    return PendingHostdSession(
+                        id: pane.id,
+                        projectID: key.projectID,
+                        worktreeID: key.worktreeID,
+                        workspacePath: pane.projectPath,
+                        agentKind: pane.agentKind,
+                        command: pane.startupCommand,
+                        createdAt: pane.createdAt
+                    )
+                }
+            }
         }
     }
 

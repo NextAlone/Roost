@@ -4,7 +4,7 @@ import MuxyShared
 @MainActor
 @Observable
 final class TerminalPaneState: Identifiable {
-    let id = UUID()
+    let id: UUID
     let projectPath: String
     var title: String
     var currentWorkingDirectory: String?
@@ -20,6 +20,7 @@ final class TerminalPaneState: Identifiable {
     @ObservationIgnored private var titleDebounceTask: Task<Void, Never>?
 
     init(
+        id: UUID = UUID(),
         projectPath: String,
         title: String = "Terminal",
         initialWorkingDirectory: String? = nil,
@@ -30,6 +31,7 @@ final class TerminalPaneState: Identifiable {
         agentKind: AgentKind = .terminal,
         createdAt: Date = Date()
     ) {
+        self.id = id
         self.projectPath = projectPath
         self.title = title
         self.currentWorkingDirectory = initialWorkingDirectory

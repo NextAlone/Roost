@@ -1,7 +1,7 @@
 import Foundation
 
-enum HostdStorage {
-    static func defaultDatabaseURL() -> URL {
+public enum HostdStorage {
+    public static func defaultDatabaseURL() -> URL {
         let appSupport = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first ?? URL(fileURLWithPath: NSHomeDirectory() + "/Library/Application Support")

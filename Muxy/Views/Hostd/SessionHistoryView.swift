@@ -6,6 +6,7 @@ struct SessionHistoryView: View {
     let onClose: () -> Void
 
     @Environment(\.roostHostdClient) private var hostdClient
+    @Environment(AppState.self) private var appState
     @Environment(ProjectStore.self) private var projectStore
     @Environment(WorktreeStore.self) private var worktreeStore
     @State private var store = SessionHistoryStore()
@@ -22,9 +23,8 @@ struct SessionHistoryView: View {
         }
         .padding(16)
         .frame(width: 560, height: 480)
-        .task {
-            store = SessionHistoryStore(client: hostdClient)
-            await store.refresh()
+        .task(id: hostdClient != nil) {
+            await refresh()
         }
     }
 
@@ -34,7 +34,7 @@ struct SessionHistoryView: View {
                 .font(.system(size: 14, weight: .semibold))
             Spacer()
             Button {
-                Task { await store.refresh() }
+                Task { await refresh() }
             } label: {
                 Image(systemName: "arrow.clockwise")
             }
@@ -128,5 +128,13 @@ struct SessionHistoryView: View {
             Button("Close") { onClose() }
                 .keyboardShortcut(.cancelAction)
         }
+    }
+
+    private func refresh() async {
+        store.updateClient(hostdClient)
+        if let hostdClient {
+            await appState.recordRestoredAgentSessions(hostdClient: hostdClient)
+        }
+        await store.refresh()
     }
 }

@@ -675,6 +675,18 @@ Exit criteria:
 - When the stream task exits or is cancelled after attach, the pane calls `releaseSession`, making the UI/hostd session occupancy boundary explicit.
 - Current bundled GhosttyKit exposes `ghostty_surface_new(app, config)` with command/cwd/env inputs but no public API for adopting an existing hostd-owned PTY fd. Full live Ghostty attach therefore still requires a lower-level GhosttyKit/hostd rendering bridge rather than a SwiftUI-only change.
 
+**Status (2026-05-03): Phase 6q (hostd-owned attach accounting) landed.**
+
+- `HostdAttachSessionResponse` now carries `attachedClientCount` so hostd-owned attach state is observable through the shared XPC schema.
+- `HostdProcessRegistry` increments the count on each attach, decrements it on release, and rejects release calls that do not have a matching active attach.
+- Terminate and delete still tear down the session regardless of outstanding attaches, because they are explicit lifecycle operations rather than passive detach.
+
+**Status (2026-05-03): Phase 6r (hostd-owned XPC keepalive) landed.**
+
+- `HostdProcessRegistry` now accepts a `HostdProcessKeepalive` dependency and retains it while each hostd-owned PTY session is running.
+- `RoostHostdXPCService` wires that dependency to an XPC transaction, so hidden hostd-owned runtime sessions keep the XPC service alive after the main app releases its connection.
+- Each launched session gets a background exit watcher. Natural process exit removes the in-memory session, marks the history record exited, and releases the keepalive without waiting for the UI to reattach.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

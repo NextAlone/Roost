@@ -42,11 +42,119 @@ struct HostdProcessRegistryTests {
         let reattached = try await registry.attachSession(id: id)
         #expect(reattached.record.id == id)
         #expect(reattached.ownership == .hostdOwnedProcess)
+        #expect(reattached.attachedClientCount == 1)
 
         try await registry.terminateSession(id: id)
         let records = try await store.list()
         #expect(records.first?.id == id)
         #expect(records.first?.lastState == .exited)
+    }
+
+    @Test("attach count increments and release decrements")
+    func attachCountIncrementsAndReleaseDecrements() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        let firstAttach = try await registry.attachSession(id: id)
+        let secondAttach = try await registry.attachSession(id: id)
+        try await registry.releaseSession(id: id)
+        let thirdAttach = try await registry.attachSession(id: id)
+
+        #expect(firstAttach.attachedClientCount == 1)
+        #expect(secondAttach.attachedClientCount == 2)
+        #expect(thirdAttach.attachedClientCount == 2)
+
+        try await registry.terminateSession(id: id)
+    }
+
+    @Test("release without an active attach fails")
+    func releaseWithoutActiveAttachFails() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        await #expect(throws: HostdProcessRegistryError.self) {
+            try await registry.releaseSession(id: id)
+        }
+
+        try await registry.terminateSession(id: id)
+    }
+
+    @Test("keepalive is retained until explicit termination")
+    func keepaliveIsRetainedUntilExplicitTermination() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let keepalive = RecordingHostdProcessKeepalive()
+        let registry = HostdProcessRegistry(store: store, keepalive: keepalive)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        #expect(keepalive.snapshot == .init(retains: 1, releases: 0, active: 1))
+
+        try await registry.terminateSession(id: id)
+
+        #expect(keepalive.snapshot == .init(retains: 1, releases: 1, active: 0))
+    }
+
+    @Test("keepalive is released when process exits naturally")
+    func keepaliveIsReleasedWhenProcessExitsNaturally() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let keepalive = RecordingHostdProcessKeepalive()
+        let registry = HostdProcessRegistry(store: store, keepalive: keepalive)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "printf done",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        try await eventually {
+            let records = try await store.list()
+            return keepalive.snapshot == .init(retains: 1, releases: 1, active: 0)
+                && records.first?.lastState == .exited
+        }
     }
 
     @Test("writes input and resizes the PTY")
@@ -125,5 +233,47 @@ struct HostdProcessRegistryTests {
             text += String(decoding: output, as: UTF8.self)
         } while !matches(text) && Date() < deadline
         return text
+    }
+
+    private func eventually(_ condition: () async throws -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline {
+            if try await condition() { return }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        #expect(try await condition())
+    }
+}
+
+private final class RecordingHostdProcessKeepalive: HostdProcessKeepalive, @unchecked Sendable {
+    struct Snapshot: Equatable {
+        let retains: Int
+        let releases: Int
+        let active: Int
+    }
+
+    private let lock = NSLock()
+    private var retains = 0
+    private var releases = 0
+    private var active = 0
+
+    var snapshot: Snapshot {
+        lock.withLock {
+            Snapshot(retains: retains, releases: releases, active: active)
+        }
+    }
+
+    func retainSession() {
+        lock.withLock {
+            retains += 1
+            active += 1
+        }
+    }
+
+    func releaseSession() {
+        lock.withLock {
+            releases += 1
+            active -= 1
+        }
     }
 }

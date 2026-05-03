@@ -61,10 +61,25 @@ public struct HostdSessionIDRequest: Sendable, Codable, Equatable {
 public struct HostdAttachSessionResponse: Sendable, Codable, Equatable {
     public let record: SessionRecord
     public let ownership: HostdRuntimeOwnership
+    public let attachedClientCount: Int
 
-    public init(record: SessionRecord, ownership: HostdRuntimeOwnership) {
+    public init(record: SessionRecord, ownership: HostdRuntimeOwnership, attachedClientCount: Int = 0) {
         self.record = record
         self.ownership = ownership
+        self.attachedClientCount = attachedClientCount
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case record
+        case ownership
+        case attachedClientCount
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        record = try container.decode(SessionRecord.self, forKey: .record)
+        ownership = try container.decode(HostdRuntimeOwnership.self, forKey: .ownership)
+        attachedClientCount = try container.decodeIfPresent(Int.self, forKey: .attachedClientCount) ?? 0
     }
 }
 

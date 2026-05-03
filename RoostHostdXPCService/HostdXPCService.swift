@@ -36,7 +36,10 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
     private let hostdTask: Task<RoostHostd, Error>?
     private let processRegistryTask: Task<HostdProcessRegistry, Error>?
 
-    init(runtime: HostdXPCServiceRuntime = .fromEnvironment()) {
+    init(
+        runtime: HostdXPCServiceRuntime = .fromEnvironment(),
+        processKeepalive: (any HostdProcessKeepalive)? = nil
+    ) {
         self.runtime = runtime
         switch runtime {
         case let .metadataOnly(databaseURL):
@@ -45,9 +48,10 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
             }
             self.processRegistryTask = nil
         case let .hostdOwnedProcess(databaseURL):
+            let keepalive = processKeepalive ?? XPCTransactionHostdProcessKeepalive()
             self.hostdTask = nil
             self.processRegistryTask = Task {
-                try await HostdProcessRegistry(databaseURL: databaseURL)
+                try await HostdProcessRegistry(databaseURL: databaseURL, keepalive: keepalive)
             }
         }
         super.init()

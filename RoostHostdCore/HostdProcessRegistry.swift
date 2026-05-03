@@ -36,6 +36,7 @@ public struct HostdLaunchSessionRequest: Sendable, Equatable {
 public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
     case emptyCommand
     case sessionNotFound(UUID)
+    case sessionNotAttached(UUID)
     case openPTYFailed(code: Int32, message: String)
     case configurePTYFailed(code: Int32, message: String)
     case spawnFailed(code: Int32, message: String)
@@ -51,6 +52,8 @@ public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
             "Hostd cannot launch an empty command"
         case let .sessionNotFound(id):
             "Hostd session \(id.uuidString) is not running"
+        case let .sessionNotAttached(id):
+            "Hostd session \(id.uuidString) is not attached"
         case let .openPTYFailed(code, message):
             "Hostd failed to open PTY: \(message) (\(code))"
         case let .configurePTYFailed(code, message):
@@ -73,14 +76,20 @@ public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
 
 public actor HostdProcessRegistry {
     private let store: SessionStore
+    private let keepalive: any HostdProcessKeepalive
     private var sessions: [UUID: HostdPTYSession] = [:]
 
-    init(store: SessionStore) {
+    init(store: SessionStore, keepalive: any HostdProcessKeepalive = NoopHostdProcessKeepalive()) {
         self.store = store
+        self.keepalive = keepalive
     }
 
-    public init(databaseURL: URL = HostdStorage.defaultDatabaseURL()) async throws {
+    public init(
+        databaseURL: URL = HostdStorage.defaultDatabaseURL(),
+        keepalive: any HostdProcessKeepalive = NoopHostdProcessKeepalive()
+    ) async throws {
         self.store = try await SessionStore(url: databaseURL)
+        self.keepalive = keepalive
     }
 
     public func launchSession(_ request: HostdLaunchSessionRequest) async throws -> HostdAttachSessionResponse {
@@ -101,6 +110,8 @@ public actor HostdProcessRegistry {
         do {
             try await store.record(record)
             sessions[request.id] = session
+            keepalive.retainSession()
+            startExitWatcher(id: request.id, session: session)
             return HostdAttachSessionResponse(record: record, ownership: .hostdOwnedProcess)
         } catch {
             try? session.terminate()
@@ -113,17 +124,24 @@ public actor HostdProcessRegistry {
             try await markExitedIfKnown(id: id)
             throw HostdProcessRegistryError.sessionNotFound(id)
         }
-        return HostdAttachSessionResponse(record: session.record, ownership: .hostdOwnedProcess)
+        let count = session.attach()
+        return HostdAttachSessionResponse(
+            record: session.record,
+            ownership: .hostdOwnedProcess,
+            attachedClientCount: count
+        )
     }
 
     public func releaseSession(id: UUID) async throws {
-        guard sessions[id] != nil else { throw HostdProcessRegistryError.sessionNotFound(id) }
+        guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
+        try session.release()
     }
 
     public func terminateSession(id: UUID) async throws {
         guard let session = sessions.removeValue(forKey: id) else {
             throw HostdProcessRegistryError.sessionNotFound(id)
         }
+        keepalive.releaseSession()
         try session.terminate()
         try await store.update(id: id, lastState: .exited)
     }
@@ -138,6 +156,7 @@ public actor HostdProcessRegistry {
 
     public func deleteSession(id: UUID) async throws {
         if let session = sessions.removeValue(forKey: id) {
+            keepalive.releaseSession()
             try session.terminate()
         }
         try await store.delete(id: id)
@@ -168,8 +187,28 @@ public actor HostdProcessRegistry {
     }
 
     private func markExitedIfKnown(id: UUID) async throws {
-        sessions.removeValue(forKey: id)
+        if sessions.removeValue(forKey: id) != nil {
+            keepalive.releaseSession()
+        }
         try await store.update(id: id, lastState: .exited)
+    }
+
+    private func startExitWatcher(id: UUID, session: HostdPTYSession) {
+        Task.detached { [self] in
+            while !Task.isCancelled {
+                if !session.isRunning {
+                    await markExitedFromExitWatcher(id: id)
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+        }
+    }
+
+    private func markExitedFromExitWatcher(id: UUID) async {
+        guard sessions.removeValue(forKey: id) != nil else { return }
+        keepalive.releaseSession()
+        try? await store.update(id: id, lastState: .exited)
     }
 }
 
@@ -180,6 +219,7 @@ private final class HostdPTYSession: @unchecked Sendable {
     private let lock = NSLock()
     private var closed = false
     private var reaped = false
+    private var attachedClientCount = 0
 
     init(record: SessionRecord, pid: pid_t, masterFD: CInt) {
         self.record = record
@@ -202,6 +242,24 @@ private final class HostdPTYSession: @unchecked Sendable {
                 return false
             }
             return true
+        }
+    }
+
+    func attach() -> Int {
+        lock.withLock {
+            attachedClientCount += 1
+            return attachedClientCount
+        }
+    }
+
+    func release() throws {
+        let result = lock.withLock {
+            guard attachedClientCount > 0 else { return false }
+            attachedClientCount -= 1
+            return true
+        }
+        guard result else {
+            throw HostdProcessRegistryError.sessionNotAttached(record.id)
         }
     }
 
@@ -287,12 +345,7 @@ private final class HostdPTYSession: @unchecked Sendable {
     func sendSignal(_ signal: HostdSessionSignal) throws {
         let result = lock.withLock {
             if reaped { return CInt(ESRCH) }
-            let target = -pid
-            let killResult = kill(target, signal.value)
-            if killResult == 0 {
-                return CInt(0)
-            }
-            return errno
+            return sendProcessSignal(signal.value)
         }
         guard result == 0 else {
             throw HostdProcessRegistryError.signalFailed(code: result, message: errnoMessage(result))
@@ -302,16 +355,16 @@ private final class HostdPTYSession: @unchecked Sendable {
     func terminate() throws {
         let result = lock.withLock {
             if reaped { return CInt(0) }
-            let killResult = kill(-pid, SIGTERM)
-            if killResult != 0 && errno != ESRCH {
-                return errno
+            let terminateResult = sendProcessSignal(SIGTERM)
+            if terminateResult != 0 {
+                return terminateResult
             }
             if waitForExit(timeout: 0.5) {
                 return CInt(0)
             }
-            let forceResult = kill(-pid, SIGKILL)
-            if forceResult != 0 && errno != ESRCH {
-                return errno
+            let forceResult = sendProcessSignal(SIGKILL)
+            if forceResult != 0 {
+                return forceResult
             }
             return waitForExit(timeout: 1) ? CInt(0) : CInt(ETIMEDOUT)
         }
@@ -333,6 +386,17 @@ private final class HostdPTYSession: @unchecked Sendable {
             usleep(10000)
         }
         return false
+    }
+
+    private func sendProcessSignal(_ signal: CInt) -> CInt {
+        let groupResult = kill(-pid, signal)
+        if groupResult == 0 { return CInt(0) }
+        let groupError = errno
+        let processResult = kill(pid, signal)
+        if processResult == 0 { return CInt(0) }
+        let processError = errno
+        if groupError == ESRCH || processError == ESRCH { return CInt(0) }
+        return groupError
     }
 
     private func closeMaster() {

@@ -49,7 +49,11 @@ struct HostdXPCCodecTests {
             createdAt: Date(timeIntervalSince1970: 1_700_000_000),
             lastState: .running
         )
-        let original = HostdAttachSessionResponse(record: record, ownership: .hostdOwnedProcess)
+        let original = HostdAttachSessionResponse(
+            record: record,
+            ownership: .hostdOwnedProcess,
+            attachedClientCount: 2
+        )
         let data = try HostdXPCCodec.encode(original)
         let decoded = try HostdXPCCodec.decode(HostdAttachSessionResponse.self, from: data)
         #expect(decoded == original)

@@ -22,6 +22,17 @@ struct TerminalPane: View {
         ZStack(alignment: .topTrailing) {
             if state.hostdRuntimeOwnership == .hostdOwnedProcess {
                 HostdOwnedTerminalView(agentName: state.agentKind.displayName, output: hostdOutput)
+                    .overlay {
+                        HostdOwnedTerminalInputBridge(
+                            focused: focused,
+                            visible: visible,
+                            onFocus: onFocus
+                        ) { data in
+                            Task {
+                                await hostdOutput.sendInput(client: hostdClient, paneID: state.id, data: data)
+                            }
+                        }
+                    }
                     .task(id: HostdOwnedTerminalStreamKey(
                         paneID: state.id,
                         clientAvailable: hostdClient != nil

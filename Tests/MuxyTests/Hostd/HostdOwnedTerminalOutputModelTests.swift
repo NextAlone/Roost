@@ -57,12 +57,34 @@ struct HostdOwnedTerminalOutputModelTests {
 
         #expect(model.text == "efghijkl")
     }
+
+    @Test("sendInput writes hostd input data")
+    func sendInputWritesHostdInputData() async throws {
+        let client = FakeHostdOutputClient(outputs: [])
+        let model = HostdOwnedTerminalOutputModel(bufferLimit: 1024)
+        let paneID = UUID()
+        let input = Data("ping\r".utf8)
+
+        await model.sendInput(client: client, paneID: paneID, data: input)
+
+        #expect(await client.writtenInputs() == [input])
+    }
+
+    @Test("sendInput reports missing client")
+    func sendInputReportsMissingClient() async throws {
+        let model = HostdOwnedTerminalOutputModel(bufferLimit: 1024)
+
+        await model.sendInput(client: nil, paneID: UUID(), data: Data("x".utf8))
+
+        #expect(model.status == .failed("Hostd client unavailable"))
+    }
 }
 
 private actor FakeHostdOutputClient: RoostHostdClient {
     let runtimeOwnershipHint: HostdRuntimeOwnership? = .hostdOwnedProcess
     private var outputs: [Data]
     private var readCount = 0
+    private var inputs: [Data] = []
 
     init(outputs: [Data]) {
         self.outputs = outputs
@@ -80,7 +102,9 @@ private actor FakeHostdOutputClient: RoostHostdClient {
         return outputs.removeFirst()
     }
 
-    func writeSessionInput(id: UUID, data: Data) async throws {}
+    func writeSessionInput(id: UUID, data: Data) async throws {
+        inputs.append(data)
+    }
 
     func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws {}
 
@@ -102,5 +126,9 @@ private actor FakeHostdOutputClient: RoostHostdClient {
             try await Task.sleep(nanoseconds: 1_000_000)
         }
         Issue.record("Expected \(target) output reads, got \(readCount)")
+    }
+
+    func writtenInputs() -> [Data] {
+        inputs
     }
 }

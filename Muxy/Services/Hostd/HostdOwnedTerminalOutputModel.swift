@@ -67,6 +67,25 @@ final class HostdOwnedTerminalOutputModel {
         }
     }
 
+    func sendInput(client: (any RoostHostdClient)?, paneID: UUID, data: Data) async {
+        guard !data.isEmpty else { return }
+        guard let client else {
+            status = .failed("Hostd client unavailable")
+            return
+        }
+
+        do {
+            try await client.writeSessionInput(id: paneID, data: data)
+            if case .failed = status {
+                status = text.isEmpty ? .waiting : .streaming
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            status = .failed(error.localizedDescription)
+        }
+    }
+
     private func append(_ data: Data) {
         let bytes = Array(data)
         text += String(bytes: bytes, encoding: .utf8) ?? "\u{FFFD}"

@@ -37,6 +37,24 @@ struct HostdXPCCodecTests {
         #expect(decoded == [record])
     }
 
+    @Test("attach response round-trips through shared XPC schema")
+    func attachResponseRoundTrip() throws {
+        let record = SessionRecord(
+            id: UUID(),
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: "/tmp/wt",
+            agentKind: .codex,
+            command: "codex",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            lastState: .running
+        )
+        let original = HostdAttachSessionResponse(record: record, ownership: .hostdOwnedProcess)
+        let data = try HostdXPCCodec.encode(original)
+        let decoded = try HostdXPCCodec.decode(HostdAttachSessionResponse.self, from: data)
+        #expect(decoded == original)
+    }
+
     @Test("failure reply throws the remote message")
     func failureReply() throws {
         let reply = HostdXPCCodec.failure("no session")

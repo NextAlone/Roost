@@ -610,6 +610,12 @@ Exit criteria:
 - `XPCHostdClient` wraps the service behind `RoostHostdClient`; `RoostHostdClientFactory` uses the bundled service when present and healthy, otherwise falls back to `LocalHostdClient` for development builds.
 - Current runtime ownership remains `.appOwnedMetadataOnly`: the XPC service stores session metadata only. PTY ownership, attach / release, and persistent live sessions remain the next Phase 6 work.
 
+**Status (2026-05-03): Phase 6f (runtime control protocol skeleton) landed.**
+
+- `RoostHostdClient`, `XPCHostdClient`, `HostdXPCProtocol`, and shared DTOs now define `attachSession`, `releaseSession`, and `terminateSession`.
+- Metadata-only clients and the current XPC service reject those runtime-control calls with explicit errors instead of silently pretending to attach or release a process.
+- Real hostd-owned PTY lifecycle, stdin/stdout streaming, resize, signal delivery, and live reattach remain the next Phase 6 work.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

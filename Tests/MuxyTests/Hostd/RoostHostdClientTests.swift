@@ -65,4 +65,34 @@ struct RoostHostdClientTests {
         let liveAfter = try await client.listLiveSessions()
         #expect(liveAfter.isEmpty)
     }
+
+    @Test("metadata-only client rejects runtime session control")
+    func metadataOnlyRejectsRuntimeControl() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let hostd = try await RoostHostd(databaseURL: url)
+        let client: any RoostHostdClient = LocalHostdClient(hostd: hostd)
+        let id = UUID()
+
+        await expectUnsupported {
+            _ = try await client.attachSession(id: id)
+        }
+        await expectUnsupported {
+            try await client.releaseSession(id: id)
+        }
+        await expectUnsupported {
+            try await client.terminateSession(id: id)
+        }
+    }
+
+    private func expectUnsupported(_ work: () async throws -> Void) async {
+        do {
+            try await work()
+            Issue.record("Expected metadata-only runtime control to throw")
+        } catch let error as RoostHostdClientError {
+            #expect(error.errorDescription?.contains("metadata-only") == true)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
 }

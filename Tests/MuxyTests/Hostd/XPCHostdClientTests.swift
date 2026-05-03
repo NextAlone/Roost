@@ -9,6 +9,7 @@ import Testing
 struct XPCHostdClientTests {
     private actor FakeTransport: HostdXPCTransport {
         private var records: [SessionRecord] = []
+        private var controlIDs: [String: UUID] = [:]
 
         func runtimeOwnership() async throws -> Data {
             try HostdXPCCodec.success(HostdRuntimeOwnership.appOwnedMetadataOnly)
@@ -83,6 +84,41 @@ struct XPCHostdClientTests {
             }
             return try HostdXPCCodec.success()
         }
+
+        func attachSession(_ data: Data) async throws -> Data {
+            let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: data)
+            controlIDs["attach"] = request.id
+            let record = SessionRecord(
+                id: request.id,
+                projectID: UUID(),
+                worktreeID: UUID(),
+                workspacePath: "/tmp/wt",
+                agentKind: .codex,
+                command: "codex",
+                createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+                lastState: .running
+            )
+            return try HostdXPCCodec.success(HostdAttachSessionResponse(
+                record: record,
+                ownership: .hostdOwnedProcess
+            ))
+        }
+
+        func releaseSession(_ data: Data) async throws -> Data {
+            let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: data)
+            controlIDs["release"] = request.id
+            return try HostdXPCCodec.success()
+        }
+
+        func terminateSession(_ data: Data) async throws -> Data {
+            let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: data)
+            controlIDs["terminate"] = request.id
+            return try HostdXPCCodec.success()
+        }
+
+        func recordedControlIDs() -> [String: UUID] {
+            controlIDs
+        }
     }
 
     private struct FailingTransport: HostdXPCTransport {
@@ -96,6 +132,9 @@ struct XPCHostdClientTests {
         func deleteSession(_ request: Data) async throws -> Data { throw Failure() }
         func pruneExited() async throws -> Data { throw Failure() }
         func markAllRunningExited() async throws -> Data { throw Failure() }
+        func attachSession(_ request: Data) async throws -> Data { throw Failure() }
+        func releaseSession(_ request: Data) async throws -> Data { throw Failure() }
+        func terminateSession(_ request: Data) async throws -> Data { throw Failure() }
     }
 
     @Test("creates, lists, exits, and deletes through transport")
@@ -124,6 +163,24 @@ struct XPCHostdClientTests {
 
         try await client.deleteSession(id: id)
         #expect(try await client.listAllSessions().isEmpty)
+    }
+
+    @Test("session control methods round-trip through transport")
+    func sessionControlRoundTrip() async throws {
+        let transport = FakeTransport()
+        let client = XPCHostdClient(transport: transport)
+        let id = UUID()
+
+        let attach = try await client.attachSession(id: id)
+        try await client.releaseSession(id: id)
+        try await client.terminateSession(id: id)
+
+        let ids = await transport.recordedControlIDs()
+        #expect(attach.record.id == id)
+        #expect(attach.ownership == .hostdOwnedProcess)
+        #expect(ids["attach"] == id)
+        #expect(ids["release"] == id)
+        #expect(ids["terminate"] == id)
     }
 
     @Test("transport errors propagate")

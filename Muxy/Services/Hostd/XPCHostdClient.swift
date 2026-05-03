@@ -11,6 +11,9 @@ protocol HostdXPCTransport: Sendable {
     func deleteSession(_ request: Data) async throws -> Data
     func pruneExited() async throws -> Data
     func markAllRunningExited() async throws -> Data
+    func attachSession(_ request: Data) async throws -> Data
+    func releaseSession(_ request: Data) async throws -> Data
+    func terminateSession(_ request: Data) async throws -> Data
 }
 
 enum XPCHostdClientError: Error, LocalizedError {
@@ -87,6 +90,24 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
         }
     }
 
+    func attachSession(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.attachSession(request, reply: reply)
+        }
+    }
+
+    func releaseSession(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.releaseSession(request, reply: reply)
+        }
+    }
+
+    func terminateSession(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.terminateSession(request, reply: reply)
+        }
+    }
+
     private func call(
         _ body: @escaping @Sendable (RoostHostdXPCProtocol, @escaping @Sendable (Data) -> Void) -> Void
     ) async throws -> Data {
@@ -135,6 +156,21 @@ struct XPCHostdClient: RoostHostdClient {
 
     func createSession(_ request: HostdCreateSessionRequest) async throws {
         let response = try await transport.createSession(HostdXPCCodec.encode(request))
+        try HostdXPCCodec.decodeEmptyReply(from: response)
+    }
+
+    func attachSession(id: UUID) async throws -> HostdAttachSessionResponse {
+        let response = try await transport.attachSession(HostdXPCCodec.encode(HostdSessionIDRequest(id: id)))
+        return try HostdXPCCodec.decodeReply(HostdAttachSessionResponse.self, from: response)
+    }
+
+    func releaseSession(id: UUID) async throws {
+        let response = try await transport.releaseSession(HostdXPCCodec.encode(HostdSessionIDRequest(id: id)))
+        try HostdXPCCodec.decodeEmptyReply(from: response)
+    }
+
+    func terminateSession(id: UUID) async throws {
+        let response = try await transport.terminateSession(HostdXPCCodec.encode(HostdSessionIDRequest(id: id)))
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 

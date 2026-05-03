@@ -76,6 +76,18 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
         }
     }
 
+    func attachSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        rejectRuntimeControl("attach", request: request, reply: reply)
+    }
+
+    func releaseSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        rejectRuntimeControl("release", request: request, reply: reply)
+    }
+
+    func terminateSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        rejectRuntimeControl("terminate", request: request, reply: reply)
+    }
+
     private func respond(
         _ reply: @escaping @Sendable (Data) -> Void,
         _ work: @escaping @Sendable (RoostHostd) async throws -> Data
@@ -87,6 +99,19 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
             } catch {
                 reply(HostdXPCCodec.failure(String(describing: error)))
             }
+        }
+    }
+
+    private func rejectRuntimeControl(
+        _ operation: String,
+        request: Data,
+        reply: @escaping @Sendable (Data) -> Void
+    ) {
+        do {
+            _ = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: request)
+            reply(HostdXPCCodec.failure("Hostd \(operation) is unavailable in metadata-only runtime"))
+        } catch {
+            reply(HostdXPCCodec.failure(String(describing: error)))
         }
     }
 }

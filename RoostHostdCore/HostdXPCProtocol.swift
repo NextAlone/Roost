@@ -10,4 +10,7 @@ public protocol RoostHostdXPCProtocol {
     func deleteSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
     func pruneExited(reply: @escaping @Sendable (Data) -> Void)
     func markAllRunningExited(reply: @escaping @Sendable (Data) -> Void)
+    func attachSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
+    func releaseSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
+    func terminateSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
 }

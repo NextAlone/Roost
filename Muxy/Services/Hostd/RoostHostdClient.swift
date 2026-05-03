@@ -7,6 +7,9 @@ protocol RoostHostdClient: Sendable {
     func runtimeOwnership() async throws -> HostdRuntimeOwnership
 
     func createSession(_ request: HostdCreateSessionRequest) async throws
+    func attachSession(id: UUID) async throws -> HostdAttachSessionResponse
+    func releaseSession(id: UUID) async throws
+    func terminateSession(id: UUID) async throws
 
     func markExited(sessionID: UUID) async throws
     func listLiveSessions() async throws -> [SessionRecord]
@@ -14,6 +17,19 @@ protocol RoostHostdClient: Sendable {
     func deleteSession(id: UUID) async throws
     func pruneExited() async throws
     func markAllRunningExited() async throws
+}
+
+enum RoostHostdClientError: LocalizedError, Sendable, Equatable {
+    case unsupportedRuntimeControl(operation: String, ownership: HostdRuntimeOwnership)
+
+    var errorDescription: String? {
+        switch self {
+        case let .unsupportedRuntimeControl(operation, .appOwnedMetadataOnly):
+            "Hostd \(operation) is unavailable in metadata-only runtime"
+        case let .unsupportedRuntimeControl(operation, .hostdOwnedProcess):
+            "Hostd \(operation) is unavailable for hostd-owned runtime"
+        }
+    }
 }
 
 extension RoostHostdClient {
@@ -33,6 +49,26 @@ extension RoostHostdClient {
             agentKind: agentKind,
             command: command
         ))
+    }
+
+    func attachSession(id: UUID) async throws -> HostdAttachSessionResponse {
+        let error = await unsupportedRuntimeControl("attach")
+        throw error
+    }
+
+    func releaseSession(id: UUID) async throws {
+        let error = await unsupportedRuntimeControl("release")
+        throw error
+    }
+
+    func terminateSession(id: UUID) async throws {
+        let error = await unsupportedRuntimeControl("terminate")
+        throw error
+    }
+
+    private func unsupportedRuntimeControl(_ operation: String) async -> RoostHostdClientError {
+        let ownership = await (try? runtimeOwnership()) ?? .appOwnedMetadataOnly
+        return .unsupportedRuntimeControl(operation: operation, ownership: ownership)
     }
 }
 

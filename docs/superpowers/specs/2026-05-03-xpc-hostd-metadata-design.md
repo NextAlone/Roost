@@ -81,7 +81,7 @@ The full packaged XPC smoke can be manual for this slice because SwiftPM does no
 
 ## PTY Migration Compatibility
 
-Future PTY work can reuse this boundary by adding methods instead of replacing it:
+Future PTY work can reuse this boundary by implementing the runtime-control methods instead of replacing it:
 
 - `attachSession`
 - `releaseSession`
@@ -89,7 +89,7 @@ Future PTY work can reuse this boundary by adding methods instead of replacing i
 - `resizeSession`
 - `sendInput`
 
-The existing `createSession` can evolve from metadata insertion to process creation once `HostdRuntimeOwnership.hostdOwnedProcess` is active. Until then it remains metadata-only.
+The first three methods are present in the shared protocol and client surface, but `.appOwnedMetadataOnly` rejects them explicitly. The existing `createSession` can evolve from metadata insertion to process creation once `HostdRuntimeOwnership.hostdOwnedProcess` is active. Until then it remains metadata-only.
 
 ## Exit Criteria
 

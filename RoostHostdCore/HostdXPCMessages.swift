@@ -58,6 +58,16 @@ public struct HostdSessionIDRequest: Sendable, Codable, Equatable {
     }
 }
 
+public struct HostdAttachSessionResponse: Sendable, Codable, Equatable {
+    public let record: SessionRecord
+    public let ownership: HostdRuntimeOwnership
+
+    public init(record: SessionRecord, ownership: HostdRuntimeOwnership) {
+        self.record = record
+        self.ownership = ownership
+    }
+}
+
 public struct HostdXPCReply: Sendable, Codable, Equatable {
     public let ok: Bool
     public let data: Data?

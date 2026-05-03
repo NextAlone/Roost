@@ -25,7 +25,38 @@ enum HostdAttachError: Error, LocalizedError {
     }
 }
 
-private let initialOutputReplayLimit = 256 * 1024
+protocol HostdAttachOutputReading: Sendable {
+    func readSessionOutputStream(
+        id: UUID,
+        after sequence: UInt64?,
+        timeout: TimeInterval,
+        limit: Int?
+    ) async throws -> HostdOutputRead
+}
+
+extension HostdAttachClient: HostdAttachOutputReading {}
+
+struct HostdAttachOutputReplay {
+    private let sessionID: UUID
+    private let client: any HostdAttachOutputReading
+    private var sequence: UInt64?
+
+    init(sessionID: UUID, client: any HostdAttachOutputReading) {
+        self.sessionID = sessionID
+        self.client = client
+    }
+
+    mutating func readNext() async throws -> HostdOutputRead {
+        let output = try await client.readSessionOutputStream(
+            id: sessionID,
+            after: sequence,
+            timeout: 0.25,
+            limit: nil
+        )
+        sequence = output.nextSequence
+        return output
+    }
+}
 
 struct HostdAttachArguments {
     let sessionID: UUID
@@ -138,18 +169,12 @@ enum RoostHostdAttachMain {
     }
 
     private static func forwardOutput(sessionID: UUID, client: HostdAttachClient) async throws {
-        var sequence: UInt64?
+        var replay = HostdAttachOutputReplay(sessionID: sessionID, client: client)
         while !Task.isCancelled {
-            let output = try await client.readSessionOutputStream(
-                id: sessionID,
-                after: sequence,
-                timeout: 0.25,
-                limit: sequence == nil ? initialOutputReplayLimit : nil
-            )
+            let output = try await replay.readNext()
             for chunk in output.chunks {
                 try HostdAttachTerminal.writeAll(chunk.data)
             }
-            sequence = output.nextSequence
         }
     }
 }

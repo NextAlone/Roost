@@ -106,6 +106,7 @@ let package = Package(
             name: "RoostTests",
             dependencies: [
                 "Roost",
+                "RoostHostdAttach",
                 "RoostHostdXPCService",
                 "MuxyShared",
                 "MuxyServer",

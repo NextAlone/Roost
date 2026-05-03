@@ -190,10 +190,11 @@ public actor HostdProcessRegistry {
     public func readSessionOutputStream(
         id: UUID,
         after sequence: UInt64?,
-        timeout: TimeInterval = 0
+        timeout: TimeInterval = 0,
+        limit: Int? = nil
     ) async throws -> HostdOutputRead {
         guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
-        return await session.readOutput(after: sequence, timeout: timeout)
+        return await session.readOutput(after: sequence, timeout: timeout, limit: limit)
     }
 
     public func writeSessionInput(id: UUID, data: Data) async throws {
@@ -337,7 +338,7 @@ private final class HostdPTYSession: @unchecked Sendable {
 
     func readAvailableOutput(timeout: TimeInterval) async -> Data {
         let sequence = lock.withLock { compatibilityReadSequence }
-        let output = await readOutput(after: sequence, timeout: timeout)
+        let output = await readOutput(after: sequence, timeout: timeout, limit: nil)
         lock.withLock {
             compatibilityReadSequence = output.nextSequence
         }
@@ -346,11 +347,11 @@ private final class HostdPTYSession: @unchecked Sendable {
         }
     }
 
-    func readOutput(after sequence: UInt64?, timeout: TimeInterval) async -> HostdOutputRead {
+    func readOutput(after sequence: UInt64?, timeout: TimeInterval, limit: Int?) async -> HostdOutputRead {
         let deadline = Date().addingTimeInterval(max(0, timeout))
         while true {
             let output = lock.withLock {
-                outputBuffer.read(after: sequence)
+                outputBuffer.read(after: sequence, limit: limit)
             }
             if !output.chunks.isEmpty || Date() >= deadline || !isRunning {
                 return output

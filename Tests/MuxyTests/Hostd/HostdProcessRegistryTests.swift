@@ -364,6 +364,44 @@ struct HostdProcessRegistryTests {
         try await registry.terminateSession(id: id)
     }
 
+    @Test("stream read limit returns recent output suffix")
+    func streamReadLimitReturnsRecentOutputSuffix() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "printf abcdef; sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        let output = try await waitForHostdOutput(
+            from: registry,
+            id: id,
+            after: nil,
+            contains: "abcdef"
+        )
+        let limited = try await registry.readSessionOutputStream(
+            id: id,
+            after: nil,
+            timeout: 0,
+            limit: 3
+        )
+
+        #expect(String(decoding: output.chunks.flatMap(\.data), as: UTF8.self).contains("abcdef"))
+        #expect(String(decoding: limited.chunks.flatMap(\.data), as: UTF8.self) == "def")
+        #expect(limited.truncated)
+
+        try await registry.terminateSession(id: id)
+    }
+
     @Test("sends interrupt signal to a running PTY session")
     func sendsInterruptSignalToRunningPTYSession() async throws {
         let url = makeTempStoreURL()

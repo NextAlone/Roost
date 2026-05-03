@@ -13,7 +13,12 @@ protocol RoostHostdClient: Sendable {
     func releaseSession(id: UUID) async throws
     func terminateSession(id: UUID) async throws
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data
-    func readSessionOutputStream(id: UUID, after sequence: UInt64?, timeout: TimeInterval) async throws -> HostdOutputRead
+    func readSessionOutputStream(
+        id: UUID,
+        after sequence: UInt64?,
+        timeout: TimeInterval,
+        limit: Int?
+    ) async throws -> HostdOutputRead
     func writeSessionInput(id: UUID, data: Data) async throws
     func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws
     func sendSessionSignal(id: UUID, signal: HostdSessionSignal) async throws
@@ -80,7 +85,12 @@ extension RoostHostdClient {
         throw error
     }
 
-    func readSessionOutputStream(id: UUID, after sequence: UInt64? = nil, timeout: TimeInterval = 0) async throws -> HostdOutputRead {
+    func readSessionOutputStream(
+        id: UUID,
+        after sequence: UInt64? = nil,
+        timeout: TimeInterval = 0,
+        limit: Int? = nil
+    ) async throws -> HostdOutputRead {
         let error = await unsupportedRuntimeControl("read output stream")
         throw error
     }

@@ -70,7 +70,7 @@ struct HostdXPCCodecTests {
 
     @Test("stream output request and response round-trip through shared XPC schema")
     func streamOutputRoundTrip() throws {
-        let request = HostdReadSessionOutputStreamRequest(id: UUID(), after: 42, timeout: 0.25)
+        let request = HostdReadSessionOutputStreamRequest(id: UUID(), after: 42, timeout: 0.25, limit: 256)
         let requestData = try HostdXPCCodec.encode(request)
         let decodedRequest = try HostdXPCCodec.decode(HostdReadSessionOutputStreamRequest.self, from: requestData)
         #expect(decodedRequest == request)

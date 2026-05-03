@@ -163,7 +163,12 @@ private final class EndpointBrokerRecordingHostdClient: RoostHostdClient, @unche
     func releaseSession(id: UUID) async throws {}
     func terminateSession(id: UUID) async throws {}
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data { Data() }
-    func readSessionOutputStream(id: UUID, after sequence: UInt64?, timeout: TimeInterval) async throws -> HostdOutputRead {
+    func readSessionOutputStream(
+        id: UUID,
+        after sequence: UInt64?,
+        timeout: TimeInterval,
+        limit: Int?
+    ) async throws -> HostdOutputRead {
         HostdOutputRead(chunks: [], nextSequence: sequence ?? 0, truncated: false)
     }
     func writeSessionInput(id: UUID, data: Data) async throws {}

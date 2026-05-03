@@ -25,6 +25,8 @@ enum HostdAttachError: Error, LocalizedError {
     }
 }
 
+private let initialOutputReplayLimit = 256 * 1024
+
 struct HostdAttachArguments {
     let sessionID: UUID
     let serviceName: String
@@ -138,7 +140,12 @@ enum RoostHostdAttachMain {
     private static func forwardOutput(sessionID: UUID, client: HostdAttachClient) async throws {
         var sequence: UInt64?
         while !Task.isCancelled {
-            let output = try await client.readSessionOutputStream(id: sessionID, after: sequence, timeout: 0.25)
+            let output = try await client.readSessionOutputStream(
+                id: sessionID,
+                after: sequence,
+                timeout: 0.25,
+                limit: sequence == nil ? initialOutputReplayLimit : nil
+            )
             for chunk in output.chunks {
                 try HostdAttachTerminal.writeAll(chunk.data)
             }

@@ -89,7 +89,8 @@ public final class HostdDaemonSocketServer: @unchecked Sendable {
             let output = try await registry.readSessionOutputStream(
                 id: request.id,
                 after: request.after,
-                timeout: request.timeout
+                timeout: request.timeout,
+                limit: request.limit
             )
             payload = try HostdXPCCodec.success(HostdReadSessionOutputStreamResponse(output: output))
         case .writeSessionInput:

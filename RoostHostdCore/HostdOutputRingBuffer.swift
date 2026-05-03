@@ -39,19 +39,31 @@ public struct HostdOutputRingBuffer: Sendable {
         trim()
     }
 
-    public func read(after sequence: UInt64?) -> HostdOutputRead {
+    public func read(after sequence: UInt64?, limit: Int? = nil) -> HostdOutputRead {
         let requested = sequence ?? startSequence
-        let effective = max(requested, startSequence)
+        var effective = max(requested, startSequence)
         let truncated = requested < startSequence
         guard effective < endSequence else {
             return HostdOutputRead(chunks: [], nextSequence: endSequence, truncated: truncated)
+        }
+        var wasTruncated = truncated
+        if let limit {
+            let maximumBytes = max(0, limit)
+            let availableBytes = Int(endSequence - effective)
+            if availableBytes > maximumBytes {
+                effective = endSequence - UInt64(maximumBytes)
+                wasTruncated = true
+            }
+        }
+        guard effective < endSequence else {
+            return HostdOutputRead(chunks: [], nextSequence: endSequence, truncated: wasTruncated)
         }
         let offset = Int(effective - startSequence)
         let index = bytes.index(bytes.startIndex, offsetBy: offset)
         return HostdOutputRead(
             chunks: [HostdOutputChunk(sequence: effective, data: Data(bytes.suffix(from: index)))],
             nextSequence: endSequence,
-            truncated: truncated
+            truncated: wasTruncated
         )
     }
 

@@ -42,6 +42,30 @@ struct HostdOutputRingBufferTests {
         ))
     }
 
+    @Test("read limit returns retained suffix")
+    func readLimitReturnsRetainedSuffix() {
+        var buffer = HostdOutputRingBuffer(limit: 16)
+        buffer.append(Data("abcdef".utf8))
+
+        #expect(buffer.read(after: nil, limit: 3) == HostdOutputRead(
+            chunks: [HostdOutputChunk(sequence: 3, data: Data("def".utf8))],
+            nextSequence: 6,
+            truncated: true
+        ))
+    }
+
+    @Test("zero read limit skips to end")
+    func zeroReadLimitSkipsToEnd() {
+        var buffer = HostdOutputRingBuffer(limit: 16)
+        buffer.append(Data("abcdef".utf8))
+
+        #expect(buffer.read(after: nil, limit: 0) == HostdOutputRead(
+            chunks: [],
+            nextSequence: 6,
+            truncated: true
+        ))
+    }
+
     @Test("repeated reads do not consume retained bytes")
     func repeatedReadsDoNotConsumeRetainedBytes() {
         var buffer = HostdOutputRingBuffer(limit: 16)

@@ -35,11 +35,17 @@ final class HostdAttachClient: @unchecked Sendable {
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
-    func readSessionOutputStream(id: UUID, after sequence: UInt64?, timeout: TimeInterval) async throws -> HostdOutputRead {
+    func readSessionOutputStream(
+        id: UUID,
+        after sequence: UInt64?,
+        timeout: TimeInterval,
+        limit: Int? = nil
+    ) async throws -> HostdOutputRead {
         let request = try HostdXPCCodec.encode(HostdReadSessionOutputStreamRequest(
             id: id,
             after: sequence,
-            timeout: timeout
+            timeout: timeout,
+            limit: limit
         ))
         let response = try await call(operation: .readSessionOutputStream, payload: request) { proxy, reply in
             proxy.readSessionOutputStream(

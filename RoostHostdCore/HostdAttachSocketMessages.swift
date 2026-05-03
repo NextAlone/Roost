@@ -40,7 +40,7 @@ public struct HostdAttachSocketResponse: Sendable, Codable, Equatable {
 }
 
 public struct HostdDaemonRuntimeIdentity: Sendable, Codable, Equatable {
-    public static let currentProtocolVersion = 2
+    public static let currentProtocolVersion = 3
 
     public let protocolVersion: Int
 

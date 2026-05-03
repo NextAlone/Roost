@@ -266,7 +266,8 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
                 let output = try await registry.readSessionOutputStream(
                     id: request.id,
                     after: request.after,
-                    timeout: request.timeout
+                    timeout: request.timeout,
+                    limit: request.limit
                 )
                 return try HostdXPCCodec.success(HostdReadSessionOutputStreamResponse(output: output))
             }

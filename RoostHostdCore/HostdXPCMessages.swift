@@ -110,11 +110,13 @@ public struct HostdReadSessionOutputStreamRequest: Sendable, Codable, Equatable 
     public let id: UUID
     public let after: UInt64?
     public let timeout: TimeInterval
+    public let limit: Int?
 
-    public init(id: UUID, after: UInt64? = nil, timeout: TimeInterval = 0) {
+    public init(id: UUID, after: UInt64? = nil, timeout: TimeInterval = 0, limit: Int? = nil) {
         self.id = id
         self.after = after
         self.timeout = timeout
+        self.limit = limit
     }
 }
 

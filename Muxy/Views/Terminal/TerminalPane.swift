@@ -220,6 +220,11 @@ struct TerminalBridge: NSViewRepresentable {
         return view
     }
 
+    static func dismantleNSView(_ nsView: GhosttyTerminalNSView, coordinator _: Coordinator) {
+        TerminalViewRegistry.shared.unregister(nsView)
+        nsView.tearDown()
+    }
+
     func updateNSView(_ nsView: GhosttyTerminalNSView, context: Context) {
         if nsView.envVars.isEmpty, nsView.surface == nil, let key = worktreeKey {
             nsView.envVars = TerminalPaneEnvironment.ordered(paneID: state.id, worktreeKey: key, configured: state.env)

@@ -19,14 +19,15 @@ final class TerminalViewRegistry {
         command: String? = nil,
         commandInteractive: Bool = false
     ) -> GhosttyTerminalNSView {
-        if let existing = views[paneID] {
-            return existing
-        }
         let view = GhosttyTerminalNSView(
             workingDirectory: workingDirectory,
             command: command,
             commandInteractive: commandInteractive
         )
+        if let existing = views[paneID] {
+            paneIDs.removeValue(forKey: ObjectIdentifier(existing))
+            existing.tearDown()
+        }
         views[paneID] = view
         paneIDs[ObjectIdentifier(view)] = paneID
         return view
@@ -40,6 +41,14 @@ final class TerminalViewRegistry {
         guard let view = views.removeValue(forKey: paneID) else { return }
         paneIDs.removeValue(forKey: ObjectIdentifier(view))
         view.tearDown()
+    }
+
+    func unregister(_ view: GhosttyTerminalNSView) {
+        let identifier = ObjectIdentifier(view)
+        guard let paneID = paneIDs.removeValue(forKey: identifier) else { return }
+        if views[paneID] === view {
+            views.removeValue(forKey: paneID)
+        }
     }
 
     func needsConfirmQuit(for paneID: UUID) -> Bool {

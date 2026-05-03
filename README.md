@@ -90,6 +90,8 @@ The current release path uses a self-signed/ad-hoc local signature, is non-notar
 
 See [docs/permissions.md](docs/permissions.md) for the trust model and install notes. See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for release gates and future distribution work.
 
+For declarative Apple Silicon installs, see [docs/nix-darwin.md](docs/nix-darwin.md).
+
 ## Third-Party Licenses
 
 See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for attribution of dependencies.

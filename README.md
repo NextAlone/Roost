@@ -43,27 +43,30 @@ A jj-tracked project unlocks the full jj-first behaviour. Git-tracked projects c
 Roost reads `~/Library/Application Support/Roost/config.json` for app-wide settings. Schema version 1 currently supports:
 
 - `defaultWorkspaceLocation`: directory for newly created workspaces; `~` expands to the user home directory, absolute paths are used directly, and relative paths resolve from the user home directory
+- `hostdRuntime`: `metadataOnly` or `hostdOwnedProcess`
+- `env`: environment variables shared by app-wide agent presets; values can be plain strings or `{ "fromKeychain": "service", "account": "optional-account" }`
+- `agentPresets`: list of `{ name, kind, command, env?, cardinality }` overrides for built-in agents (`kind` ∈ `terminal`, `claudeCode`, `codex`, `geminiCli`, `openCode`; `cardinality` ∈ `shared`, `dedicated`)
+
+Built-in agent presets start the supported CLIs in their YOLO / bypass-permissions mode by default.
 
 Roost reads `<project>/.roost/config.json` for per-project settings. Schema version 1 supports:
 
-- `env`: environment variables shared by setup commands and agent presets; values can be plain strings or `{ "fromKeychain": "service", "account": "optional-account" }`
+- `env`: environment variables shared by setup commands and merged into agent launches for that project; values can be plain strings or `{ "fromKeychain": "service", "account": "optional-account" }`
 - `setup`: list of `{ name?, command, cwd?, env? }` to run after creating a workspace
 - `teardown`: list of `{ name?, command, cwd?, env? }` to run before removing a managed workspace
 - `notifications`: `{ enabled?, toastEnabled?, sound?, toastPosition? }` per-project overrides
-- `agentPresets`: list of `{ name, kind, command, env?, cardinality }` overrides for built-in agents (`kind` ∈ `terminal`, `claudeCode`, `codex`, `geminiCli`, `openCode`; `cardinality` ∈ `shared`, `dedicated`)
 
-Example:
+App-wide example:
 
 ```json
 {
   "schemaVersion": 1,
+  "defaultWorkspaceLocation": "~/Documents/Repos/.workspaces",
+  "hostdRuntime": "hostdOwnedProcess",
   "env": {
     "NODE_ENV": "development",
     "API_TOKEN": { "fromKeychain": "roost-api-token", "account": "default" }
   },
-  "setup": [{ "name": "install", "command": "pnpm install", "env": { "CI": "1" } }],
-  "teardown": [{ "name": "cleanup", "command": "pnpm clean", "cwd": "tools" }],
-  "notifications": { "toastEnabled": true, "sound": "Ping", "toastPosition": "Bottom Right" },
   "agentPresets": [
     {
       "name": "Claude Opus",
@@ -73,6 +76,18 @@ Example:
       "cardinality": "dedicated"
     }
   ]
+}
+```
+
+Project example:
+
+```json
+{
+  "schemaVersion": 1,
+  "env": { "ROOST_PROJECT": "demo" },
+  "setup": [{ "name": "install", "command": "pnpm install", "env": { "CI": "1" } }],
+  "teardown": [{ "name": "cleanup", "command": "pnpm clean", "cwd": "tools" }],
+  "notifications": { "toastEnabled": true, "sound": "Ping", "toastPosition": "Bottom Right" }
 }
 ```
 

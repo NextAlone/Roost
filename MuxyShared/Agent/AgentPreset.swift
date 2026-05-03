@@ -41,7 +41,7 @@ public enum AgentPresetCatalog {
         return AgentPreset(
             kind: preset.kind,
             defaultCommand: preset.defaultCommand,
-            env: env,
+            env: preset.env.merging(env) { _, override in override },
             requiresDedicatedWorkspace: preset.requiresDedicatedWorkspace
         )
     }
@@ -51,13 +51,17 @@ public enum AgentPresetCatalog {
         case .terminal:
             AgentPreset(kind: .terminal, defaultCommand: nil)
         case .claudeCode:
-            AgentPreset(kind: .claudeCode, defaultCommand: "claude")
+            AgentPreset(kind: .claudeCode, defaultCommand: "claude --dangerously-skip-permissions")
         case .codex:
-            AgentPreset(kind: .codex, defaultCommand: "codex")
+            AgentPreset(kind: .codex, defaultCommand: "codex --dangerously-bypass-approvals-and-sandbox")
         case .geminiCli:
-            AgentPreset(kind: .geminiCli, defaultCommand: "gemini")
+            AgentPreset(kind: .geminiCli, defaultCommand: "gemini --yolo")
         case .openCode:
-            AgentPreset(kind: .openCode, defaultCommand: "opencode")
+            AgentPreset(
+                kind: .openCode,
+                defaultCommand: "opencode",
+                env: ["OPENCODE_PERMISSION": "{\"*\":\"allow\"}"]
+            )
         }
     }
 }

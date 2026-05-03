@@ -93,12 +93,11 @@ enum WorkspaceReducer {
         case let .createVCSTab(projectID, areaID):
             TabReducer.createVCSTab(projectID: projectID, areaID: areaID, state: &state)
 
-        case let .createAgentTab(projectID, areaID, kind, runtimeOwnership):
+        case let .createAgentTab(projectID, areaID, request):
             TabReducer.createAgentTab(
                 projectID: projectID,
                 areaID: areaID,
-                kind: kind,
-                runtimeOwnership: runtimeOwnership,
+                request: request,
                 state: &state
             )
 

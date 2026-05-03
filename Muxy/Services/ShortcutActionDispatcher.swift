@@ -194,7 +194,10 @@ struct ShortcutActionDispatcher {
 
     private func performAgentTab(_ kind: AgentKind) -> Bool {
         guard let projectID = appState.activeProjectID else { return false }
-        if Self.shouldRouteToWorkspaceCreation(kind: kind) {
+        if Self.shouldRouteToWorkspaceCreation(
+            kind: kind,
+            presetLookup: { appState.agentPresetForRouting($0) }
+        ) {
             notificationCenter.post(
                 name: .requestCreateWorkspaceForAgent,
                 object: nil,

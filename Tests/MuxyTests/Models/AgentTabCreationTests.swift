@@ -26,7 +26,7 @@ struct AgentTabCreationTests {
         let pane = area.activeTab?.content.pane
         #expect(pane?.agentKind == .claudeCode)
         #expect(pane?.activityState == .idle)
-        #expect(pane?.startupCommand == "claude")
+        #expect(pane?.startupCommand == "claude --dangerously-skip-permissions")
         #expect(pane?.projectPath == "/tmp/wt")
     }
 
@@ -36,7 +36,7 @@ struct AgentTabCreationTests {
         area.createAgentTab(kind: .codex)
         let pane = area.activeTab?.content.pane
         #expect(pane?.projectPath == "/Users/me/repo/wt-feature-x")
-        #expect(pane?.startupCommand == "codex")
+        #expect(pane?.startupCommand == "codex --dangerously-bypass-approvals-and-sandbox")
     }
 
     @Test("Claude Code tab default title shows agent name")
@@ -48,29 +48,22 @@ struct AgentTabCreationTests {
 
     @Test("configured agent env is applied to pane")
     func configuredEnv() throws {
-        let project = FileManager.default.temporaryDirectory
-            .appendingPathComponent("roost-agent-env-tests")
-            .appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: project) }
-        let roostDir = project.appendingPathComponent(".roost")
-        try FileManager.default.createDirectory(at: roostDir, withIntermediateDirectories: true)
-        try Data("""
-        {
-          "schemaVersion": 1,
-          "env": { "GLOBAL": "1", "CLAUDE_CONFIG_DIR": "global" },
-          "agentPresets": [
-            {
-              "name": "Claude",
-              "kind": "claudeCode",
-              "command": "claude",
-              "env": { "CLAUDE_CONFIG_DIR": ".roost/claude" }
-            }
-          ]
-        }
-        """.utf8).write(to: roostDir.appendingPathComponent("config.json"))
-
-        let area = TabArea(projectPath: project.path)
-        area.createAgentTab(kind: .claudeCode)
+        let appConfig = RoostConfig(agentPresets: [
+            RoostConfigAgentPreset(
+                name: "Claude",
+                kind: .claudeCode,
+                command: "claude",
+                env: ["CLAUDE_CONFIG_DIR": ".roost/claude"]
+            )
+        ])
+        let projectConfig = RoostConfig(env: ["GLOBAL": "1", "CLAUDE_CONFIG_DIR": "global"])
+        let preset = AgentPresetResolver.preset(
+            for: .claudeCode,
+            appConfig: appConfig,
+            projectConfig: projectConfig
+        )
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .claudeCode, preset: preset)
         #expect(area.activeTab?.content.pane?.env == ["GLOBAL": "1", "CLAUDE_CONFIG_DIR": ".roost/claude"])
     }
 
@@ -108,7 +101,7 @@ struct AgentTabCreationTests {
         #expect(records.first?.worktreeID == worktreeID)
         #expect(records.first?.workspacePath == "/tmp/wt")
         #expect(records.first?.agentKind == .codex)
-        #expect(records.first?.command == "codex")
+        #expect(records.first?.command == "codex --dangerously-bypass-approvals-and-sandbox")
     }
 
     @Test("AppState createAgentTab records hostd launch environment")
@@ -117,21 +110,14 @@ struct AgentTabCreationTests {
             .appendingPathComponent("roost-hostd-env-tests")
             .appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: projectURL) }
-        let roostDir = projectURL.appendingPathComponent(".roost")
-        try FileManager.default.createDirectory(at: roostDir, withIntermediateDirectories: true)
-        try Data("""
-        {
-          "schemaVersion": 1,
-          "agentPresets": [
-            {
-              "name": "Codex",
-              "kind": "codex",
-              "command": "codex",
-              "env": { "PATH": "/custom/bin", "CUSTOM": "1" }
-            }
-          ]
-        }
-        """.utf8).write(to: roostDir.appendingPathComponent("config.json"))
+        let appConfig = RoostConfig(agentPresets: [
+            RoostConfigAgentPreset(
+                name: "Codex",
+                kind: .codex,
+                command: "codex",
+                env: ["PATH": "/custom/bin", "CUSTOM": "1"]
+            )
+        ])
 
         let projectID = UUID()
         let worktreeID = UUID()
@@ -140,7 +126,8 @@ struct AgentTabCreationTests {
         let appState = AppState(
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
-            workspacePersistence: AgentTabWorkspacePersistenceStub()
+            workspacePersistence: AgentTabWorkspacePersistenceStub(),
+            appConfigProvider: { appConfig }
         )
         appState.activeProjectID = projectID
         appState.activeWorktreeID[projectID] = worktreeID
@@ -240,9 +227,9 @@ struct AgentTabCreationTests {
         let pane = try #require(appState.focusedArea(for: projectID)?.activeTab?.content.pane)
         let records = try await client.waitForRecords()
         #expect(pane.hostdRuntimeOwnership == .hostdOwnedProcess)
-        #expect(pane.startupCommand == "codex")
+        #expect(pane.startupCommand == "codex --dangerously-bypass-approvals-and-sandbox")
         #expect(records.first?.command?.contains("export PATH=") == true)
-        #expect(records.first?.command?.hasSuffix("; codex") == true)
+        #expect(records.first?.command?.hasSuffix("; codex --dangerously-bypass-approvals-and-sandbox") == true)
     }
 
     @Test("hostd-owned agent panes wait for session creation before attaching")
@@ -447,7 +434,7 @@ struct AgentTabCreationTests {
         #expect(request.environment["TERM"] == "xterm-256color")
         #expect(request.command?.contains("export PATH=") == true)
         #expect(request.command?.contains("export TERM=xterm-256color") == true)
-        #expect(request.command?.hasSuffix("; codex") == true)
+        #expect(request.command?.hasSuffix("; codex --dangerously-bypass-approvals-and-sandbox") == true)
     }
 
     @Test("AppState does not recreate restored live hostd agent panes")

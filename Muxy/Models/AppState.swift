@@ -33,6 +33,12 @@ final class AppState {
         let isStaged: Bool
     }
 
+    struct AgentTabRequest {
+        let kind: AgentKind
+        let preset: AgentPreset
+        let runtimeOwnership: HostdRuntimeOwnership
+    }
+
     enum Action {
         case selectProject(projectID: UUID, worktreeID: UUID, worktreePath: String)
         case selectWorktree(projectID: UUID, worktreeID: UUID, worktreePath: String)
@@ -47,12 +53,7 @@ final class AppState {
         case createTabInDirectory(projectID: UUID, areaID: UUID?, directory: String)
         case createCommandTab(projectID: UUID, areaID: UUID?, name: String, command: String)
         case createVCSTab(projectID: UUID, areaID: UUID?)
-        case createAgentTab(
-            projectID: UUID,
-            areaID: UUID?,
-            kind: AgentKind,
-            runtimeOwnership: HostdRuntimeOwnership
-        )
+        case createAgentTab(projectID: UUID, areaID: UUID?, request: AgentTabRequest)
         case createEditorTab(projectID: UUID, areaID: UUID?, filePath: String, suppressInitialFocus: Bool)
         case createExternalEditorTab(projectID: UUID, areaID: UUID?, filePath: String, command: String)
         case createDiffViewerTab(projectID: UUID, areaID: UUID?, request: DiffViewerRequest)
@@ -77,6 +78,8 @@ final class AppState {
     private let selectionStore: any ActiveProjectSelectionStoring
     private let terminalViews: any TerminalViewRemoving
     private let workspacePersistence: any WorkspacePersisting
+    private let appConfigProvider: () -> RoostConfig?
+    private let projectConfigProvider: (String) -> RoostConfig?
     private var hostdRuntimeOwnership: HostdRuntimeOwnership
     private var hostdClient: (any RoostHostdClient)?
     var onProjectsEmptied: (([UUID]) -> Void)?
@@ -104,12 +107,16 @@ final class AppState {
         selectionStore: any ActiveProjectSelectionStoring,
         terminalViews: any TerminalViewRemoving,
         workspacePersistence: any WorkspacePersisting,
-        hostdRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly
+        hostdRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly,
+        appConfigProvider: @escaping () -> RoostConfig? = { nil },
+        projectConfigProvider: @escaping (String) -> RoostConfig? = RoostConfigLoader.load(fromProjectPath:)
     ) {
         self.selectionStore = selectionStore
         self.terminalViews = terminalViews
         self.workspacePersistence = workspacePersistence
         self.hostdRuntimeOwnership = hostdRuntimeOwnership
+        self.appConfigProvider = appConfigProvider
+        self.projectConfigProvider = projectConfigProvider
     }
 
     func restoreSelection(projects: [Project], worktrees: [UUID: [Worktree]]) {
@@ -208,6 +215,27 @@ final class AppState {
         return root.findArea(id: areaID)
     }
 
+    func agentPresetForRouting(_ kind: AgentKind) -> AgentPreset {
+        AgentPresetResolver.preset(for: kind, appConfig: appConfigProvider(), projectConfig: nil)
+    }
+
+    private func agentPreset(_ kind: AgentKind, projectID: UUID, areaID: UUID?) -> AgentPreset {
+        let area = targetArea(projectID: projectID, areaID: areaID)
+        let projectConfig = area.flatMap { projectConfigProvider($0.projectPath) }
+        return AgentPresetResolver.preset(for: kind, appConfig: appConfigProvider(), projectConfig: projectConfig)
+    }
+
+    private func targetArea(projectID: UUID, areaID: UUID?) -> TabArea? {
+        guard let key = activeWorktreeKey(for: projectID),
+              let root = workspaceRoots[key]
+        else { return nil }
+        if let areaID {
+            return root.findArea(id: areaID)
+        }
+        guard let targetAreaID = focusedAreaID[key] else { return nil }
+        return root.findArea(id: targetAreaID)
+    }
+
     func allAreas(for projectID: UUID) -> [TabArea] {
         guard let key = activeWorktreeKey(for: projectID) else { return [] }
         return workspaceRoots[key]?.allAreas() ?? []
@@ -289,11 +317,11 @@ final class AppState {
     ) {
         let effectiveHostdClient = hostdClient ?? self.hostdClient
         let runtimeOwnership = effectiveHostdClient?.runtimeOwnershipHint ?? hostdRuntimeOwnership
+        let preset = agentPreset(kind, projectID: projectID, areaID: areaID)
         dispatch(.createAgentTab(
             projectID: projectID,
             areaID: areaID,
-            kind: kind,
-            runtimeOwnership: runtimeOwnership
+            request: AgentTabRequest(kind: kind, preset: preset, runtimeOwnership: runtimeOwnership)
         ))
         guard let area = focusedArea(for: projectID),
               let tab = area.activeTab,

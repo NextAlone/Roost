@@ -705,13 +705,9 @@ Config files:
 Initial fields (define a versioned JSON Schema before first read site lands):
 
 - `schemaVersion: int`
-- `setup: [{ name, command, cwd?, env? }]`
-- `teardown: [{ name, command, cwd?, env? }]`
-- `agentPresets: [{ name, kind, command, env?, cardinality: "shared" | "dedicated" }]`
-- `defaultWorkspaceLocation: string`
-- `hostdRuntime: "metadataOnly" | "hostdOwnedProcess"`
 - `env: { [key: string]: string | { fromKeychain: string } }`
-- `notifications: { ... }`
+- Project config: `setup: [{ name, command, cwd?, env? }]`, `teardown: [{ name, command, cwd?, env? }]`, `notifications: { ... }`
+- App-wide config: `defaultWorkspaceLocation: string`, `hostdRuntime: "metadataOnly" | "hostdOwnedProcess"`, `agentPresets: [{ name, kind, command, env?, cardinality: "shared" | "dedicated" }]`
 
 Rules:
 
@@ -726,7 +722,7 @@ Rules:
 - `RoostConfig` (versioned, decode-tolerant) lives in `MuxyShared/Config/`. Schema version 1.
 - `RoostConfigLoader.load(fromProjectPath:)` reads `.roost/config.json` first; falls back to legacy `.muxy/worktree.json` for the `setup` field only (back-compat).
 - `AgentPresetCatalog.preset(for:configuredPresets:)` overload returns user overrides when a configured preset matches the requested `AgentKind`; otherwise built-in fallback. `cardinality: "dedicated"` maps to `requiresDedicatedWorkspace = true`.
-- `TabArea.createAgentTab` now consults the loader at creation time — best-effort, falls back to built-ins on missing/invalid config.
+- Agent preset overrides are app-wide via `~/Library/Application Support/Roost/config.json`; project `.roost/config.json` contributes project env but no longer selects preset commands.
 - Out of scope this phase (deferred): `defaultWorkspaceLocation`, `teardown`, `env` resolution / Keychain references, `notifications` config, settings UI for editing config inline, `chmod 600` enforcement on writes (no write path exists yet). Schema reserves these keys but does not consume them.
 
 **Follow-up status (2026-04-29): setup execution migrated.**

@@ -87,8 +87,10 @@ struct RoostConfigSettingsView: View {
             SettingsSection("Actions", footer: statusMessage, showsDivider: false) {
                 HStack {
                     Button("Reload") { loadAll() }
-                    Button("Save") { save() }
+                    Button("Save Roost") { saveAppSettings() }
                         .keyboardShortcut(.defaultAction)
+                    Button("Save Project") { saveProjectSettings() }
+                        .disabled(selectedProject == nil)
                     Spacer()
                 }
                 .padding(.horizontal, SettingsMetrics.horizontalPadding)
@@ -189,15 +191,16 @@ struct RoostConfigSettingsView: View {
         statusMessage = nil
     }
 
-    private func save() {
+    private func saveAppSettings() {
         guard saveAppConfig() else { return }
-        guard saveProjectConfig() else { return }
         let restartText = hostdRuntimeRestartRequired ? " Restart Roost to apply hostd runtime." : ""
-        if selectedProject == nil {
-            statusMessage = "Saved \(RoostAppConfigStore.configURL().path).\(restartText)"
-        } else {
-            statusMessage = "Saved Roost and project config.\(restartText)"
-        }
+        statusMessage = "Saved \(RoostAppConfigStore.configURL().path).\(restartText)"
+    }
+
+    private func saveProjectSettings() {
+        guard selectedProject != nil else { return }
+        guard saveProjectConfig() else { return }
+        statusMessage = "Saved project config."
     }
 
     @discardableResult

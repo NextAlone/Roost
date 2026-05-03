@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 import Testing
 
 @testable import Roost
@@ -692,8 +693,11 @@ struct WorkspaceReducerTests {
         let action = AppState.Action.createAgentTab(
             projectID: projectID,
             areaID: nil,
-            kind: .claudeCode,
-            runtimeOwnership: .appOwnedMetadataOnly
+            request: AppState.AgentTabRequest(
+                kind: .claudeCode,
+                preset: AgentPresetCatalog.preset(for: .claudeCode),
+                runtimeOwnership: .appOwnedMetadataOnly
+            )
         )
         _ = WorkspaceReducer.reduce(action: action, state: &state)
 
@@ -701,7 +705,7 @@ struct WorkspaceReducerTests {
         #expect(area?.tabs.count == countBefore + 1)
         let pane = area?.activeTab?.content.pane
         #expect(pane?.agentKind == .claudeCode)
-        #expect(pane?.startupCommand == "claude")
+        #expect(pane?.startupCommand == "claude --dangerously-skip-permissions")
         #expect(pane?.projectPath == "/tmp/demo")
     }
 }

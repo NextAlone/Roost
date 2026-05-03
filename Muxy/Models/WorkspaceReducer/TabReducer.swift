@@ -42,15 +42,18 @@ enum TabReducer {
     static func createAgentTab(
         projectID: UUID,
         areaID: UUID?,
-        kind: AgentKind,
-        runtimeOwnership: HostdRuntimeOwnership,
+        request: AppState.AgentTabRequest,
         state: inout WorkspaceState
     ) {
         guard let key = WorkspaceReducerShared.activeKey(projectID: projectID, state: state),
               let area = WorkspaceReducerShared.resolveArea(key: key, areaID: areaID, state: state)
         else { return }
         FocusReducer.focusArea(area.id, key: key, state: &state)
-        area.createAgentTab(kind: kind, hostdRuntimeOwnership: runtimeOwnership)
+        area.createAgentTab(
+            kind: request.kind,
+            hostdRuntimeOwnership: request.runtimeOwnership,
+            preset: request.preset
+        )
     }
 
     static func createVCSTab(projectID: UUID, areaID: UUID?, state: inout WorkspaceState) {

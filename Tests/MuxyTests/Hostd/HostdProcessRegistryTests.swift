@@ -426,11 +426,12 @@ struct HostdProcessRegistryTests {
             after: nil,
             contains: "+green"
         )
-        let snapshot = try await registry.readSessionOutputStream(
+        let snapshot = try await waitForHostdOutput(
+            from: registry,
             id: id,
             after: nil,
-            timeout: 0,
-            mode: .terminalSnapshot
+            mode: .terminalSnapshot,
+            contains: "+green"
         )
 
         let text = String(decoding: snapshot.chunks.flatMap(\.data), as: UTF8.self)
@@ -480,11 +481,17 @@ struct HostdProcessRegistryTests {
         from registry: HostdProcessRegistry,
         id: UUID,
         after sequence: UInt64?,
+        mode: HostdOutputStreamReadMode = .raw,
         contains needle: String
     ) async throws -> HostdOutputRead {
         let deadline = Date().addingTimeInterval(2)
         while Date() < deadline {
-            let output = try await registry.readSessionOutputStream(id: id, after: sequence, timeout: 0.25)
+            let output = try await registry.readSessionOutputStream(
+                id: id,
+                after: sequence,
+                timeout: 0.25,
+                mode: mode
+            )
             if String(decoding: output.chunks.flatMap(\.data), as: UTF8.self).contains(needle) {
                 return output
             }

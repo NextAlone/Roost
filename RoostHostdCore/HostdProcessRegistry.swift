@@ -251,7 +251,8 @@ private final class HostdPTYSession: @unchecked Sendable {
     let record: SessionRecord
     private let pid: pid_t
     private let masterFD: CInt
-    private let lock = NSLock()
+    private let stateLock = NSLock()
+    private let outputLock = NSLock()
     private var closed = false
     private var reaped = false
     private var attachedClientCount = 0
@@ -274,7 +275,7 @@ private final class HostdPTYSession: @unchecked Sendable {
     }
 
     var isRunning: Bool {
-        lock.withLock {
+        stateLock.withLock {
             if reaped { return false }
             var status: CInt = 0
             let result = waitpid(pid, &status, WNOHANG)
@@ -288,14 +289,14 @@ private final class HostdPTYSession: @unchecked Sendable {
     }
 
     func attach() -> Int {
-        lock.withLock {
+        stateLock.withLock {
             attachedClientCount += 1
             return attachedClientCount
         }
     }
 
     func release() throws {
-        let result = lock.withLock {
+        let result = stateLock.withLock {
             guard attachedClientCount > 0 else { return false }
             attachedClientCount -= 1
             return true
@@ -345,9 +346,9 @@ private final class HostdPTYSession: @unchecked Sendable {
     }
 
     func readAvailableOutput(timeout: TimeInterval) async -> Data {
-        let sequence = lock.withLock { compatibilityReadSequence }
+        let sequence = outputLock.withLock { compatibilityReadSequence }
         let output = await readOutput(after: sequence, timeout: timeout, limit: nil)
-        lock.withLock {
+        outputLock.withLock {
             compatibilityReadSequence = output.nextSequence
         }
         return output.chunks.reduce(into: Data()) { data, chunk in
@@ -358,7 +359,7 @@ private final class HostdPTYSession: @unchecked Sendable {
     func readOutput(after sequence: UInt64?, timeout: TimeInterval, limit: Int?) async -> HostdOutputRead {
         let deadline = Date().addingTimeInterval(max(0, timeout))
         while true {
-            let output = lock.withLock {
+            let output = outputLock.withLock {
                 outputBuffer.read(after: sequence, limit: limit)
             }
             if !output.chunks.isEmpty || Date() >= deadline || !isRunning {
@@ -369,9 +370,7 @@ private final class HostdPTYSession: @unchecked Sendable {
     }
 
     func readTerminalSnapshot() -> HostdOutputRead {
-        lock.withLock {
-            terminalSnapshot.outputRead(sequence: outputBuffer.nextSequence)
-        }
+        terminalSnapshot.outputRead()
     }
 
     func writeInput(_ data: Data) async throws {
@@ -406,13 +405,11 @@ private final class HostdPTYSession: @unchecked Sendable {
         guard ioctl(masterFD, TIOCSWINSZ, &size) == 0 else {
             throw HostdProcessRegistryError.resizeFailed(code: errno, message: errnoMessage())
         }
-        lock.withLock {
-            terminalSnapshot.resize(columns: columns, rows: rows)
-        }
+        terminalSnapshot.resize(columns: columns, rows: rows)
     }
 
     func sendSignal(_ signal: HostdSessionSignal) throws {
-        let result = lock.withLock {
+        let result = stateLock.withLock {
             if reaped { return CInt(ESRCH) }
             return sendProcessSignal(signal.value)
         }
@@ -422,7 +419,7 @@ private final class HostdPTYSession: @unchecked Sendable {
     }
 
     func terminate() throws {
-        let result = lock.withLock {
+        let result = stateLock.withLock {
             if reaped { return CInt(0) }
             let terminateResult = sendProcessSignal(SIGTERM)
             if terminateResult != 0 {
@@ -469,7 +466,7 @@ private final class HostdPTYSession: @unchecked Sendable {
     }
 
     private func closeMaster() {
-        let task = lock.withLock {
+        let task = stateLock.withLock {
             guard !closed else { return nil as Task<Void, Never>? }
             close(masterFD)
             closed = true
@@ -489,10 +486,11 @@ private final class HostdPTYSession: @unchecked Sendable {
             do {
                 let result = try readPTYAvailable()
                 if !result.data.isEmpty {
-                    lock.withLock {
+                    let sequence = outputLock.withLock {
                         outputBuffer.append(result.data)
-                        terminalSnapshot.feed(result.data)
+                        return outputBuffer.nextSequence
                     }
+                    terminalSnapshot.feed(result.data, endingAt: sequence)
                 }
                 if result.closed || !isRunning {
                     return

@@ -58,7 +58,7 @@ The registry should stop using "read and consume directly from UI" as the main m
 
 1. Read continuously from PTY master.
 2. Append bytes to a bounded in-memory ring buffer with monotonically increasing sequence offsets.
-3. Feed the same bytes into a headless terminal snapshot store.
+3. Append the same bytes to a headless terminal snapshot update queue.
 4. Fan out bytes to attached clients.
 5. Mark the session exited when the process exits and the PTY reaches EOF.
 
@@ -129,7 +129,7 @@ struct HostdReadStreamResponse: Codable, Sendable {
 }
 ```
 
-The attach helper's first read uses `mode = .terminalSnapshot`. Hostd serializes the current visible terminal state into a bounded VT repaint frame and returns `nextSequence` set to the raw output sequence covered by that snapshot. Later reads use `mode = .raw` and `afterSequence = snapshot.nextSequence`, so the helper streams only live bytes after the snapshot boundary. A stale raw sequence older than the retained ring buffer should return the oldest retained sequence plus an explicit truncation flag so diagnostic consumers can continue instead of failing.
+The attach helper's first read uses `mode = .terminalSnapshot`. Hostd returns the latest completed cached terminal snapshot as a bounded VT repaint frame and sets `nextSequence` to the raw output sequence covered by that frame. Later reads use `mode = .raw` and `afterSequence = snapshot.nextSequence`, so the helper streams bytes after the snapshot boundary. A stale raw sequence older than the retained ring buffer should return the oldest retained sequence plus an explicit truncation flag so diagnostic consumers can continue instead of failing.
 
 Input remains byte-oriented:
 
@@ -158,7 +158,7 @@ The first implementation can be in memory only. Persisted scrollback can be a la
 
 ## Terminal Snapshot
 
-Each session keeps a SwiftTerm-backed headless terminal model beside the raw byte ring. The model is not a production UI renderer; it exists to produce an attach-time repaint frame with the current visible cells, attributes, alternate-screen state, and cursor position. Snapshot size must be bounded by terminal dimensions rather than retained byte history.
+Each session keeps a SwiftTerm-backed headless terminal model beside the raw byte ring. The model is not a production UI renderer; it exists to produce an attach-time repaint frame with recent visible cells, attributes, alternate-screen state, and cursor position. Snapshot updates run asynchronously from PTY draining and raw stream reads. Attach uses the latest completed cached frame, then catches up with raw bytes after that frame's sequence. Snapshot size must be bounded by terminal dimensions rather than retained byte history.
 
 ## Terminal Modes
 

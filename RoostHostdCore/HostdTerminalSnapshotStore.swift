@@ -1,9 +1,13 @@
 import Foundation
 import SwiftTerm
 
-final class HostdTerminalSnapshotStore {
+final class HostdTerminalSnapshotStore: @unchecked Sendable {
     private let delegate = HostdTerminalSnapshotDelegate()
     private let terminal: Terminal
+    private let queue = DispatchQueue(label: "app.roost.hostd.terminalSnapshot")
+    private let cacheLock = NSLock()
+    private var latestSequence: UInt64 = 0
+    private var cachedOutput = HostdOutputRead(chunks: [], nextSequence: 0, truncated: false)
 
     init(columns: UInt16, rows: UInt16) {
         terminal = Terminal(
@@ -15,24 +19,57 @@ final class HostdTerminalSnapshotStore {
                 kittyImageCacheLimitBytes: 0
             )
         )
+        publishSnapshot(sequence: 0)
     }
 
-    func feed(_ data: Data) {
+    func feed(_ data: Data, endingAt sequence: UInt64) {
         guard !data.isEmpty else { return }
-        terminal.feed(byteArray: Array(data))
+        queue.async { [self] in
+            applyFeed(data, endingAt: sequence)
+        }
     }
 
     func resize(columns: UInt16, rows: UInt16) {
-        terminal.resize(cols: Int(columns), rows: Int(rows))
+        queue.async { [self] in
+            terminal.resize(cols: Int(columns), rows: Int(rows))
+            publishSnapshot(sequence: latestSequence)
+        }
     }
 
-    func outputRead(sequence: UInt64) -> HostdOutputRead {
+    func outputRead() -> HostdOutputRead {
+        cacheLock.withLock { cachedOutput }
+    }
+
+    func feedImmediately(_ data: Data, endingAt sequence: UInt64) {
+        guard !data.isEmpty else { return }
+        queue.sync { [self] in
+            applyFeed(data, endingAt: sequence)
+        }
+    }
+
+    func resizeImmediately(columns: UInt16, rows: UInt16) {
+        queue.sync { [self] in
+            terminal.resize(cols: Int(columns), rows: Int(rows))
+            publishSnapshot(sequence: latestSequence)
+        }
+    }
+
+    private func applyFeed(_ data: Data, endingAt sequence: UInt64) {
+        terminal.feed(byteArray: Array(data))
+        latestSequence = max(latestSequence, sequence)
+        publishSnapshot(sequence: latestSequence)
+    }
+
+    private func publishSnapshot(sequence: UInt64) {
         let data = HostdTerminalSnapshotSerializer(terminal: terminal).serialize()
-        return HostdOutputRead(
+        let output = HostdOutputRead(
             chunks: data.isEmpty ? [] : [HostdOutputChunk(sequence: sequence, data: data)],
             nextSequence: sequence,
             truncated: false
         )
+        cacheLock.withLock {
+            cachedOutput = output
+        }
     }
 }
 

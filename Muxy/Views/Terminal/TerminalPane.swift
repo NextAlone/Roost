@@ -23,6 +23,13 @@ struct TerminalPane: View {
             if state.hostdRuntimeOwnership == .hostdOwnedProcess {
                 HostdOwnedTerminalView(agentName: state.agentKind.displayName, output: hostdOutput)
                     .overlay {
+                        HostdOwnedTerminalResizeReporter(clientAvailable: hostdClient != nil) { size in
+                            Task {
+                                await hostdOutput.resize(client: hostdClient, paneID: state.id, size: size)
+                            }
+                        }
+                    }
+                    .overlay {
                         HostdOwnedTerminalInputBridge(
                             focused: focused,
                             visible: visible,

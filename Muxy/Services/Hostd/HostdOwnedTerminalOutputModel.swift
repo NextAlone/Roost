@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 @MainActor
@@ -13,6 +14,7 @@ final class HostdOwnedTerminalOutputModel {
     private let defaultTimeout: TimeInterval
     private let defaultIdleSleepNanoseconds: UInt64
     private let defaultErrorSleepNanoseconds: UInt64
+    private var lastResizedGrid: HostdOwnedTerminalGrid?
 
     var text = ""
     var status: Status = .waiting
@@ -76,6 +78,40 @@ final class HostdOwnedTerminalOutputModel {
 
         do {
             try await client.writeSessionInput(id: paneID, data: data)
+            if case .failed = status {
+                status = text.isEmpty ? .waiting : .streaming
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            status = .failed(error.localizedDescription)
+        }
+    }
+
+    func resize(
+        client: (any RoostHostdClient)?,
+        paneID: UUID,
+        size: CGSize,
+        cellSize: CGSize = HostdOwnedTerminalGridCalculator.defaultCellSize,
+        horizontalPadding: CGFloat = HostdOwnedTerminalGridCalculator.defaultHorizontalPadding,
+        verticalPadding: CGFloat = HostdOwnedTerminalGridCalculator.defaultVerticalPadding
+    ) async {
+        guard let grid = HostdOwnedTerminalGridCalculator.grid(
+            for: size,
+            cellSize: cellSize,
+            horizontalPadding: horizontalPadding,
+            verticalPadding: verticalPadding
+        )
+        else { return }
+        guard grid != lastResizedGrid else { return }
+        guard let client else {
+            status = .failed("Hostd client unavailable")
+            return
+        }
+
+        do {
+            try await client.resizeSession(id: paneID, columns: grid.columns, rows: grid.rows)
+            lastResizedGrid = grid
             if case .failed = status {
                 status = text.isEmpty ? .waiting : .streaming
             }

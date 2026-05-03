@@ -651,6 +651,12 @@ Exit criteria:
 - Printable text, return, tab, escape, delete, arrows, home/end, page up/down, forward delete, and paste are encoded as PTY bytes and written through `writeSessionInput`.
 - Command-key app shortcuts are ignored by the bridge. PTY resize from pane geometry, signal delivery, ANSI rendering, and live Ghostty attach remain next.
 
+**Status (2026-05-03): Phase 6m (hostd-owned PTY resize) landed.**
+
+- Hostd-owned panes now observe their SwiftUI geometry, convert the visible size into PTY columns and rows, and call `resizeSession`.
+- Resize requests are deduped at the pane model boundary, and the current size is resent when a hostd client becomes available.
+- Signal delivery, ANSI rendering, and live Ghostty attach remain next.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

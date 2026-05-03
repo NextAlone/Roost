@@ -78,6 +78,44 @@ struct HostdOwnedTerminalOutputModelTests {
 
         #expect(model.status == .failed("Hostd client unavailable"))
     }
+
+    @Test("resize writes hostd grid once per size")
+    func resizeWritesHostdGridOncePerSize() async throws {
+        let client = FakeHostdOutputClient(outputs: [])
+        let model = HostdOwnedTerminalOutputModel(bufferLimit: 1024)
+        let paneID = UUID()
+        let size = CGSize(width: 160, height: 80)
+
+        await model.resize(
+            client: client,
+            paneID: paneID,
+            size: size,
+            cellSize: CGSize(width: 8, height: 16),
+            horizontalPadding: 0,
+            verticalPadding: 0
+        )
+        await model.resize(
+            client: client,
+            paneID: paneID,
+            size: size,
+            cellSize: CGSize(width: 8, height: 16),
+            horizontalPadding: 0,
+            verticalPadding: 0
+        )
+
+        #expect(await client.resizeRequests() == [
+            HostdResizeRequest(id: paneID, columns: 20, rows: 5),
+        ])
+    }
+
+    @Test("resize reports missing client")
+    func resizeReportsMissingClient() async throws {
+        let model = HostdOwnedTerminalOutputModel(bufferLimit: 1024)
+
+        await model.resize(client: nil, paneID: UUID(), size: CGSize(width: 160, height: 80))
+
+        #expect(model.status == .failed("Hostd client unavailable"))
+    }
 }
 
 private actor FakeHostdOutputClient: RoostHostdClient {
@@ -85,6 +123,7 @@ private actor FakeHostdOutputClient: RoostHostdClient {
     private var outputs: [Data]
     private var readCount = 0
     private var inputs: [Data] = []
+    private var resizeRecords: [HostdResizeRequest] = []
 
     init(outputs: [Data]) {
         self.outputs = outputs
@@ -106,7 +145,9 @@ private actor FakeHostdOutputClient: RoostHostdClient {
         inputs.append(data)
     }
 
-    func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws {}
+    func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws {
+        resizeRecords.append(HostdResizeRequest(id: id, columns: columns, rows: rows))
+    }
 
     func markExited(sessionID: UUID) async throws {}
 
@@ -131,4 +172,14 @@ private actor FakeHostdOutputClient: RoostHostdClient {
     func writtenInputs() -> [Data] {
         inputs
     }
+
+    func resizeRequests() -> [HostdResizeRequest] {
+        resizeRecords
+    }
+}
+
+private struct HostdResizeRequest: Equatable {
+    let id: UUID
+    let columns: UInt16
+    let rows: UInt16
 }

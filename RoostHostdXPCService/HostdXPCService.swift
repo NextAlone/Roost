@@ -1,22 +1,83 @@
 import Foundation
 import RoostHostdCore
 
-final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendable {
-    private let hostdTask: Task<RoostHostd, Error>
+enum HostdXPCServiceRuntime: Sendable {
+    case metadataOnly(databaseURL: URL)
+    case hostdOwnedProcess(databaseURL: URL)
 
-    override init() {
-        self.hostdTask = Task {
-            try await RoostHostd()
+    static func fromEnvironment() -> HostdXPCServiceRuntime {
+        let value = ProcessInfo.processInfo.environment["ROOST_HOSTD_RUNTIME"] ?? ""
+        if value == "hostd-owned-process" || value == "hostdOwnedProcess" {
+            return .hostdOwnedProcess(databaseURL: HostdStorage.defaultDatabaseURL())
+        }
+        return .metadataOnly(databaseURL: HostdStorage.defaultDatabaseURL())
+    }
+
+    var databaseURL: URL {
+        switch self {
+        case let .metadataOnly(databaseURL),
+             let .hostdOwnedProcess(databaseURL):
+            databaseURL
+        }
+    }
+
+    var ownership: HostdRuntimeOwnership {
+        switch self {
+        case .metadataOnly:
+            .appOwnedMetadataOnly
+        case .hostdOwnedProcess:
+            .hostdOwnedProcess
+        }
+    }
+}
+
+final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendable {
+    private let runtime: HostdXPCServiceRuntime
+    private let hostdTask: Task<RoostHostd, Error>?
+    private let processRegistryTask: Task<HostdProcessRegistry, Error>?
+
+    init(runtime: HostdXPCServiceRuntime = .fromEnvironment()) {
+        self.runtime = runtime
+        switch runtime {
+        case let .metadataOnly(databaseURL):
+            self.hostdTask = Task {
+                try await RoostHostd(databaseURL: databaseURL)
+            }
+            self.processRegistryTask = nil
+        case let .hostdOwnedProcess(databaseURL):
+            self.hostdTask = nil
+            self.processRegistryTask = Task {
+                try await HostdProcessRegistry(databaseURL: databaseURL)
+            }
         }
         super.init()
     }
 
     func runtimeOwnership(reply: @escaping @Sendable (Data) -> Void) {
-        reply((try? HostdXPCCodec.success(HostdRuntimeOwnership.appOwnedMetadataOnly)) ?? HostdXPCCodec
+        reply((try? HostdXPCCodec.success(runtime.ownership)) ?? HostdXPCCodec
             .failure("Unable to encode runtime ownership"))
     }
 
     func createSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdCreateSessionRequest.self, from: request)
+                guard let command = request.command else {
+                    throw HostdProcessRegistryError.emptyCommand
+                }
+                _ = try await registry.launchSession(HostdLaunchSessionRequest(
+                    id: request.id,
+                    projectID: request.projectID,
+                    worktreeID: request.worktreeID,
+                    workspacePath: request.workspacePath,
+                    agentKind: request.agentKind,
+                    command: command,
+                    createdAt: request.createdAt
+                ))
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
         respond(reply) { hostd in
             let request = try HostdXPCCodec.decode(HostdCreateSessionRequest.self, from: request)
             try await hostd.createSession(
@@ -33,6 +94,14 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
     }
 
     func markExited(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: request)
+                try await registry.terminateSession(id: request.id)
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
         respond(reply) { hostd in
             let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: request)
             try await hostd.markExited(sessionID: request.id)
@@ -41,6 +110,13 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
     }
 
     func listLiveSessions(reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let records = try await registry.listLiveSessions()
+                return try HostdXPCCodec.success(records)
+            }
+            return
+        }
         respond(reply) { hostd in
             let records = try await hostd.listLiveSessions()
             return try HostdXPCCodec.success(records)
@@ -48,6 +124,13 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
     }
 
     func listAllSessions(reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let records = try await registry.listAllSessions()
+                return try HostdXPCCodec.success(records)
+            }
+            return
+        }
         respond(reply) { hostd in
             let records = try await hostd.listAllSessions()
             return try HostdXPCCodec.success(records)
@@ -55,6 +138,14 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
     }
 
     func deleteSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: request)
+                try await registry.deleteSession(id: request.id)
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
         respond(reply) { hostd in
             let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: request)
             try await hostd.deleteSession(id: request.id)
@@ -63,6 +154,13 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
     }
 
     func pruneExited(reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                try await registry.pruneExited()
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
         respond(reply) { hostd in
             try await hostd.pruneExited()
             return try HostdXPCCodec.success()
@@ -70,6 +168,10 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
     }
 
     func markAllRunningExited(reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            reply((try? HostdXPCCodec.success()) ?? HostdXPCCodec.failure("Unable to encode reply"))
+            return
+        }
         respond(reply) { hostd in
             try await hostd.markAllRunningExited()
             return try HostdXPCCodec.success()
@@ -77,14 +179,38 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
     }
 
     func attachSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: request)
+                let response = try await registry.attachSession(id: request.id)
+                return try HostdXPCCodec.success(response)
+            }
+            return
+        }
         rejectRuntimeControl("attach", request: request, reply: reply)
     }
 
     func releaseSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: request)
+                try await registry.releaseSession(id: request.id)
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
         rejectRuntimeControl("release", request: request, reply: reply)
     }
 
     func terminateSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: request)
+                try await registry.terminateSession(id: request.id)
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
         rejectRuntimeControl("terminate", request: request, reply: reply)
     }
 
@@ -94,8 +220,30 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
     ) {
         Task {
             do {
+                guard let hostdTask else {
+                    reply(HostdXPCCodec.failure("Hostd metadata runtime is unavailable"))
+                    return
+                }
                 let hostd = try await hostdTask.value
                 await reply(try work(hostd))
+            } catch {
+                reply(HostdXPCCodec.failure(String(describing: error)))
+            }
+        }
+    }
+
+    private func respondRegistry(
+        _ reply: @escaping @Sendable (Data) -> Void,
+        _ work: @escaping @Sendable (HostdProcessRegistry) async throws -> Data
+    ) {
+        Task {
+            do {
+                guard let processRegistryTask else {
+                    reply(HostdXPCCodec.failure("Hostd process runtime is unavailable"))
+                    return
+                }
+                let registry = try await processRegistryTask.value
+                await reply(try work(registry))
             } catch {
                 reply(HostdXPCCodec.failure(String(describing: error)))
             }

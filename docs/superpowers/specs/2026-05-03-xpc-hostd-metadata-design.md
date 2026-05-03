@@ -89,7 +89,7 @@ Future PTY work can reuse this boundary by implementing the runtime-control meth
 - `resizeSession`
 - `sendInput`
 
-The first three methods are present in the shared protocol and client surface, but `.appOwnedMetadataOnly` rejects them explicitly. `HostdProcessRegistry` now proves the hostd-owned PTY core path in isolation: it opens the PTY, launches the command, owns the master fd, returns attach metadata, reads bounded output, and terminates the process. The existing app-facing `createSession` remains metadata-only until the XPC service switches runtime ownership and wires streaming, resize, input, and release semantics.
+The first three methods are present in the shared protocol and client surface, but `.appOwnedMetadataOnly` rejects them explicitly. `HostdProcessRegistry` now proves the hostd-owned PTY core path in isolation: it opens the PTY, launches the command, owns the master fd, returns attach metadata, reads bounded output, and terminates the process. `RoostHostdXPCService` can exercise that path when launched with `ROOST_HOSTD_RUNTIME=hostd-owned-process`; default service startup remains metadata-only. The app-facing flow still needs streaming, resize, input, signal, and UI wiring before hostd-owned sessions are user-visible.
 
 ## Exit Criteria
 

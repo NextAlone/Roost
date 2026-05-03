@@ -119,6 +119,25 @@ public actor HostdProcessRegistry {
         try await store.update(id: id, lastState: .exited)
     }
 
+    public func listLiveSessions() async throws -> [SessionRecord] {
+        try await store.listLive()
+    }
+
+    public func listAllSessions() async throws -> [SessionRecord] {
+        try await store.list()
+    }
+
+    public func deleteSession(id: UUID) async throws {
+        if let session = sessions.removeValue(forKey: id) {
+            try session.terminate()
+        }
+        try await store.delete(id: id)
+    }
+
+    public func pruneExited() async throws {
+        try await store.pruneExited()
+    }
+
     public func readAvailableOutput(id: UUID, timeout: TimeInterval = 0) async throws -> Data {
         guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
         return try await session.readAvailableOutput(timeout: timeout)

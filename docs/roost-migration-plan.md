@@ -621,6 +621,12 @@ Exit criteria:
 - `HostdProcessRegistry` opens a PTY, launches the configured command with `posix_spawn`, keeps the master fd in hostd memory, supports attach metadata, exposes bounded output reads for future streaming, and terminates the process before marking the session exited.
 - This slice is core-only and test-covered. The shipped app and XPC service still report `.appOwnedMetadataOnly`; Ghostty rendering, stdin forwarding, resize, signal delivery, release semantics, and live reattach UI remain the next Phase 6 work.
 
+**Status (2026-05-03): Phase 6h (hidden XPC hostd-owned runtime) landed.**
+
+- `RoostHostdXPCService` now supports a hidden `ROOST_HOSTD_RUNTIME=hostd-owned-process` mode. Default service startup remains metadata-only.
+- In hostd-owned mode, XPC `createSession` launches through `HostdProcessRegistry`, `attachSession` returns hostd-owned attach metadata, `releaseSession` validates the live session, `terminateSession` kills the process and marks the record exited, and session list/delete/prune calls use the registry's single SQLite connection.
+- Ghostty attach/rendering, streaming output to the app, stdin forwarding, resize, signals, and UI entry points remain the next Phase 6 work.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

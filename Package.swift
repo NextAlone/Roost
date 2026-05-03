@@ -90,6 +90,7 @@ let package = Package(
             name: "RoostTests",
             dependencies: [
                 "Roost",
+                "RoostHostdXPCService",
                 "MuxyShared",
                 "MuxyServer",
                 "RoostHostdCore",

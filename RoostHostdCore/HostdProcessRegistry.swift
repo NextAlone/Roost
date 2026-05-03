@@ -40,6 +40,8 @@ public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
     case configurePTYFailed(code: Int32, message: String)
     case spawnFailed(code: Int32, message: String)
     case readFailed(code: Int32, message: String)
+    case writeFailed(code: Int32, message: String)
+    case resizeFailed(code: Int32, message: String)
     case terminateFailed(code: Int32, message: String)
 
     public var errorDescription: String? {
@@ -56,6 +58,10 @@ public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
             "Hostd failed to spawn session process: \(message) (\(code))"
         case let .readFailed(code, message):
             "Hostd failed to read session output: \(message) (\(code))"
+        case let .writeFailed(code, message):
+            "Hostd failed to write session input: \(message) (\(code))"
+        case let .resizeFailed(code, message):
+            "Hostd failed to resize session PTY: \(message) (\(code))"
         case let .terminateFailed(code, message):
             "Hostd failed to terminate session process: \(message) (\(code))"
         }
@@ -143,6 +149,16 @@ public actor HostdProcessRegistry {
         return try await session.readAvailableOutput(timeout: timeout)
     }
 
+    public func writeSessionInput(id: UUID, data: Data) async throws {
+        guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
+        try await session.writeInput(data)
+    }
+
+    public func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws {
+        guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
+        try session.resize(columns: columns, rows: rows)
+    }
+
     private func markExitedIfKnown(id: UUID) async throws {
         sessions.removeValue(forKey: id)
         try await store.update(id: id, lastState: .exited)
@@ -223,6 +239,40 @@ private final class HostdPTYSession: @unchecked Sendable {
                 continue
             }
             throw HostdProcessRegistryError.readFailed(code: code, message: errnoMessage(code))
+        }
+    }
+
+    func writeInput(_ data: Data) async throws {
+        guard !data.isEmpty else { return }
+        var offset = 0
+        while offset < data.count {
+            let count = data.withUnsafeBytes { rawBuffer in
+                guard let baseAddress = rawBuffer.baseAddress else { return 0 }
+                return write(masterFD, baseAddress.advanced(by: offset), data.count - offset)
+            }
+            if count > 0 {
+                offset += count
+                continue
+            }
+            if count == 0 {
+                throw HostdProcessRegistryError.writeFailed(code: EIO, message: errnoMessage(EIO))
+            }
+            let code = errno
+            if code == EAGAIN || code == EWOULDBLOCK {
+                try await Task.sleep(nanoseconds: 10_000_000)
+                continue
+            }
+            throw HostdProcessRegistryError.writeFailed(code: code, message: errnoMessage(code))
+        }
+    }
+
+    func resize(columns: UInt16, rows: UInt16) throws {
+        guard columns > 0, rows > 0 else {
+            throw HostdProcessRegistryError.resizeFailed(code: EINVAL, message: errnoMessage(EINVAL))
+        }
+        var size = winsize(ws_row: rows, ws_col: columns, ws_xpixel: 0, ws_ypixel: 0)
+        guard ioctl(masterFD, TIOCSWINSZ, &size) == 0 else {
+            throw HostdProcessRegistryError.resizeFailed(code: errno, message: errnoMessage())
         }
     }
 

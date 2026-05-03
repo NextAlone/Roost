@@ -32,6 +32,13 @@ struct HostdXPCServiceRuntimeTests {
         #expect(throws: HostdXPCError.self) {
             try HostdXPCCodec.decodeReply(HostdAttachSessionResponse.self, from: reply)
         }
+
+        let outputReply = await call {
+            service.readSessionOutput(try HostdXPCCodec.encode(HostdReadSessionOutputRequest(id: id)), reply: $0)
+        }
+        #expect(throws: HostdXPCError.self) {
+            try HostdXPCCodec.decodeReply(HostdReadSessionOutputResponse.self, from: outputReply)
+        }
     }
 
     @Test("hostd-owned mode launches, attaches, and terminates via XPC service surface")
@@ -77,6 +84,51 @@ struct HostdXPCServiceRuntimeTests {
         #expect(live.isEmpty)
     }
 
+    @Test("hostd-owned mode reads output, writes input, and resizes PTY")
+    func hostdOwnedRuntimeIO() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let service = HostdXPCService(runtime: .hostdOwnedProcess(databaseURL: url))
+        let id = UUID()
+        let request = HostdCreateSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "read line; stty size; printf \"input:%s\" \"$line\"; sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let createReply = await call {
+            service.createSession(try HostdXPCCodec.encode(request), reply: $0)
+        }
+        try HostdXPCCodec.decodeEmptyReply(from: createReply)
+
+        let resizeReply = await call {
+            service.resizeSession(try HostdXPCCodec.encode(HostdResizeSessionRequest(id: id, columns: 100, rows: 40)), reply: $0)
+        }
+        try HostdXPCCodec.decodeEmptyReply(from: resizeReply)
+
+        let writeReply = await call {
+            service.writeSessionInput(try HostdXPCCodec.encode(HostdWriteSessionInputRequest(id: id, data: Data("hello\n".utf8))), reply: $0)
+        }
+        try HostdXPCCodec.decodeEmptyReply(from: writeReply)
+
+        let text = try await readText(
+            from: service,
+            id: id,
+            until: { $0.contains("40 100") && $0.contains("input:hello") }
+        )
+        #expect(text.contains("40 100"))
+        #expect(text.contains("input:hello"))
+
+        let terminateReply = await call {
+            service.terminateSession(try HostdXPCCodec.encode(HostdSessionIDRequest(id: id)), reply: $0)
+        }
+        try HostdXPCCodec.decodeEmptyReply(from: terminateReply)
+    }
+
     private func decodeReply<T: Decodable>(
         _ type: T.Type,
         _ body: (@escaping @Sendable (Data) -> Void) throws -> Void
@@ -95,5 +147,24 @@ struct HostdXPCServiceRuntimeTests {
                 continuation.resume(returning: HostdXPCCodec.failure(String(describing: error)))
             }
         }
+    }
+
+    private func readText(
+        from service: HostdXPCService,
+        id: UUID,
+        until matches: (String) -> Bool
+    ) async throws -> String {
+        let deadline = Date().addingTimeInterval(2)
+        var text = ""
+        repeat {
+            let output = try await decodeReply(HostdReadSessionOutputResponse.self) { reply in
+                service.readSessionOutput(
+                    try HostdXPCCodec.encode(HostdReadSessionOutputRequest(id: id, timeout: 0.25)),
+                    reply: reply
+                )
+            }
+            text += String(decoding: output.data, as: UTF8.self)
+        } while !matches(text) && Date() < deadline
+        return text
     }
 }

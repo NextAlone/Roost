@@ -14,6 +14,9 @@ protocol HostdXPCTransport: Sendable {
     func attachSession(_ request: Data) async throws -> Data
     func releaseSession(_ request: Data) async throws -> Data
     func terminateSession(_ request: Data) async throws -> Data
+    func readSessionOutput(_ request: Data) async throws -> Data
+    func writeSessionInput(_ request: Data) async throws -> Data
+    func resizeSession(_ request: Data) async throws -> Data
 }
 
 enum XPCHostdClientError: Error, LocalizedError {
@@ -108,6 +111,24 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
         }
     }
 
+    func readSessionOutput(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.readSessionOutput(request, reply: reply)
+        }
+    }
+
+    func writeSessionInput(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.writeSessionInput(request, reply: reply)
+        }
+    }
+
+    func resizeSession(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.resizeSession(request, reply: reply)
+        }
+    }
+
     private func call(
         _ body: @escaping @Sendable (RoostHostdXPCProtocol, @escaping @Sendable (Data) -> Void) -> Void
     ) async throws -> Data {
@@ -171,6 +192,32 @@ struct XPCHostdClient: RoostHostdClient {
 
     func terminateSession(id: UUID) async throws {
         let response = try await transport.terminateSession(HostdXPCCodec.encode(HostdSessionIDRequest(id: id)))
+        try HostdXPCCodec.decodeEmptyReply(from: response)
+    }
+
+    func readSessionOutput(id: UUID, timeout: TimeInterval = 0) async throws -> Data {
+        let response = try await transport.readSessionOutput(HostdXPCCodec.encode(HostdReadSessionOutputRequest(
+            id: id,
+            timeout: timeout
+        )))
+        let output = try HostdXPCCodec.decodeReply(HostdReadSessionOutputResponse.self, from: response)
+        return output.data
+    }
+
+    func writeSessionInput(id: UUID, data: Data) async throws {
+        let response = try await transport.writeSessionInput(HostdXPCCodec.encode(HostdWriteSessionInputRequest(
+            id: id,
+            data: data
+        )))
+        try HostdXPCCodec.decodeEmptyReply(from: response)
+    }
+
+    func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws {
+        let response = try await transport.resizeSession(HostdXPCCodec.encode(HostdResizeSessionRequest(
+            id: id,
+            columns: columns,
+            rows: rows
+        )))
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 

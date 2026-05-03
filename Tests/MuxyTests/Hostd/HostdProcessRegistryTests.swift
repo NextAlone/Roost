@@ -48,4 +48,49 @@ struct HostdProcessRegistryTests {
         #expect(records.first?.id == id)
         #expect(records.first?.lastState == .exited)
     }
+
+    @Test("writes input and resizes the PTY")
+    func writeInputAndResizePTY() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "read line; stty size; printf \"input:%s\" \"$line\"; sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        try await registry.resizeSession(id: id, columns: 100, rows: 40)
+        try await registry.writeSessionInput(id: id, data: Data("hello\n".utf8))
+        let text = try await readText(
+            from: registry,
+            id: id,
+            until: { $0.contains("40 100") && $0.contains("input:hello") }
+        )
+        #expect(text.contains("40 100"))
+        #expect(text.contains("input:hello"))
+
+        try await registry.terminateSession(id: id)
+    }
+
+    private func readText(
+        from registry: HostdProcessRegistry,
+        id: UUID,
+        until matches: (String) -> Bool
+    ) async throws -> String {
+        let deadline = Date().addingTimeInterval(2)
+        var text = ""
+        repeat {
+            let output = try await registry.readAvailableOutput(id: id, timeout: 0.25)
+            text += String(decoding: output, as: UTF8.self)
+        } while !matches(text) && Date() < deadline
+        return text
+    }
 }

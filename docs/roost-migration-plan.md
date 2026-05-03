@@ -627,6 +627,12 @@ Exit criteria:
 - In hostd-owned mode, XPC `createSession` launches through `HostdProcessRegistry`, `attachSession` returns hostd-owned attach metadata, `releaseSession` validates the live session, `terminateSession` kills the process and marks the record exited, and session list/delete/prune calls use the registry's single SQLite connection.
 - Ghostty attach/rendering, streaming output to the app, stdin forwarding, resize, signals, and UI entry points remain the next Phase 6 work.
 
+**Status (2026-05-03): Phase 6i (hidden XPC PTY I/O controls) landed.**
+
+- `RoostHostdClient`, `XPCHostdClient`, `HostdXPCProtocol`, and shared DTOs now expose `readSessionOutput`, `writeSessionInput`, and `resizeSession`.
+- In hostd-owned mode, `RoostHostdXPCService` routes bounded output reads, stdin writes, and PTY resize requests through `HostdProcessRegistry`.
+- Metadata-only runtime still rejects these calls explicitly. The app UI does not consume the new controls yet; Ghostty rendering, continuous output streaming, signal delivery, and visible reattach remain next.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

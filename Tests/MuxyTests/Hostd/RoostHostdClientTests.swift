@@ -83,6 +83,15 @@ struct RoostHostdClientTests {
         await expectUnsupported {
             try await client.terminateSession(id: id)
         }
+        await expectUnsupported {
+            _ = try await client.readSessionOutput(id: id, timeout: 0)
+        }
+        await expectUnsupported {
+            try await client.writeSessionInput(id: id, data: Data("input".utf8))
+        }
+        await expectUnsupported {
+            try await client.resizeSession(id: id, columns: 80, rows: 24)
+        }
     }
 
     private func expectUnsupported(_ work: () async throws -> Void) async {

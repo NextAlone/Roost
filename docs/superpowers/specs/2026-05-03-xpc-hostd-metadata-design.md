@@ -15,7 +15,7 @@ This design covers A1/A2:
 - Preserve local fallback for `swift run Roost` and any app bundle that does not contain the XPC service.
 - Add a runtime ownership value so later PTY migration can switch behavior without redefining the current API.
 
-This design does not move PTY ownership, terminal rendering, stdin/stdout streaming, resize events, signals, or reattach behavior.
+The initial A1/A2 slice did not move PTY ownership, terminal rendering, stdin/stdout streaming, resize events, signals, or reattach behavior. Later hidden-runtime slices add hostd-owned PTY lifecycle, bounded output reads, stdin writes, and resize behind the same client boundary; visible UI wiring remains out of this metadata design.
 
 ## Architecture
 
@@ -86,10 +86,11 @@ Future PTY work can reuse this boundary by implementing the runtime-control meth
 - `attachSession`
 - `releaseSession`
 - `terminateSession`
+- `readSessionOutput`
+- `writeSessionInput`
 - `resizeSession`
-- `sendInput`
 
-The first three methods are present in the shared protocol and client surface, but `.appOwnedMetadataOnly` rejects them explicitly. `HostdProcessRegistry` now proves the hostd-owned PTY core path in isolation: it opens the PTY, launches the command, owns the master fd, returns attach metadata, reads bounded output, and terminates the process. `RoostHostdXPCService` can exercise that path when launched with `ROOST_HOSTD_RUNTIME=hostd-owned-process`; default service startup remains metadata-only. The app-facing flow still needs streaming, resize, input, signal, and UI wiring before hostd-owned sessions are user-visible.
+These methods are present in the shared protocol and client surface, but `.appOwnedMetadataOnly` rejects them explicitly. `HostdProcessRegistry` now proves the hostd-owned PTY core path in isolation: it opens the PTY, launches the command, owns the master fd, returns attach metadata, reads bounded output, writes stdin, resizes the PTY, and terminates the process. `RoostHostdXPCService` can exercise that path when launched with `ROOST_HOSTD_RUNTIME=hostd-owned-process`; default service startup remains metadata-only. The app-facing flow still needs continuous streaming, signal, and UI wiring before hostd-owned sessions are user-visible.
 
 ## Exit Criteria
 

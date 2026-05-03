@@ -214,6 +214,42 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
         rejectRuntimeControl("terminate", request: request, reply: reply)
     }
 
+    func readSessionOutput(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdReadSessionOutputRequest.self, from: request)
+                let output = try await registry.readAvailableOutput(id: request.id, timeout: request.timeout)
+                return try HostdXPCCodec.success(HostdReadSessionOutputResponse(data: output))
+            }
+            return
+        }
+        rejectRuntimeControl("read output", request: request, as: HostdReadSessionOutputRequest.self, reply: reply)
+    }
+
+    func writeSessionInput(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdWriteSessionInputRequest.self, from: request)
+                try await registry.writeSessionInput(id: request.id, data: request.data)
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
+        rejectRuntimeControl("write input", request: request, as: HostdWriteSessionInputRequest.self, reply: reply)
+    }
+
+    func resizeSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdResizeSessionRequest.self, from: request)
+                try await registry.resizeSession(id: request.id, columns: request.columns, rows: request.rows)
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
+        rejectRuntimeControl("resize", request: request, as: HostdResizeSessionRequest.self, reply: reply)
+    }
+
     private func respond(
         _ reply: @escaping @Sendable (Data) -> Void,
         _ work: @escaping @Sendable (RoostHostd) async throws -> Data
@@ -255,8 +291,17 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
         request: Data,
         reply: @escaping @Sendable (Data) -> Void
     ) {
+        rejectRuntimeControl(operation, request: request, as: HostdSessionIDRequest.self, reply: reply)
+    }
+
+    private func rejectRuntimeControl(
+        _ operation: String,
+        request: Data,
+        as type: (some Decodable).Type,
+        reply: @escaping @Sendable (Data) -> Void
+    ) {
         do {
-            _ = try HostdXPCCodec.decode(HostdSessionIDRequest.self, from: request)
+            _ = try HostdXPCCodec.decode(type, from: request)
             reply(HostdXPCCodec.failure("Hostd \(operation) is unavailable in metadata-only runtime"))
         } catch {
             reply(HostdXPCCodec.failure(String(describing: error)))

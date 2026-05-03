@@ -68,6 +68,46 @@ public struct HostdAttachSessionResponse: Sendable, Codable, Equatable {
     }
 }
 
+public struct HostdReadSessionOutputRequest: Sendable, Codable, Equatable {
+    public let id: UUID
+    public let timeout: TimeInterval
+
+    public init(id: UUID, timeout: TimeInterval = 0) {
+        self.id = id
+        self.timeout = timeout
+    }
+}
+
+public struct HostdReadSessionOutputResponse: Sendable, Codable, Equatable {
+    public let data: Data
+
+    public init(data: Data) {
+        self.data = data
+    }
+}
+
+public struct HostdWriteSessionInputRequest: Sendable, Codable, Equatable {
+    public let id: UUID
+    public let data: Data
+
+    public init(id: UUID, data: Data) {
+        self.id = id
+        self.data = data
+    }
+}
+
+public struct HostdResizeSessionRequest: Sendable, Codable, Equatable {
+    public let id: UUID
+    public let columns: UInt16
+    public let rows: UInt16
+
+    public init(id: UUID, columns: UInt16, rows: UInt16) {
+        self.id = id
+        self.columns = columns
+        self.rows = rows
+    }
+}
+
 public struct HostdXPCReply: Sendable, Codable, Equatable {
     public let ok: Bool
     public let data: Data?

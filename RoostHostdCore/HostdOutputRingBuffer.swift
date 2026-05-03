@@ -14,11 +14,28 @@ public struct HostdOutputRead: Codable, Equatable, Sendable {
     public let chunks: [HostdOutputChunk]
     public let nextSequence: UInt64
     public let truncated: Bool
+    public let streamEnded: Bool
 
-    public init(chunks: [HostdOutputChunk], nextSequence: UInt64, truncated: Bool) {
+    public init(chunks: [HostdOutputChunk], nextSequence: UInt64, truncated: Bool, streamEnded: Bool = false) {
         self.chunks = chunks
         self.nextSequence = nextSequence
         self.truncated = truncated
+        self.streamEnded = streamEnded
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case chunks
+        case nextSequence
+        case truncated
+        case streamEnded
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        chunks = try container.decode([HostdOutputChunk].self, forKey: .chunks)
+        nextSequence = try container.decode(UInt64.self, forKey: .nextSequence)
+        truncated = try container.decode(Bool.self, forKey: .truncated)
+        streamEnded = try container.decodeIfPresent(Bool.self, forKey: .streamEnded) ?? false
     }
 }
 

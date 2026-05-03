@@ -239,6 +239,36 @@ struct HostdProcessRegistryTests {
         }
     }
 
+    @Test("final output remains readable after process exits naturally")
+    func finalOutputRemainsReadableAfterProcessExitsNaturally() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "printf final-output",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        try await eventually {
+            let records = try await store.list()
+            return records.first?.lastState == .exited
+        }
+
+        let output = try await registry.readSessionOutputStream(id: id, after: nil, timeout: 0)
+        let text = String(decoding: output.chunks.flatMap(\.data), as: UTF8.self)
+
+        #expect(text.contains("final-output"))
+        #expect(output.streamEnded)
+    }
+
     @Test("writes input and resizes the PTY")
     func writeInputAndResizePTY() async throws {
         let url = makeTempStoreURL()

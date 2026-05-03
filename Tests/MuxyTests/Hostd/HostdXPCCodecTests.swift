@@ -78,7 +78,8 @@ struct HostdXPCCodecTests {
         let response = HostdReadSessionOutputStreamResponse(output: HostdOutputRead(
             chunks: [HostdOutputChunk(sequence: 42, data: Data("output".utf8))],
             nextSequence: 48,
-            truncated: false
+            truncated: false,
+            streamEnded: true
         ))
         let responseData = try HostdXPCCodec.success(response)
         let decodedResponse = try HostdXPCCodec.decodeReply(
@@ -86,6 +87,15 @@ struct HostdXPCCodecTests {
             from: responseData
         )
         #expect(decodedResponse == response)
+    }
+
+    @Test("stream output defaults missing end marker to active")
+    func streamOutputDefaultsMissingEndMarkerToActive() throws {
+        let data = Data(#"{"chunks":[],"nextSequence":7,"truncated":false}"#.utf8)
+        let decoded = try JSONDecoder().decode(HostdOutputRead.self, from: data)
+
+        #expect(decoded == HostdOutputRead(chunks: [], nextSequence: 7, truncated: false))
+        #expect(!decoded.streamEnded)
     }
 
     @Test("failure reply throws the remote message")

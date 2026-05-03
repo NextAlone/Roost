@@ -177,6 +177,7 @@ enum RoostHostdAttachMain {
             for chunk in output.chunks {
                 try HostdAttachTerminal.writeAll(chunk.data)
             }
+            if output.streamEnded { return }
         }
     }
 }

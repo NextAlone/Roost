@@ -46,6 +46,19 @@ struct HostdTerminalSnapshotTests {
         #expect(output.nextSequence == 7)
     }
 
+    @Test("snapshot exits synchronized output before repaint")
+    func snapshotExitsSynchronizedOutputBeforeRepaint() throws {
+        let snapshot = HostdTerminalSnapshotStore(columns: 20, rows: 4)
+        snapshot.feedImmediately(Data("ready".utf8), endingAt: 5)
+
+        let output = snapshot.outputRead()
+        let text = String(decoding: output.chunks.flatMap(\.data), as: UTF8.self)
+        let syncReset = try #require(text.range(of: "\u{1B}[?2026l"))
+        let repaint = try #require(text.range(of: "\u{1B}[2J"))
+
+        #expect(syncReset.lowerBound < repaint.lowerBound)
+    }
+
     @Test("async feed does not block cached snapshot reads")
     func asyncFeedDoesNotBlockCachedSnapshotReads() {
         let snapshot = HostdTerminalSnapshotStore(columns: 80, rows: 24)

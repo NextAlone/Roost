@@ -89,6 +89,7 @@ private struct HostdTerminalSnapshotSerializer {
         var data = Data()
         append("\(escape)[0m", to: &data)
         append("\(escape)[?9l\(escape)[?1000l\(escape)[?1002l\(escape)[?1003l", to: &data)
+        append("\(escape)[?2026l", to: &data)
         append("\(escape)[?1049l", to: &data)
         if terminal.isCurrentBufferAlternate {
             append("\(escape)[?1049h", to: &data)

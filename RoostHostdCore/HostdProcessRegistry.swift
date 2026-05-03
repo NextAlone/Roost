@@ -78,6 +78,7 @@ public actor HostdProcessRegistry {
     private let store: SessionStore
     private let keepalive: any HostdProcessKeepalive
     private var sessions: [UUID: HostdPTYSession] = [:]
+    private var liveSessionIDs = Set<UUID>()
 
     init(store: SessionStore, keepalive: any HostdProcessKeepalive = NoopHostdProcessKeepalive()) {
         self.store = store
@@ -110,6 +111,7 @@ public actor HostdProcessRegistry {
         do {
             try await store.record(record)
             sessions[request.id] = session
+            liveSessionIDs.insert(request.id)
             keepalive.retainSession()
             startExitWatcher(id: request.id, session: session)
             return HostdAttachSessionResponse(record: record, ownership: .hostdOwnedProcess)
@@ -141,24 +143,23 @@ public actor HostdProcessRegistry {
         guard let session = sessions.removeValue(forKey: id) else {
             throw HostdProcessRegistryError.sessionNotFound(id)
         }
-        keepalive.releaseSession()
+        releaseKeepaliveIfLive(id: id)
         try session.terminate()
         try await store.update(id: id, lastState: .exited)
     }
 
     public func listLiveSessions() async throws -> [SessionRecord] {
         let persistedLive = try await store.listLive()
-        let liveSessions = sessions.filter { $0.value.isRunning }
-        let deadIDs = Set(sessions.keys).subtracting(liveSessions.keys)
-        for id in deadIDs {
-            sessions.removeValue(forKey: id)
-            keepalive.releaseSession()
-            try await store.update(id: id, lastState: .exited)
+        var liveRecords: [SessionRecord] = []
+        for (id, session) in sessions {
+            if session.isRunning {
+                liveRecords.append(session.record)
+            } else {
+                try await markExitedIfKnown(id: id)
+            }
         }
 
-        let liveRecords = liveSessions.values
-            .map(\.record)
-            .sorted { $0.createdAt > $1.createdAt }
+        liveRecords.sort { $0.createdAt > $1.createdAt }
         let liveIDs = Set(liveRecords.map(\.id))
         for record in persistedLive where !liveIDs.contains(record.id) {
             try await store.update(id: record.id, lastState: .exited)
@@ -172,13 +173,17 @@ public actor HostdProcessRegistry {
 
     public func deleteSession(id: UUID) async throws {
         if let session = sessions.removeValue(forKey: id) {
-            keepalive.releaseSession()
+            releaseKeepaliveIfLive(id: id)
             try session.terminate()
         }
         try await store.delete(id: id)
     }
 
     public func pruneExited() async throws {
+        for (id, session) in sessions where !session.isRunning {
+            sessions.removeValue(forKey: id)
+            releaseKeepaliveIfLive(id: id)
+        }
         try await store.pruneExited()
     }
 
@@ -198,7 +203,11 @@ public actor HostdProcessRegistry {
         if mode == .terminalSnapshot {
             return session.readTerminalSnapshot()
         }
-        return await session.readOutput(after: sequence, timeout: timeout, limit: limit)
+        let output = await session.readOutput(after: sequence, timeout: timeout, limit: limit)
+        if output.streamEnded {
+            try await markExitedIfKnown(id: id)
+        }
+        return output
     }
 
     public func writeSessionInput(id: UUID, data: Data) async throws {
@@ -217,8 +226,8 @@ public actor HostdProcessRegistry {
     }
 
     private func markExitedIfKnown(id: UUID) async throws {
-        if sessions.removeValue(forKey: id) != nil {
-            keepalive.releaseSession()
+        if sessions[id] != nil {
+            releaseKeepaliveIfLive(id: id)
         }
         try await store.update(id: id, lastState: .exited)
     }
@@ -236,9 +245,14 @@ public actor HostdProcessRegistry {
     }
 
     private func markExitedFromExitWatcher(id: UUID) async {
-        guard sessions.removeValue(forKey: id) != nil else { return }
-        keepalive.releaseSession()
+        guard sessions[id] != nil else { return }
+        releaseKeepaliveIfLive(id: id)
         try? await store.update(id: id, lastState: .exited)
+    }
+
+    private func releaseKeepaliveIfLive(id: UUID) {
+        guard liveSessionIDs.remove(id) != nil else { return }
+        keepalive.releaseSession()
     }
 }
 
@@ -362,7 +376,16 @@ private final class HostdPTYSession: @unchecked Sendable {
             let output = outputLock.withLock {
                 outputBuffer.read(after: sequence, limit: limit)
             }
-            if !output.chunks.isEmpty || Date() >= deadline || !isRunning {
+            let running = isRunning
+            if !output.chunks.isEmpty || Date() >= deadline || !running {
+                if !running {
+                    return HostdOutputRead(
+                        chunks: output.chunks,
+                        nextSequence: output.nextSequence,
+                        truncated: output.truncated,
+                        streamEnded: true
+                    )
+                }
                 return output
             }
             try? await Task.sleep(nanoseconds: HostdPTYSession.outputPollNanoseconds)

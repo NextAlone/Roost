@@ -250,6 +250,18 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
         rejectRuntimeControl("resize", request: request, as: HostdResizeSessionRequest.self, reply: reply)
     }
 
+    func sendSessionSignal(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdSendSessionSignalRequest.self, from: request)
+                try await registry.sendSessionSignal(id: request.id, signal: request.signal)
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
+        rejectRuntimeControl("send signal", request: request, as: HostdSendSessionSignalRequest.self, reply: reply)
+    }
+
     private func respond(
         _ reply: @escaping @Sendable (Data) -> Void,
         _ work: @escaping @Sendable (RoostHostd) async throws -> Data

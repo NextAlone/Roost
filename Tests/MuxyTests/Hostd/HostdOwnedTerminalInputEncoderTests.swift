@@ -11,6 +11,15 @@ struct HostdOwnedTerminalInputEncoderTests {
         #expect(HostdOwnedTerminalInputEncoder.data(characters: "abc", keyCode: 0) == Data("abc".utf8))
     }
 
+    @Test("maps control-c to interrupt signal")
+    func mapsControlCToInterruptSignal() {
+        #expect(HostdOwnedTerminalInputEncoder.action(
+            characters: "\u{3}",
+            keyCode: 8,
+            modifierFlags: .control
+        ) == .signal(.interrupt))
+    }
+
     @Test("encodes terminal control keys")
     func encodesTerminalControlKeys() {
         #expect(HostdOwnedTerminalInputEncoder.data(characters: nil, keyCode: 36) == Data([13]))

@@ -80,6 +80,39 @@ struct HostdProcessRegistryTests {
         try await registry.terminateSession(id: id)
     }
 
+    @Test("sends interrupt signal to a running PTY session")
+    func sendsInterruptSignalToRunningPTYSession() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "exec perl -e '$SIG{INT}=sub{print \"interrupted\"; exit 0}; print \"ready\"; sleep 60'",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        _ = try await readText(
+            from: registry,
+            id: id,
+            until: { $0.contains("ready") }
+        )
+        try await registry.sendSessionSignal(id: id, signal: .interrupt)
+
+        let text = try await readText(
+            from: registry,
+            id: id,
+            until: { $0.contains("interrupted") }
+        )
+        #expect(text.contains("interrupted"))
+    }
+
     private func readText(
         from registry: HostdProcessRegistry,
         id: UUID,

@@ -15,6 +15,7 @@ protocol RoostHostdClient: Sendable {
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data
     func writeSessionInput(id: UUID, data: Data) async throws
     func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws
+    func sendSessionSignal(id: UUID, signal: HostdSessionSignal) async throws
 
     func markExited(sessionID: UUID) async throws
     func listLiveSessions() async throws -> [SessionRecord]
@@ -85,6 +86,11 @@ extension RoostHostdClient {
 
     func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws {
         let error = await unsupportedRuntimeControl("resize")
+        throw error
+    }
+
+    func sendSessionSignal(id: UUID, signal: HostdSessionSignal) async throws {
+        let error = await unsupportedRuntimeControl("send signal")
         throw error
     }
 

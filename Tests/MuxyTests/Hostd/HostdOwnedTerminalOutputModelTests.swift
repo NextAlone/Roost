@@ -79,6 +79,19 @@ struct HostdOwnedTerminalOutputModelTests {
         #expect(model.status == .failed("Hostd client unavailable"))
     }
 
+    @Test("sendSignal forwards hostd interrupt signal")
+    func sendSignalForwardsHostdInterruptSignal() async throws {
+        let client = FakeHostdOutputClient(outputs: [])
+        let model = HostdOwnedTerminalOutputModel(bufferLimit: 1024)
+        let paneID = UUID()
+
+        await model.sendSignal(client: client, paneID: paneID, signal: .interrupt)
+
+        #expect(await client.signals() == [
+            HostdSignalRequest(id: paneID, signal: .interrupt),
+        ])
+    }
+
     @Test("resize writes hostd grid once per size")
     func resizeWritesHostdGridOncePerSize() async throws {
         let client = FakeHostdOutputClient(outputs: [])
@@ -124,6 +137,7 @@ private actor FakeHostdOutputClient: RoostHostdClient {
     private var readCount = 0
     private var inputs: [Data] = []
     private var resizeRecords: [HostdResizeRequest] = []
+    private var signalRecords: [HostdSignalRequest] = []
 
     init(outputs: [Data]) {
         self.outputs = outputs
@@ -147,6 +161,10 @@ private actor FakeHostdOutputClient: RoostHostdClient {
 
     func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws {
         resizeRecords.append(HostdResizeRequest(id: id, columns: columns, rows: rows))
+    }
+
+    func sendSessionSignal(id: UUID, signal: HostdSessionSignal) async throws {
+        signalRecords.append(HostdSignalRequest(id: id, signal: signal))
     }
 
     func markExited(sessionID: UUID) async throws {}
@@ -176,10 +194,19 @@ private actor FakeHostdOutputClient: RoostHostdClient {
     func resizeRequests() -> [HostdResizeRequest] {
         resizeRecords
     }
+
+    func signals() -> [HostdSignalRequest] {
+        signalRecords
+    }
 }
 
 private struct HostdResizeRequest: Equatable {
     let id: UUID
     let columns: UInt16
     let rows: UInt16
+}
+
+private struct HostdSignalRequest: Equatable {
+    let id: UUID
+    let signal: HostdSessionSignal
 }

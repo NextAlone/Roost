@@ -96,6 +96,20 @@ public struct HostdWriteSessionInputRequest: Sendable, Codable, Equatable {
     }
 }
 
+public enum HostdSessionSignal: String, Sendable, Codable, Equatable {
+    case interrupt
+}
+
+public struct HostdSendSessionSignalRequest: Sendable, Codable, Equatable {
+    public let id: UUID
+    public let signal: HostdSessionSignal
+
+    public init(id: UUID, signal: HostdSessionSignal) {
+        self.id = id
+        self.signal = signal
+    }
+}
+
 public struct HostdResizeSessionRequest: Sendable, Codable, Equatable {
     public let id: UUID
     public let columns: UInt16

@@ -67,6 +67,10 @@ private struct RuntimeHintHostdClient: RoostHostdClient {
         try await client.resizeSession(id: id, columns: columns, rows: rows)
     }
 
+    func sendSessionSignal(id: UUID, signal: HostdSessionSignal) async throws {
+        try await client.sendSessionSignal(id: id, signal: signal)
+    }
+
     func markExited(sessionID: UUID) async throws {
         try await client.markExited(sessionID: sessionID)
     }

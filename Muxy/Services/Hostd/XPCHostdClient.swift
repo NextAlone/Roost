@@ -17,6 +17,7 @@ protocol HostdXPCTransport: Sendable {
     func readSessionOutput(_ request: Data) async throws -> Data
     func writeSessionInput(_ request: Data) async throws -> Data
     func resizeSession(_ request: Data) async throws -> Data
+    func sendSessionSignal(_ request: Data) async throws -> Data
 }
 
 enum XPCHostdClientError: Error, LocalizedError {
@@ -129,6 +130,12 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
         }
     }
 
+    func sendSessionSignal(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.sendSessionSignal(request, reply: reply)
+        }
+    }
+
     private func call(
         _ body: @escaping @Sendable (RoostHostdXPCProtocol, @escaping @Sendable (Data) -> Void) -> Void
     ) async throws -> Data {
@@ -217,6 +224,14 @@ struct XPCHostdClient: RoostHostdClient {
             id: id,
             columns: columns,
             rows: rows
+        )))
+        try HostdXPCCodec.decodeEmptyReply(from: response)
+    }
+
+    func sendSessionSignal(id: UUID, signal: HostdSessionSignal) async throws {
+        let response = try await transport.sendSessionSignal(HostdXPCCodec.encode(HostdSendSessionSignalRequest(
+            id: id,
+            signal: signal
         )))
         try HostdXPCCodec.decodeEmptyReply(from: response)
     }

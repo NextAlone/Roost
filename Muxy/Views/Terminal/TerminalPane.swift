@@ -34,9 +34,14 @@ struct TerminalPane: View {
                             focused: focused,
                             visible: visible,
                             onFocus: onFocus
-                        ) { data in
+                        ) { action in
                             Task {
-                                await hostdOutput.sendInput(client: hostdClient, paneID: state.id, data: data)
+                                switch action {
+                                case let .input(data):
+                                    await hostdOutput.sendInput(client: hostdClient, paneID: state.id, data: data)
+                                case let .signal(signal):
+                                    await hostdOutput.sendSignal(client: hostdClient, paneID: state.id, signal: signal)
+                                }
                             }
                         }
                     }

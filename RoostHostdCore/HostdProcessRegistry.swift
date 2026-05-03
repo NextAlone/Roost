@@ -42,6 +42,7 @@ public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
     case readFailed(code: Int32, message: String)
     case writeFailed(code: Int32, message: String)
     case resizeFailed(code: Int32, message: String)
+    case signalFailed(code: Int32, message: String)
     case terminateFailed(code: Int32, message: String)
 
     public var errorDescription: String? {
@@ -62,6 +63,8 @@ public enum HostdProcessRegistryError: Error, LocalizedError, Equatable {
             "Hostd failed to write session input: \(message) (\(code))"
         case let .resizeFailed(code, message):
             "Hostd failed to resize session PTY: \(message) (\(code))"
+        case let .signalFailed(code, message):
+            "Hostd failed to signal session process: \(message) (\(code))"
         case let .terminateFailed(code, message):
             "Hostd failed to terminate session process: \(message) (\(code))"
         }
@@ -157,6 +160,11 @@ public actor HostdProcessRegistry {
     public func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws {
         guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
         try session.resize(columns: columns, rows: rows)
+    }
+
+    public func sendSessionSignal(id: UUID, signal: HostdSessionSignal) async throws {
+        guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
+        try session.sendSignal(signal)
     }
 
     private func markExitedIfKnown(id: UUID) async throws {
@@ -276,17 +284,32 @@ private final class HostdPTYSession: @unchecked Sendable {
         }
     }
 
+    func sendSignal(_ signal: HostdSessionSignal) throws {
+        let result = lock.withLock {
+            if reaped { return CInt(ESRCH) }
+            let target = -pid
+            let killResult = kill(target, signal.value)
+            if killResult == 0 {
+                return CInt(0)
+            }
+            return errno
+        }
+        guard result == 0 else {
+            throw HostdProcessRegistryError.signalFailed(code: result, message: errnoMessage(result))
+        }
+    }
+
     func terminate() throws {
         let result = lock.withLock {
             if reaped { return CInt(0) }
-            let killResult = kill(pid, SIGTERM)
+            let killResult = kill(-pid, SIGTERM)
             if killResult != 0 && errno != ESRCH {
                 return errno
             }
             if waitForExit(timeout: 0.5) {
                 return CInt(0)
             }
-            let forceResult = kill(pid, SIGKILL)
+            let forceResult = kill(-pid, SIGKILL)
             if forceResult != 0 && errno != ESRCH {
                 return errno
             }
@@ -363,6 +386,37 @@ private final class HostdPTYSession: @unchecked Sendable {
         guard actionResult == 0
         else { throw HostdProcessRegistryError.spawnFailed(code: actionResult, message: errnoMessage(actionResult)) }
 
+        var attributes: posix_spawnattr_t?
+        var attrResult = posix_spawnattr_init(&attributes)
+        guard attrResult == 0 else {
+            throw HostdProcessRegistryError.spawnFailed(code: attrResult, message: errnoMessage(attrResult))
+        }
+        defer { posix_spawnattr_destroy(&attributes) }
+
+        attrResult = posix_spawnattr_setpgroup(&attributes, 0)
+        guard attrResult == 0
+        else { throw HostdProcessRegistryError.spawnFailed(code: attrResult, message: errnoMessage(attrResult)) }
+        var defaultSignals = sigset_t()
+        sigemptyset(&defaultSignals)
+        sigaddset(&defaultSignals, SIGINT)
+        sigaddset(&defaultSignals, SIGTERM)
+        sigaddset(&defaultSignals, SIGQUIT)
+        attrResult = posix_spawnattr_setsigdefault(&attributes, &defaultSignals)
+        guard attrResult == 0
+        else { throw HostdProcessRegistryError.spawnFailed(code: attrResult, message: errnoMessage(attrResult)) }
+
+        var signalMask = sigset_t()
+        sigemptyset(&signalMask)
+        attrResult = posix_spawnattr_setsigmask(&attributes, &signalMask)
+        guard attrResult == 0
+        else { throw HostdProcessRegistryError.spawnFailed(code: attrResult, message: errnoMessage(attrResult)) }
+        attrResult = posix_spawnattr_setflags(
+            &attributes,
+            Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK)
+        )
+        guard attrResult == 0
+        else { throw HostdProcessRegistryError.spawnFailed(code: attrResult, message: errnoMessage(attrResult)) }
+
         let args = ["/bin/sh", "-lc", command]
         var env = ProcessInfo.processInfo.environment
         for (key, value) in environment {
@@ -373,7 +427,7 @@ private final class HostdPTYSession: @unchecked Sendable {
         let result = withCStringArray(args) { argv in
             withCStringArray(envStrings) { envp in
                 "/bin/sh".withCString { path in
-                    posix_spawn(&pid, path, &actions, nil, argv, envp)
+                    posix_spawn(&pid, path, &actions, &attributes, argv, envp)
                 }
             }
         }
@@ -381,6 +435,15 @@ private final class HostdPTYSession: @unchecked Sendable {
             throw HostdProcessRegistryError.spawnFailed(code: result, message: errnoMessage(result))
         }
         return pid
+    }
+}
+
+private extension HostdSessionSignal {
+    var value: CInt {
+        switch self {
+        case .interrupt:
+            SIGINT
+        }
     }
 }
 

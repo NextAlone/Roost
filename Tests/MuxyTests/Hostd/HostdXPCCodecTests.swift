@@ -55,6 +55,14 @@ struct HostdXPCCodecTests {
         #expect(decoded == original)
     }
 
+    @Test("signal request round-trips through shared XPC schema")
+    func signalRequestRoundTrip() throws {
+        let original = HostdSendSessionSignalRequest(id: UUID(), signal: .interrupt)
+        let data = try HostdXPCCodec.encode(original)
+        let decoded = try HostdXPCCodec.decode(HostdSendSessionSignalRequest.self, from: data)
+        #expect(decoded == original)
+    }
+
     @Test("failure reply throws the remote message")
     func failureReply() throws {
         let reply = HostdXPCCodec.failure("no session")

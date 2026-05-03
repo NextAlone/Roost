@@ -655,7 +655,13 @@ Exit criteria:
 
 - Hostd-owned panes now observe their SwiftUI geometry, convert the visible size into PTY columns and rows, and call `resizeSession`.
 - Resize requests are deduped at the pane model boundary, and the current size is resent when a hostd client becomes available.
-- Signal delivery, ANSI rendering, and live Ghostty attach remain next.
+- At that checkpoint, signal delivery, ANSI rendering, and live Ghostty attach remained next.
+
+**Status (2026-05-03): Phase 6n (hostd-owned interrupt signal) landed.**
+
+- Shared hostd DTOs, XPC protocol, `RoostHostdClient`, `XPCHostdClient`, `RoostHostdXPCService`, and `HostdProcessRegistry` now expose `sendSessionSignal(.interrupt)`.
+- Hostd-owned process launch resets terminal-relevant signal dispositions and signal masks, creates a dedicated process group, and sends SIGINT to that group for interrupt delivery.
+- Hostd-owned panes map Ctrl-C to `sendSessionSignal(.interrupt)` instead of raw input bytes. ANSI rendering and live Ghostty attach remain next.
 
 ## Phase 7: Roost Config and Presets
 

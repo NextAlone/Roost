@@ -89,8 +89,9 @@ Future PTY work can reuse this boundary by implementing the runtime-control meth
 - `readSessionOutput`
 - `writeSessionInput`
 - `resizeSession`
+- `sendSessionSignal`
 
-These methods are present in the shared protocol and client surface, but `.appOwnedMetadataOnly` rejects them explicitly. `HostdProcessRegistry` now proves the hostd-owned PTY core path in isolation: it opens the PTY, launches the command, owns the master fd, returns attach metadata, reads bounded output, writes stdin, resizes the PTY, and terminates the process. `RoostHostdXPCService` can exercise that path when launched with `ROOST_HOSTD_RUNTIME=hostd-owned-process`; default service startup remains metadata-only. The app now preserves the runtime ownership hint and renders hostd-owned agent panes with a bounded raw UTF-8 output view, raw PTY input bridge, and geometry-driven PTY resize instead of mounting `TerminalBridge`, which prevents duplicate local Ghostty process launch. Signal delivery, ANSI rendering, and live Ghostty attach remain future UI work.
+These methods are present in the shared protocol and client surface, but `.appOwnedMetadataOnly` rejects them explicitly. `HostdProcessRegistry` now proves the hostd-owned PTY core path in isolation: it opens the PTY, launches the command, owns the master fd, returns attach metadata, reads bounded output, writes stdin, resizes the PTY, sends interrupt signals, and terminates the process. `RoostHostdXPCService` can exercise that path when launched with `ROOST_HOSTD_RUNTIME=hostd-owned-process`; default service startup remains metadata-only. The app now preserves the runtime ownership hint and renders hostd-owned agent panes with a bounded raw UTF-8 output view, raw PTY input bridge, geometry-driven PTY resize, and Ctrl-C interrupt forwarding instead of mounting `TerminalBridge`, which prevents duplicate local Ghostty process launch. ANSI rendering and live Ghostty attach remain future UI work.
 
 ## Exit Criteria
 

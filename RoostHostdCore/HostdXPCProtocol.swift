@@ -16,4 +16,5 @@ public protocol RoostHostdXPCProtocol {
     func readSessionOutput(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
     func writeSessionInput(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
     func resizeSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
+    func sendSessionSignal(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
 }

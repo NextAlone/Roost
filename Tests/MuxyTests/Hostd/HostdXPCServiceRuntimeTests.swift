@@ -39,6 +39,16 @@ struct HostdXPCServiceRuntimeTests {
         #expect(throws: HostdXPCError.self) {
             try HostdXPCCodec.decodeReply(HostdReadSessionOutputResponse.self, from: outputReply)
         }
+
+        let signalReply = await call {
+            service.sendSessionSignal(
+                try HostdXPCCodec.encode(HostdSendSessionSignalRequest(id: id, signal: .interrupt)),
+                reply: $0
+            )
+        }
+        #expect(throws: HostdXPCError.self) {
+            try HostdXPCCodec.decodeEmptyReply(from: signalReply)
+        }
     }
 
     @Test("hostd-owned mode launches, attaches, and terminates via XPC service surface")
@@ -127,6 +137,48 @@ struct HostdXPCServiceRuntimeTests {
             service.terminateSession(try HostdXPCCodec.encode(HostdSessionIDRequest(id: id)), reply: $0)
         }
         try HostdXPCCodec.decodeEmptyReply(from: terminateReply)
+    }
+
+    @Test("hostd-owned mode sends interrupt signal through XPC service surface")
+    func hostdOwnedRuntimeSignal() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let service = HostdXPCService(runtime: .hostdOwnedProcess(databaseURL: url))
+        let id = UUID()
+        let request = HostdCreateSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "exec perl -e '$SIG{INT}=sub{print \"interrupted\"; exit 0}; print \"ready\"; sleep 60'",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let createReply = await call {
+            service.createSession(try HostdXPCCodec.encode(request), reply: $0)
+        }
+        try HostdXPCCodec.decodeEmptyReply(from: createReply)
+
+        _ = try await readText(
+            from: service,
+            id: id,
+            until: { $0.contains("ready") }
+        )
+        let signalReply = await call {
+            service.sendSessionSignal(
+                try HostdXPCCodec.encode(HostdSendSessionSignalRequest(id: id, signal: .interrupt)),
+                reply: $0
+            )
+        }
+        try HostdXPCCodec.decodeEmptyReply(from: signalReply)
+
+        let text = try await readText(
+            from: service,
+            id: id,
+            until: { $0.contains("interrupted") }
+        )
+        #expect(text.contains("interrupted"))
     }
 
     private func decodeReply<T: Decodable>(

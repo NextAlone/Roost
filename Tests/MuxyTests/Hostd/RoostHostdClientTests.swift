@@ -92,6 +92,9 @@ struct RoostHostdClientTests {
         await expectUnsupported {
             try await client.resizeSession(id: id, columns: 80, rows: 24)
         }
+        await expectUnsupported {
+            try await client.sendSessionSignal(id: id, signal: .interrupt)
+        }
     }
 
     private func expectUnsupported(_ work: () async throws -> Void) async {

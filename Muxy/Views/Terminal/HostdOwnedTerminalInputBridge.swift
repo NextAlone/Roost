@@ -1,14 +1,43 @@
 import AppKit
 import Foundation
+import RoostHostdCore
 import SwiftUI
 
+enum HostdOwnedTerminalInputAction: Equatable {
+    case input(Data)
+    case signal(HostdSessionSignal)
+}
+
 enum HostdOwnedTerminalInputEncoder {
-    static func data(for event: NSEvent) -> Data? {
-        data(
+    static func action(for event: NSEvent) -> HostdOwnedTerminalInputAction? {
+        action(
             characters: event.characters,
             keyCode: event.keyCode,
             modifierFlags: event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         )
+    }
+
+    static func action(
+        characters: String?,
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags = []
+    ) -> HostdOwnedTerminalInputAction? {
+        guard !modifierFlags.contains(.command) else { return nil }
+        if isInterrupt(characters: characters, keyCode: keyCode, modifierFlags: modifierFlags) {
+            return .signal(.interrupt)
+        }
+        if let mapped = mappedData(for: keyCode) { return .input(mapped) }
+        guard let characters, !characters.isEmpty else { return nil }
+        guard let data = characters.data(using: .utf8) else { return nil }
+        return .input(data)
+    }
+
+    static func data(for event: NSEvent) -> Data? {
+        data(action: action(
+            characters: event.characters,
+            keyCode: event.keyCode,
+            modifierFlags: event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        ))
     }
 
     static func data(
@@ -16,10 +45,20 @@ enum HostdOwnedTerminalInputEncoder {
         keyCode: UInt16,
         modifierFlags: NSEvent.ModifierFlags = []
     ) -> Data? {
-        guard !modifierFlags.contains(.command) else { return nil }
-        if let mapped = mappedData(for: keyCode) { return mapped }
-        guard let characters, !characters.isEmpty else { return nil }
-        return characters.data(using: .utf8)
+        data(action: action(characters: characters, keyCode: keyCode, modifierFlags: modifierFlags))
+    }
+
+    private static func data(action: HostdOwnedTerminalInputAction?) -> Data? {
+        guard case let .input(data) = action else { return nil }
+        return data
+    }
+
+    private static func isInterrupt(
+        characters: String?,
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> Bool {
+        characters == "\u{3}" || (modifierFlags.contains(.control) && keyCode == 8)
     }
 
     private static func mappedData(for keyCode: UInt16) -> Data? {
@@ -61,14 +100,14 @@ struct HostdOwnedTerminalInputBridge: NSViewRepresentable {
     let focused: Bool
     let visible: Bool
     let onFocus: () -> Void
-    let onInput: (Data) -> Void
+    let onAction: (HostdOwnedTerminalInputAction) -> Void
 
     func makeNSView(context: Context) -> HostdOwnedTerminalInputNSView {
         let view = HostdOwnedTerminalInputNSView()
         view.focused = focused
         view.visible = visible
         view.onFocus = onFocus
-        view.onInput = onInput
+        view.onAction = onAction
         return view
     }
 
@@ -76,7 +115,7 @@ struct HostdOwnedTerminalInputBridge: NSViewRepresentable {
         nsView.focused = focused
         nsView.visible = visible
         nsView.onFocus = onFocus
-        nsView.onInput = onInput
+        nsView.onAction = onAction
         nsView.updateFocus()
     }
 }
@@ -85,7 +124,7 @@ final class HostdOwnedTerminalInputNSView: NSView {
     var focused = false
     var visible = false
     var onFocus: (() -> Void)?
-    var onInput: ((Data) -> Void)?
+    var onAction: ((HostdOwnedTerminalInputAction) -> Void)?
 
     override var acceptsFirstResponder: Bool {
         true
@@ -121,11 +160,11 @@ final class HostdOwnedTerminalInputNSView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        guard let data = HostdOwnedTerminalInputEncoder.data(for: event) else {
+        guard let action = HostdOwnedTerminalInputEncoder.action(for: event) else {
             super.keyDown(with: event)
             return
         }
-        onInput?(data)
+        onAction?(action)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -141,7 +180,7 @@ final class HostdOwnedTerminalInputNSView: NSView {
         guard let text = NSPasteboard.general.string(forType: .string),
               let data = text.data(using: .utf8)
         else { return }
-        onInput?(data)
+        onAction?(.input(data))
     }
 
     func updateFocus() {

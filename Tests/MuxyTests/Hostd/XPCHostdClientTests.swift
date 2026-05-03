@@ -12,6 +12,7 @@ struct XPCHostdClientTests {
         private var controlIDs: [String: UUID] = [:]
         private var lastInput: Data?
         private var lastResize: HostdResizeSessionRequest?
+        private var lastSignal: HostdSendSessionSignalRequest?
 
         func runtimeOwnership() async throws -> Data {
             try HostdXPCCodec.success(HostdRuntimeOwnership.appOwnedMetadataOnly)
@@ -138,6 +139,13 @@ struct XPCHostdClientTests {
             return try HostdXPCCodec.success()
         }
 
+        func sendSessionSignal(_ data: Data) async throws -> Data {
+            let request = try HostdXPCCodec.decode(HostdSendSessionSignalRequest.self, from: data)
+            controlIDs["signal"] = request.id
+            lastSignal = request
+            return try HostdXPCCodec.success()
+        }
+
         func recordedControlIDs() -> [String: UUID] {
             controlIDs
         }
@@ -148,6 +156,10 @@ struct XPCHostdClientTests {
 
         func recordedResize() -> HostdResizeSessionRequest? {
             lastResize
+        }
+
+        func recordedSignal() -> HostdSendSessionSignalRequest? {
+            lastSignal
         }
     }
 
@@ -168,6 +180,7 @@ struct XPCHostdClientTests {
         func readSessionOutput(_ request: Data) async throws -> Data { throw Failure() }
         func writeSessionInput(_ request: Data) async throws -> Data { throw Failure() }
         func resizeSession(_ request: Data) async throws -> Data { throw Failure() }
+        func sendSessionSignal(_ request: Data) async throws -> Data { throw Failure() }
     }
 
     @Test("creates, lists, exits, and deletes through transport")
@@ -210,6 +223,7 @@ struct XPCHostdClientTests {
         let output = try await client.readSessionOutput(id: id, timeout: 0.25)
         try await client.writeSessionInput(id: id, data: Data("hello\n".utf8))
         try await client.resizeSession(id: id, columns: 100, rows: 40)
+        try await client.sendSessionSignal(id: id, signal: .interrupt)
 
         let ids = await transport.recordedControlIDs()
         #expect(attach.record.id == id)
@@ -221,9 +235,11 @@ struct XPCHostdClientTests {
         #expect(ids["read"] == id)
         #expect(ids["write"] == id)
         #expect(ids["resize"] == id)
+        #expect(ids["signal"] == id)
         #expect(await transport.recordedInput() == Data("hello\n".utf8))
         #expect(await transport.recordedResize()?.columns == 100)
         #expect(await transport.recordedResize()?.rows == 40)
+        #expect(await transport.recordedSignal()?.signal == .interrupt)
     }
 
     @Test("transport errors propagate")

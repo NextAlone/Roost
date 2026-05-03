@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import RoostHostdCore
 
 @MainActor
 @Observable
@@ -78,6 +79,24 @@ final class HostdOwnedTerminalOutputModel {
 
         do {
             try await client.writeSessionInput(id: paneID, data: data)
+            if case .failed = status {
+                status = text.isEmpty ? .waiting : .streaming
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            status = .failed(error.localizedDescription)
+        }
+    }
+
+    func sendSignal(client: (any RoostHostdClient)?, paneID: UUID, signal: HostdSessionSignal) async {
+        guard let client else {
+            status = .failed("Hostd client unavailable")
+            return
+        }
+
+        do {
+            try await client.sendSessionSignal(id: paneID, signal: signal)
             if case .failed = status {
                 status = text.isEmpty ? .waiting : .streaming
             }

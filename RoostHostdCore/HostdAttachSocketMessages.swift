@@ -2,6 +2,7 @@ import Darwin
 import Foundation
 
 public enum HostdAttachSocketOperation: String, Sendable, Codable, Equatable {
+    case runtimeIdentity
     case runtimeOwnership
     case createSession
     case markExited
@@ -35,6 +36,20 @@ public struct HostdAttachSocketResponse: Sendable, Codable, Equatable {
 
     public init(payload: Data) {
         self.payload = payload
+    }
+}
+
+public struct HostdDaemonRuntimeIdentity: Sendable, Codable, Equatable {
+    public static let currentProtocolVersion = 2
+
+    public let protocolVersion: Int
+
+    public init(protocolVersion: Int = Self.currentProtocolVersion) {
+        self.protocolVersion = protocolVersion
+    }
+
+    public var isCompatible: Bool {
+        protocolVersion == Self.currentProtocolVersion
     }
 }
 

@@ -42,16 +42,15 @@ enum HostdDaemonLauncher {
 
     private static func canConnect(socketPath: String) async -> Bool {
         let transport = HostdSocketTransport(socketPath: socketPath)
-        let data: Data
+        let identity: HostdDaemonRuntimeIdentity
         do {
-            data = try await HostdAsyncTimeout.run(seconds: 0.5, operation: "hostd daemon ping") {
-                try await transport.runtimeOwnership()
+            identity = try await HostdAsyncTimeout.run(seconds: 0.5, operation: "hostd daemon identity") {
+                try await transport.runtimeIdentity()
             }
         } catch {
             return false
         }
-        guard let ownership = try? HostdXPCCodec.decodeReply(HostdRuntimeOwnership.self, from: data) else { return false }
-        return ownership == .hostdOwnedProcess
+        return identity.isCompatible
     }
 
     private static func defaultExecutablePath() -> String? {

@@ -29,6 +29,8 @@ public final class HostdDaemonSocketServer: @unchecked Sendable {
     public func handle(_ request: HostdAttachSocketRequest) async throws -> HostdAttachSocketResponse {
         let payload: Data
         switch request.operation {
+        case .runtimeIdentity:
+            payload = try HostdXPCCodec.success(HostdDaemonRuntimeIdentity())
         case .runtimeOwnership:
             payload = try HostdXPCCodec.success(HostdRuntimeOwnership.hostdOwnedProcess)
         case .createSession:

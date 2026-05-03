@@ -300,6 +300,38 @@ struct HostdProcessRegistryTests {
         try await registry.terminateSession(id: id)
     }
 
+    @Test("output pump publishes continuous output without waiting for writer idle")
+    func outputPumpPublishesContinuousOutputWithoutWaitingForWriterIdle() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "exec perl -e '$|=1; while (1) { print \"hostd-flood\\n\" }'",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        let deadline = Date().addingTimeInterval(0.5)
+        var output = HostdOutputRead(chunks: [], nextSequence: 0, truncated: false)
+        repeat {
+            output = try await registry.readSessionOutputStream(id: id, after: nil, timeout: 0)
+            if !output.chunks.isEmpty { break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        } while Date() < deadline
+
+        try await registry.terminateSession(id: id)
+
+        let text = String(decoding: output.chunks.flatMap(\.data), as: UTF8.self)
+        #expect(text.contains("hostd-flood"))
+    }
+
     @Test("stream reads do not steal bytes from other clients")
     func streamReadsDoNotStealBytesFromOtherClients() async throws {
         let url = makeTempStoreURL()

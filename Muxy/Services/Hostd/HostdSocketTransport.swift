@@ -9,6 +9,11 @@ final class HostdSocketTransport: HostdXPCTransport, @unchecked Sendable {
         self.socketPath = socketPath
     }
 
+    func runtimeIdentity() async throws -> HostdDaemonRuntimeIdentity {
+        let data = try await call(.runtimeIdentity)
+        return try HostdXPCCodec.decodeReply(HostdDaemonRuntimeIdentity.self, from: data)
+    }
+
     func runtimeOwnership() async throws -> Data {
         try await call(.runtimeOwnership)
     }

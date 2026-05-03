@@ -47,6 +47,8 @@ final class HostdAttachSocketServer: @unchecked Sendable {
     func handle(_ request: HostdAttachSocketRequest) async throws -> HostdAttachSocketResponse {
         let payload: Data
         switch request.operation {
+        case .runtimeIdentity:
+            payload = try HostdXPCCodec.success(HostdDaemonRuntimeIdentity())
         case .runtimeOwnership:
             let ownership = try await currentClient().runtimeOwnership()
             payload = try HostdXPCCodec.success(ownership)

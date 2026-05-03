@@ -10,7 +10,7 @@ stdenvNoCC.mkDerivation rec {
 
   src = fetchurl {
     url = "https://github.com/NextAlone/Roost/releases/download/v${version}/Roost-${version}-arm64.zip";
-    hash = "sha256-ukaNmKAgxyijpj07jKDo/tcUtAa0W8e4EZv0ByTIMiI=";
+    hash = "sha256-GUNKifV9bReVBDBpkiOvR2pixOdOk4q60iQOa3Mmi0s=";
   };
 
   sourceRoot = ".";

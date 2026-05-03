@@ -106,17 +106,47 @@ public struct HostdReadSessionOutputResponse: Sendable, Codable, Equatable {
     }
 }
 
+public enum HostdOutputStreamReadMode: String, Sendable, Codable, Equatable {
+    case raw
+    case terminalSnapshot
+}
+
 public struct HostdReadSessionOutputStreamRequest: Sendable, Codable, Equatable {
     public let id: UUID
     public let after: UInt64?
     public let timeout: TimeInterval
     public let limit: Int?
+    public let mode: HostdOutputStreamReadMode
 
-    public init(id: UUID, after: UInt64? = nil, timeout: TimeInterval = 0, limit: Int? = nil) {
+    public init(
+        id: UUID,
+        after: UInt64? = nil,
+        timeout: TimeInterval = 0,
+        limit: Int? = nil,
+        mode: HostdOutputStreamReadMode = .raw
+    ) {
         self.id = id
         self.after = after
         self.timeout = timeout
         self.limit = limit
+        self.mode = mode
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case after
+        case timeout
+        case limit
+        case mode
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        after = try container.decodeIfPresent(UInt64.self, forKey: .after)
+        timeout = try container.decodeIfPresent(TimeInterval.self, forKey: .timeout) ?? 0
+        limit = try container.decodeIfPresent(Int.self, forKey: .limit)
+        mode = try container.decodeIfPresent(HostdOutputStreamReadMode.self, forKey: .mode) ?? .raw
     }
 }
 

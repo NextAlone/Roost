@@ -78,9 +78,10 @@ private struct RuntimeHintHostdClient: RoostHostdClient {
         id: UUID,
         after sequence: UInt64?,
         timeout: TimeInterval,
-        limit: Int?
+        limit: Int?,
+        mode: HostdOutputStreamReadMode
     ) async throws -> HostdOutputRead {
-        try await client.readSessionOutputStream(id: id, after: sequence, timeout: timeout, limit: limit)
+        try await client.readSessionOutputStream(id: id, after: sequence, timeout: timeout, limit: limit, mode: mode)
     }
 
     func writeSessionInput(id: UUID, data: Data) async throws {

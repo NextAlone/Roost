@@ -402,6 +402,47 @@ struct HostdProcessRegistryTests {
         try await registry.terminateSession(id: id)
     }
 
+    @Test("terminal snapshot mode returns bounded styled repaint at current sequence")
+    func terminalSnapshotModeReturnsBoundedStyledRepaint() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+        let registry = HostdProcessRegistry(store: store)
+        let id = UUID()
+
+        _ = try await registry.launchSession(HostdLaunchSessionRequest(
+            id: id,
+            projectID: UUID(),
+            worktreeID: UUID(),
+            workspacePath: FileManager.default.temporaryDirectory.path(percentEncoded: false),
+            agentKind: .terminal,
+            command: "printf '\\033[31m-red\\033[0m\\r\\n\\033[32m+green\\033[0m'; sleep 5",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        ))
+
+        let raw = try await waitForHostdOutput(
+            from: registry,
+            id: id,
+            after: nil,
+            contains: "+green"
+        )
+        let snapshot = try await registry.readSessionOutputStream(
+            id: id,
+            after: nil,
+            timeout: 0,
+            mode: .terminalSnapshot
+        )
+
+        let text = String(decoding: snapshot.chunks.flatMap(\.data), as: UTF8.self)
+        let count = snapshot.chunks.reduce(0) { $0 + $1.data.count }
+        #expect(snapshot.nextSequence >= raw.nextSequence)
+        #expect(count < 32 * 1024)
+        #expect(text.contains("\u{1B}[0;31m-red"))
+        #expect(text.contains("\u{1B}[0;32m+green"))
+
+        try await registry.terminateSession(id: id)
+    }
+
     @Test("sends interrupt signal to a running PTY session")
     func sendsInterruptSignalToRunningPTYSession() async throws {
         let url = makeTempStoreURL()

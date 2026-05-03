@@ -5,8 +5,8 @@ import Testing
 
 @Suite("RoostHostdAttach replay", .serialized)
 struct RoostHostdAttachReplayTests {
-    @Test("initial replay reads retained output without byte limit")
-    func initialReplayReadsRetainedOutputWithoutByteLimit() async throws {
+    @Test("initial replay reads terminal snapshot without byte limit")
+    func initialReplayReadsTerminalSnapshotWithoutByteLimit() async throws {
         let sessionID = UUID()
         let client = RecordingAttachOutputReader()
         var replay = HostdAttachOutputReplay(sessionID: sessionID, client: client)
@@ -14,7 +14,7 @@ struct RoostHostdAttachReplayTests {
         _ = try await replay.readNext()
 
         #expect(await client.requests == [
-            RecordingAttachOutputRequest(id: sessionID, after: nil, timeout: 0.25, limit: nil),
+            RecordingAttachOutputRequest(id: sessionID, after: nil, timeout: 0.25, limit: nil, mode: .terminalSnapshot),
         ])
     }
 
@@ -31,8 +31,8 @@ struct RoostHostdAttachReplayTests {
         _ = try await replay.readNext()
 
         #expect(await client.requests == [
-            RecordingAttachOutputRequest(id: sessionID, after: nil, timeout: 0.25, limit: nil),
-            RecordingAttachOutputRequest(id: sessionID, after: 42, timeout: 0.25, limit: nil),
+            RecordingAttachOutputRequest(id: sessionID, after: nil, timeout: 0.25, limit: nil, mode: .terminalSnapshot),
+            RecordingAttachOutputRequest(id: sessionID, after: 42, timeout: 0.25, limit: nil, mode: .raw),
         ])
     }
 }
@@ -42,6 +42,7 @@ private struct RecordingAttachOutputRequest: Equatable {
     let after: UInt64?
     let timeout: TimeInterval
     let limit: Int?
+    let mode: HostdOutputStreamReadMode
 }
 
 private actor RecordingAttachOutputReader: HostdAttachOutputReading {
@@ -58,13 +59,15 @@ private actor RecordingAttachOutputReader: HostdAttachOutputReading {
         id: UUID,
         after sequence: UInt64?,
         timeout: TimeInterval,
-        limit: Int?
+        limit: Int?,
+        mode: HostdOutputStreamReadMode
     ) async throws -> HostdOutputRead {
         requests.append(RecordingAttachOutputRequest(
             id: id,
             after: sequence,
             timeout: timeout,
-            limit: limit
+            limit: limit,
+            mode: mode
         ))
         if outputs.isEmpty {
             return HostdOutputRead(chunks: [], nextSequence: sequence ?? 0, truncated: false)

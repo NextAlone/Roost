@@ -32,6 +32,10 @@ public struct HostdOutputRingBuffer: Sendable {
         self.limit = max(1, limit)
     }
 
+    public var nextSequence: UInt64 {
+        endSequence
+    }
+
     public mutating func append(_ data: Data) {
         guard !data.isEmpty else { return }
         bytes.append(data)

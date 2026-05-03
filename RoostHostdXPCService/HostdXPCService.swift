@@ -267,7 +267,8 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
                     id: request.id,
                     after: request.after,
                     timeout: request.timeout,
-                    limit: request.limit
+                    limit: request.limit,
+                    mode: request.mode
                 )
                 return try HostdXPCCodec.success(HostdReadSessionOutputStreamResponse(output: output))
             }

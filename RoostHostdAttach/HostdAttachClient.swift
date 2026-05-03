@@ -39,13 +39,15 @@ final class HostdAttachClient: @unchecked Sendable {
         id: UUID,
         after sequence: UInt64?,
         timeout: TimeInterval,
-        limit: Int? = nil
+        limit: Int? = nil,
+        mode: HostdOutputStreamReadMode = .raw
     ) async throws -> HostdOutputRead {
         let request = try HostdXPCCodec.encode(HostdReadSessionOutputStreamRequest(
             id: id,
             after: sequence,
             timeout: timeout,
-            limit: limit
+            limit: limit,
+            mode: mode
         ))
         let response = try await call(operation: .readSessionOutputStream, payload: request) { proxy, reply in
             proxy.readSessionOutputStream(

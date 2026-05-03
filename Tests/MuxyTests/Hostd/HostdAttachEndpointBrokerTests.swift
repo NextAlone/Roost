@@ -167,7 +167,8 @@ private final class EndpointBrokerRecordingHostdClient: RoostHostdClient, @unche
         id: UUID,
         after sequence: UInt64?,
         timeout: TimeInterval,
-        limit: Int?
+        limit: Int?,
+        mode: HostdOutputStreamReadMode
     ) async throws -> HostdOutputRead {
         HostdOutputRead(chunks: [], nextSequence: sequence ?? 0, truncated: false)
     }

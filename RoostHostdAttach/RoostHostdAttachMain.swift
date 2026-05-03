@@ -30,7 +30,8 @@ protocol HostdAttachOutputReading: Sendable {
         id: UUID,
         after sequence: UInt64?,
         timeout: TimeInterval,
-        limit: Int?
+        limit: Int?,
+        mode: HostdOutputStreamReadMode
     ) async throws -> HostdOutputRead
 }
 
@@ -51,7 +52,8 @@ struct HostdAttachOutputReplay {
             id: sessionID,
             after: sequence,
             timeout: 0.25,
-            limit: nil
+            limit: nil,
+            mode: sequence == nil ? .terminalSnapshot : .raw
         )
         sequence = output.nextSequence
         return output

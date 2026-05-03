@@ -17,7 +17,8 @@ protocol RoostHostdClient: Sendable {
         id: UUID,
         after sequence: UInt64?,
         timeout: TimeInterval,
-        limit: Int?
+        limit: Int?,
+        mode: HostdOutputStreamReadMode
     ) async throws -> HostdOutputRead
     func writeSessionInput(id: UUID, data: Data) async throws
     func resizeSession(id: UUID, columns: UInt16, rows: UInt16) async throws
@@ -89,7 +90,8 @@ extension RoostHostdClient {
         id: UUID,
         after sequence: UInt64? = nil,
         timeout: TimeInterval = 0,
-        limit: Int? = nil
+        limit: Int? = nil,
+        mode _: HostdOutputStreamReadMode = .raw
     ) async throws -> HostdOutputRead {
         let error = await unsupportedRuntimeControl("read output stream")
         throw error

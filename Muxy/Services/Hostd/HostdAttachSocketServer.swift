@@ -98,7 +98,8 @@ final class HostdAttachSocketServer: @unchecked Sendable {
                 id: request.id,
                 after: request.after,
                 timeout: request.timeout,
-                limit: request.limit
+                limit: request.limit,
+                mode: request.mode
             )
             payload = try HostdXPCCodec.success(HostdReadSessionOutputStreamResponse(output: output))
         case .writeSessionInput:

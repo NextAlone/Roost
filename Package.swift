@@ -27,6 +27,7 @@ let package = Package(
             name: "RoostHostdCore",
             dependencies: [
                 "MuxyShared",
+                .product(name: "SwiftTerm", package: "SwiftTerm"),
             ],
             path: "RoostHostdCore"
         ),

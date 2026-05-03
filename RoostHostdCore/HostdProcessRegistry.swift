@@ -191,9 +191,13 @@ public actor HostdProcessRegistry {
         id: UUID,
         after sequence: UInt64?,
         timeout: TimeInterval = 0,
-        limit: Int? = nil
+        limit: Int? = nil,
+        mode: HostdOutputStreamReadMode = .raw
     ) async throws -> HostdOutputRead {
         guard let session = sessions[id] else { throw HostdProcessRegistryError.sessionNotFound(id) }
+        if mode == .terminalSnapshot {
+            return session.readTerminalSnapshot()
+        }
         return await session.readOutput(after: sequence, timeout: timeout, limit: limit)
     }
 
@@ -252,6 +256,10 @@ private final class HostdPTYSession: @unchecked Sendable {
     private var reaped = false
     private var attachedClientCount = 0
     private var outputBuffer = HostdOutputRingBuffer(limit: HostdPTYSession.outputBufferLimit)
+    private let terminalSnapshot = HostdTerminalSnapshotStore(
+        columns: HostdPTYSession.defaultColumns,
+        rows: HostdPTYSession.defaultRows
+    )
     private var compatibilityReadSequence: UInt64?
     private var outputPumpTask: Task<Void, Never>?
 
@@ -360,6 +368,12 @@ private final class HostdPTYSession: @unchecked Sendable {
         }
     }
 
+    func readTerminalSnapshot() -> HostdOutputRead {
+        lock.withLock {
+            terminalSnapshot.outputRead(sequence: outputBuffer.nextSequence)
+        }
+    }
+
     func writeInput(_ data: Data) async throws {
         guard !data.isEmpty else { return }
         var offset = 0
@@ -391,6 +405,9 @@ private final class HostdPTYSession: @unchecked Sendable {
         var size = winsize(ws_row: rows, ws_col: columns, ws_xpixel: 0, ws_ypixel: 0)
         guard ioctl(masterFD, TIOCSWINSZ, &size) == 0 else {
             throw HostdProcessRegistryError.resizeFailed(code: errno, message: errnoMessage())
+        }
+        lock.withLock {
+            terminalSnapshot.resize(columns: columns, rows: rows)
         }
     }
 
@@ -474,6 +491,7 @@ private final class HostdPTYSession: @unchecked Sendable {
                 if !result.data.isEmpty {
                     lock.withLock {
                         outputBuffer.append(result.data)
+                        terminalSnapshot.feed(result.data)
                     }
                 }
                 if result.closed || !isRunning {

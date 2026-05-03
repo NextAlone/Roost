@@ -58,8 +58,9 @@ The registry should stop using "read and consume directly from UI" as the main m
 
 1. Read continuously from PTY master.
 2. Append bytes to a bounded in-memory ring buffer with monotonically increasing sequence offsets.
-3. Fan out bytes to attached clients.
-4. Mark the session exited when the process exits and the PTY reaches EOF.
+3. Feed the same bytes into a headless terminal snapshot store.
+4. Fan out bytes to attached clients.
+5. Mark the session exited when the process exits and the PTY reaches EOF.
 
 This prevents a detached or hidden UI from leaving the PTY unread until the child process blocks on a full PTY buffer.
 
@@ -73,7 +74,7 @@ Responsibilities:
 - Attach to the requested session.
 - Put its own controlling terminal into raw mode.
 - Forward stdin bytes to hostd as input chunks.
-- Read hostd output chunks and write them unchanged to stdout.
+- Request one terminal snapshot frame, write it to stdout, then read live hostd output chunks and write them unchanged to stdout.
 - Forward terminal resize changes to hostd.
 - Restore local terminal mode on exit.
 - Release the hostd attach on clean exit.
@@ -102,7 +103,13 @@ Suggested shared messages:
 struct HostdAttachStreamRequest: Codable, Sendable {
     let id: UUID
     let afterSequence: UInt64?
+    let mode: HostdOutputStreamReadMode
     let terminal: HostdAttachTerminal
+}
+
+enum HostdOutputStreamReadMode: String, Codable, Sendable {
+    case raw
+    case terminalSnapshot
 }
 
 struct HostdAttachTerminal: Codable, Sendable {
@@ -122,7 +129,7 @@ struct HostdReadStreamResponse: Codable, Sendable {
 }
 ```
 
-`afterSequence = nil` means start from the current replay boundary. Hostd should return recent backlog from the ring buffer if available, then continue with live output. A stale sequence older than the retained ring buffer should return the oldest retained sequence plus an explicit truncation flag so the helper can continue instead of failing.
+The attach helper's first read uses `mode = .terminalSnapshot`. Hostd serializes the current visible terminal state into a bounded VT repaint frame and returns `nextSequence` set to the raw output sequence covered by that snapshot. Later reads use `mode = .raw` and `afterSequence = snapshot.nextSequence`, so the helper streams only live bytes after the snapshot boundary. A stale raw sequence older than the retained ring buffer should return the oldest retained sequence plus an explicit truncation flag so diagnostic consumers can continue instead of failing.
 
 Input remains byte-oriented:
 
@@ -148,6 +155,10 @@ Requirements:
 - Keep final output after process exit until the session is deleted or pruned.
 
 The first implementation can be in memory only. Persisted scrollback can be a later feature if needed.
+
+## Terminal Snapshot
+
+Each session keeps a SwiftTerm-backed headless terminal model beside the raw byte ring. The model is not a production UI renderer; it exists to produce an attach-time repaint frame with the current visible cells, attributes, alternate-screen state, and cursor position. Snapshot size must be bounded by terminal dimensions rather than retained byte history.
 
 ## Terminal Modes
 
@@ -182,7 +193,7 @@ This is the same class of work that SSH and terminal multiplexers do for interac
 1. App lists live hostd sessions.
 2. Existing workspace snapshot panes map to session IDs.
 3. Each visible hostd pane mounts normal `TerminalBridge` with the attach helper command.
-4. Helper receives retained backlog and then live output.
+4. Helper receives a terminal snapshot frame and then live output after the snapshot sequence.
 
 ### Agent Exit
 
@@ -194,7 +205,7 @@ This is the same class of work that SSH and terminal multiplexers do for interac
 
 - Session not found: helper prints a concise actionable message and exits non-zero.
 - Daemon unavailable: helper prints that hostd is unavailable and exits non-zero.
-- Ring buffer truncation: helper continues from oldest retained data and may print a short one-line notice before replay.
+- Ring buffer truncation: raw diagnostic readers continue from oldest retained data and may show truncation explicitly. Normal attach starts from a terminal snapshot boundary.
 - Input write failure: helper exits after printing the hostd error.
 - Resize failure: helper reports once and continues; later resize attempts may recover.
 

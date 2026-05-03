@@ -241,13 +241,15 @@ struct XPCHostdClient: RoostHostdClient {
         id: UUID,
         after sequence: UInt64?,
         timeout: TimeInterval = 0,
-        limit: Int? = nil
+        limit: Int? = nil,
+        mode: HostdOutputStreamReadMode = .raw
     ) async throws -> HostdOutputRead {
         let request = try HostdXPCCodec.encode(HostdReadSessionOutputStreamRequest(
             id: id,
             after: sequence,
             timeout: timeout,
-            limit: limit
+            limit: limit,
+            mode: mode
         ))
         let response = try await withRequestTimeout("read session output stream", seconds: max(requestTimeout, timeout + 1)) {
             try await transport.readSessionOutputStream(request)

@@ -46,7 +46,12 @@ final class AppState {
         case createTabInDirectory(projectID: UUID, areaID: UUID?, directory: String)
         case createCommandTab(projectID: UUID, areaID: UUID?, name: String, command: String)
         case createVCSTab(projectID: UUID, areaID: UUID?)
-        case createAgentTab(projectID: UUID, areaID: UUID?, kind: AgentKind)
+        case createAgentTab(
+            projectID: UUID,
+            areaID: UUID?,
+            kind: AgentKind,
+            runtimeOwnership: HostdRuntimeOwnership
+        )
         case createEditorTab(projectID: UUID, areaID: UUID?, filePath: String, suppressInitialFocus: Bool)
         case createExternalEditorTab(projectID: UUID, areaID: UUID?, filePath: String, command: String)
         case createDiffViewerTab(projectID: UUID, areaID: UUID?, request: DiffViewerRequest)
@@ -276,7 +281,13 @@ final class AppState {
         areaID: UUID? = nil,
         hostdClient: (any RoostHostdClient)?
     ) {
-        dispatch(.createAgentTab(projectID: projectID, areaID: areaID, kind: kind))
+        let runtimeOwnership = hostdClient?.runtimeOwnershipHint ?? .appOwnedMetadataOnly
+        dispatch(.createAgentTab(
+            projectID: projectID,
+            areaID: areaID,
+            kind: kind,
+            runtimeOwnership: runtimeOwnership
+        ))
         guard let hostdClient,
               let area = focusedArea(for: projectID),
               let tab = area.activeTab,

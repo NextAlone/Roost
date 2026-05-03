@@ -1,5 +1,6 @@
 import Foundation
 import MuxyShared
+import RoostHostdCore
 
 struct WorkspaceSnapshot: Codable {
     let projectID: UUID
@@ -110,6 +111,7 @@ struct TerminalTabSnapshot: Codable {
     let currentWorkingDirectory: String?
     let agentKind: AgentKind
     let startupCommand: String?
+    let hostdRuntimeOwnership: HostdRuntimeOwnership
     let createdAt: Date
 
     init(
@@ -124,6 +126,7 @@ struct TerminalTabSnapshot: Codable {
         currentWorkingDirectory: String? = nil,
         agentKind: AgentKind = .terminal,
         startupCommand: String? = nil,
+        hostdRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly,
         createdAt: Date = Date()
     ) {
         self.paneID = paneID
@@ -137,6 +140,7 @@ struct TerminalTabSnapshot: Codable {
         self.currentWorkingDirectory = currentWorkingDirectory
         self.agentKind = agentKind
         self.startupCommand = startupCommand
+        self.hostdRuntimeOwnership = hostdRuntimeOwnership
         self.createdAt = createdAt
     }
 
@@ -152,6 +156,7 @@ struct TerminalTabSnapshot: Codable {
         case currentWorkingDirectory
         case agentKind
         case startupCommand
+        case hostdRuntimeOwnership
         case createdAt
     }
 
@@ -168,6 +173,8 @@ struct TerminalTabSnapshot: Codable {
         currentWorkingDirectory = try container.decodeIfPresent(String.self, forKey: .currentWorkingDirectory)
         agentKind = try container.decodeIfPresent(AgentKind.self, forKey: .agentKind) ?? .terminal
         startupCommand = try container.decodeIfPresent(String.self, forKey: .startupCommand)
+        hostdRuntimeOwnership = try container
+            .decodeIfPresent(HostdRuntimeOwnership.self, forKey: .hostdRuntimeOwnership) ?? .appOwnedMetadataOnly
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 }

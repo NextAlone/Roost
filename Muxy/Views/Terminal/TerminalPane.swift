@@ -1,4 +1,5 @@
 import AppKit
+import RoostHostdCore
 import SwiftUI
 
 struct TerminalPane: View {
@@ -17,18 +18,22 @@ struct TerminalPane: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            TerminalBridge(
-                state: state,
-                focused: focused,
-                onFocus: onFocus,
-                onProcessExit: onProcessExit,
-                onSplitRequest: onSplitRequest
-            )
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Terminal")
-            .accessibilityAddTraits(.allowsDirectInteraction)
-            .opacity(remoteOwnerName == nil ? 1 : 0)
-            .allowsHitTesting(remoteOwnerName == nil)
+            if state.hostdRuntimeOwnership == .hostdOwnedProcess {
+                HostdOwnedTerminalPlaceholder(agentName: state.agentKind.displayName)
+            } else {
+                TerminalBridge(
+                    state: state,
+                    focused: focused,
+                    onFocus: onFocus,
+                    onProcessExit: onProcessExit,
+                    onSplitRequest: onSplitRequest
+                )
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Terminal")
+                .accessibilityAddTraits(.allowsDirectInteraction)
+                .opacity(remoteOwnerName == nil ? 1 : 0)
+                .allowsHitTesting(remoteOwnerName == nil)
+            }
 
             if let name = remoteOwnerName {
                 RemoteControlledPlaceholder(deviceName: name) {
@@ -66,6 +71,29 @@ struct TerminalPane: View {
                 view?.window?.makeFirstResponder(view)
             }
         }
+    }
+}
+
+struct HostdOwnedTerminalPlaceholder: View {
+    let agentName: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "server.rack")
+                .font(.system(size: 28))
+                .foregroundStyle(MuxyTheme.fgMuted)
+            Text(agentName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(MuxyTheme.fg)
+            Text("Running in hostd")
+                .font(.system(size: 12))
+                .foregroundStyle(MuxyTheme.fgMuted)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(MuxyTheme.bg)
+        .accessibilityLabel("\(agentName), running in hostd")
     }
 }
 

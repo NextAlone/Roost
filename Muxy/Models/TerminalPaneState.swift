@@ -1,5 +1,6 @@
 import Foundation
 import MuxyShared
+import RoostHostdCore
 
 @MainActor
 @Observable
@@ -13,6 +14,7 @@ final class TerminalPaneState: Identifiable {
     let env: [String: String]
     let externalEditorFilePath: String?
     let agentKind: AgentKind
+    let hostdRuntimeOwnership: HostdRuntimeOwnership
     let createdAt: Date
     var lastState: SessionLifecycleState = .running
     var activityState: AgentActivityState
@@ -29,6 +31,7 @@ final class TerminalPaneState: Identifiable {
         env: [String: String] = [:],
         externalEditorFilePath: String? = nil,
         agentKind: AgentKind = .terminal,
+        hostdRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -40,6 +43,7 @@ final class TerminalPaneState: Identifiable {
         self.env = env
         self.externalEditorFilePath = externalEditorFilePath
         self.agentKind = agentKind
+        self.hostdRuntimeOwnership = hostdRuntimeOwnership
         self.createdAt = createdAt
         activityState = agentKind == .terminal ? .running : .idle
     }

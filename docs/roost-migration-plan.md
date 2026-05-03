@@ -633,6 +633,12 @@ Exit criteria:
 - In hostd-owned mode, `RoostHostdXPCService` routes bounded output reads, stdin writes, and PTY resize requests through `HostdProcessRegistry`.
 - Metadata-only runtime still rejects these calls explicitly. The app UI does not consume the new controls yet; Ghostty rendering, continuous output streaming, signal delivery, and visible reattach remain next.
 
+**Status (2026-05-03): Phase 6j (hidden app launch mode) landed.**
+
+- The app preserves the XPC service's runtime ownership hint and marks newly created agent panes as `.hostdOwnedProcess` when the hidden hostd runtime is active.
+- `TerminalTabSnapshot` persists the runtime ownership marker with decode-tolerant metadata-only defaults for older workspace files.
+- Hostd-owned panes render a lightweight hostd placeholder instead of mounting `TerminalBridge`, so hidden hostd launch mode does not also start a duplicate app-owned Ghostty process. Continuous output streaming, stdin forwarding from UI, signal delivery, and live Ghostty attach remain next.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

@@ -1,5 +1,6 @@
 import Foundation
 import MuxyShared
+import RoostHostdCore
 
 @MainActor
 @Observable
@@ -77,7 +78,7 @@ final class TabArea: Identifiable {
         insertTab(TerminalTab(pane: pane))
     }
 
-    func createAgentTab(kind: AgentKind) {
+    func createAgentTab(kind: AgentKind, hostdRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly) {
         let config = RoostConfigLoader.load(fromProjectPath: projectPath)
         let globalEnv = RoostConfigEnvResolver.resolve(
             plain: config?.env ?? [:],
@@ -103,7 +104,8 @@ final class TabArea: Identifiable {
             startupCommand: preset.defaultCommand,
             startupCommandInteractive: preset.defaultCommand != nil,
             env: preset.env,
-            agentKind: kind
+            agentKind: kind,
+            hostdRuntimeOwnership: hostdRuntimeOwnership
         )
         insertTab(TerminalTab(pane: pane))
     }

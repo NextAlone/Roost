@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import MuxyShared
+import RoostHostdCore
 
 @testable import Roost
 
@@ -385,9 +386,10 @@ struct WorkspaceSnapshotTests {
         let snap = try JSONDecoder().decode(TerminalTabSnapshot.self, from: Data(json.utf8))
         #expect(snap.agentKind == .terminal)
         #expect(snap.startupCommand == nil)
+        #expect(snap.hostdRuntimeOwnership == .appOwnedMetadataOnly)
     }
 
-    @Test("agent snapshot round-trips agentKind + startupCommand")
+    @Test("agent snapshot round-trips agent metadata")
     func agentRoundTrips() throws {
         let original = TerminalTabSnapshot(
             kind: .terminal,
@@ -399,12 +401,14 @@ struct WorkspaceSnapshotTests {
             filePath: nil,
             agentKind: .claudeCode,
             startupCommand: "claude",
+            hostdRuntimeOwnership: .hostdOwnedProcess,
             createdAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TerminalTabSnapshot.self, from: data)
         #expect(decoded.agentKind == .claudeCode)
         #expect(decoded.startupCommand == "claude")
+        #expect(decoded.hostdRuntimeOwnership == .hostdOwnedProcess)
         #expect(decoded.createdAt == original.createdAt)
     }
 }

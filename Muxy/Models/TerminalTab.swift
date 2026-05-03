@@ -1,5 +1,6 @@
 import Foundation
 import MuxyShared
+import RoostHostdCore
 
 @MainActor
 @Observable
@@ -110,6 +111,7 @@ final class TerminalTab: Identifiable {
                 startupCommand: snapshot.startupCommand,
                 startupCommandInteractive: snapshot.startupCommand != nil,
                 agentKind: snapshot.agentKind,
+                hostdRuntimeOwnership: snapshot.hostdRuntimeOwnership,
                 createdAt: snapshot.createdAt
             ))
         case .vcs:
@@ -138,6 +140,7 @@ final class TerminalTab: Identifiable {
             currentWorkingDirectory: content.pane?.currentWorkingDirectory,
             agentKind: content.pane?.agentKind ?? .terminal,
             startupCommand: content.pane?.startupCommand,
+            hostdRuntimeOwnership: content.pane?.hostdRuntimeOwnership ?? .appOwnedMetadataOnly,
             createdAt: content.pane?.createdAt ?? Date()
         )
     }

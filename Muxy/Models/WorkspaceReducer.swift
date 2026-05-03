@@ -1,5 +1,6 @@
 import Foundation
 import MuxyShared
+import RoostHostdCore
 
 @MainActor
 struct WorkspaceState {
@@ -92,11 +93,12 @@ enum WorkspaceReducer {
         case let .createVCSTab(projectID, areaID):
             TabReducer.createVCSTab(projectID: projectID, areaID: areaID, state: &state)
 
-        case let .createAgentTab(projectID, areaID, kind):
+        case let .createAgentTab(projectID, areaID, kind, runtimeOwnership):
             TabReducer.createAgentTab(
                 projectID: projectID,
                 areaID: areaID,
                 kind: kind,
+                runtimeOwnership: runtimeOwnership,
                 state: &state
             )
 

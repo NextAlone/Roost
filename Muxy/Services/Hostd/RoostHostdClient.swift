@@ -4,6 +4,8 @@ import RoostHostdCore
 import SwiftUI
 
 protocol RoostHostdClient: Sendable {
+    var runtimeOwnershipHint: HostdRuntimeOwnership? { get }
+
     func runtimeOwnership() async throws -> HostdRuntimeOwnership
 
     func createSession(_ request: HostdCreateSessionRequest) async throws
@@ -36,6 +38,8 @@ enum RoostHostdClientError: LocalizedError, Sendable, Equatable {
 }
 
 extension RoostHostdClient {
+    var runtimeOwnershipHint: HostdRuntimeOwnership? { nil }
+
     func createSession(
         id: UUID,
         projectID: UUID,
@@ -92,6 +96,8 @@ extension RoostHostdClient {
 
 struct LocalHostdClient: RoostHostdClient {
     private let hostd: RoostHostd
+
+    var runtimeOwnershipHint: HostdRuntimeOwnership? { .appOwnedMetadataOnly }
 
     init(hostd: RoostHostd) {
         self.hostd = hostd

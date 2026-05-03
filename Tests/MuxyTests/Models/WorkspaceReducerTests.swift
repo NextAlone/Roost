@@ -692,7 +692,8 @@ struct WorkspaceReducerTests {
         let action = AppState.Action.createAgentTab(
             projectID: projectID,
             areaID: nil,
-            kind: .claudeCode
+            kind: .claudeCode,
+            runtimeOwnership: .appOwnedMetadataOnly
         )
         _ = WorkspaceReducer.reduce(action: action, state: &state)
 

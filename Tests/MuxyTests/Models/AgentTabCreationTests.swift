@@ -111,6 +111,32 @@ struct AgentTabCreationTests {
         #expect(records.first?.command == "codex")
     }
 
+    @Test("AppState marks hostd-owned agent panes from runtime hint")
+    func appStateCreateAgentTabUsesHostdOwnedRuntimeHint() async throws {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let area = TabArea(projectPath: "/tmp/wt")
+        let appState = AppState(
+            selectionStore: AgentTabSelectionStoreStub(),
+            terminalViews: AgentTabTerminalViewRemovingStub(),
+            workspacePersistence: AgentTabWorkspacePersistenceStub()
+        )
+        appState.activeProjectID = projectID
+        appState.activeWorktreeID[projectID] = worktreeID
+        appState.workspaceRoots[key] = .tabArea(area)
+        appState.focusedAreaID[key] = area.id
+        let client = RecordingHostdClient(ownership: .hostdOwnedProcess)
+
+        appState.createAgentTab(.codex, projectID: projectID, hostdClient: client)
+
+        let pane = try #require(appState.focusedArea(for: projectID)?.activeTab?.content.pane)
+        let records = try await client.waitForRecords()
+        #expect(pane.hostdRuntimeOwnership == .hostdOwnedProcess)
+        #expect(pane.startupCommand == "codex")
+        #expect(records.first?.command == "codex")
+    }
+
     @Test("AppState records restored agent panes")
     func appStateRecordsRestoredAgentPanes() async throws {
         let projectID = UUID()
@@ -138,9 +164,14 @@ struct AgentTabCreationTests {
 
 private actor RecordingHostdClient: RoostHostdClient {
     private var created: [SessionRecord] = []
+    let runtimeOwnershipHint: HostdRuntimeOwnership?
+
+    init(ownership: HostdRuntimeOwnership = .appOwnedMetadataOnly) {
+        self.runtimeOwnershipHint = ownership
+    }
 
     func runtimeOwnership() async throws -> HostdRuntimeOwnership {
-        .appOwnedMetadataOnly
+        runtimeOwnershipHint ?? .appOwnedMetadataOnly
     }
 
     func createSession(_ request: HostdCreateSessionRequest) async throws {

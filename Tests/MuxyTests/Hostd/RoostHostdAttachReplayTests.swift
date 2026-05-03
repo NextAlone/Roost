@@ -35,6 +35,19 @@ struct RoostHostdAttachReplayTests {
             RecordingAttachOutputRequest(id: sessionID, after: 42, timeout: 0.25, limit: nil, mode: .raw),
         ])
     }
+
+    @Test("terminal output data closes synchronized output frames")
+    func terminalOutputDataClosesSynchronizedOutputFrames() {
+        let output = HostdOutputRead(
+            chunks: [
+                HostdOutputChunk(sequence: 7, data: Data("before \u{1B}[?2026hinside".utf8)),
+            ],
+            nextSequence: 27,
+            truncated: false
+        )
+
+        #expect(output.terminalOutputData == Data("before \u{1B}[?2026hinside\u{1B}[?2026l".utf8))
+    }
 }
 
 private struct RecordingAttachOutputRequest: Equatable {

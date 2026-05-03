@@ -37,6 +37,20 @@ protocol HostdAttachOutputReading: Sendable {
 
 extension HostdAttachClient: HostdAttachOutputReading {}
 
+private let hostdAttachSynchronizedOutputReset = Data("\u{1B}[?2026l".utf8)
+
+extension HostdOutputRead {
+    var terminalOutputData: Data {
+        var data = chunks.reduce(into: Data()) { result, chunk in
+            result.append(chunk.data)
+        }
+        if !data.isEmpty {
+            data.append(hostdAttachSynchronizedOutputReset)
+        }
+        return data
+    }
+}
+
 struct HostdAttachOutputReplay {
     private let sessionID: UUID
     private let client: any HostdAttachOutputReading
@@ -174,9 +188,7 @@ enum RoostHostdAttachMain {
         var replay = HostdAttachOutputReplay(sessionID: sessionID, client: client)
         while !Task.isCancelled {
             let output = try await replay.readNext()
-            for chunk in output.chunks {
-                try HostdAttachTerminal.writeAll(chunk.data)
-            }
+            try HostdAttachTerminal.writeAll(output.terminalOutputData)
             if output.streamEnded { return }
         }
     }

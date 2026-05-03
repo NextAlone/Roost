@@ -6,7 +6,7 @@ import Testing
 struct ExpandedWorktreeRowLayoutTests {
     @Test("workspace row reserves gutters for selection and trailing status")
     func workspaceRowReservesGutters() {
-        #expect(ExpandedWorktreeRowLayout.leadingContentInset >= 22)
+        #expect(ExpandedWorktreeRowLayout.leadingContentInset >= 20)
         #expect(ExpandedWorktreeRowLayout.leadingContentInset > ExpandedWorktreeRowLayout.selectedStripeWidth)
         #expect(ExpandedWorktreeRowLayout.trailingContentInset >= 8)
         #expect(ExpandedWorktreeRowLayout.minContentHeight >= ExpandedWorktreeRowLayout.statusDotHeight)
@@ -31,10 +31,10 @@ struct ExpandedWorktreeRowLayoutTests {
     func denseTreeLayoutAvoidsSparseGutters() {
         #expect(ExpandedWorktreeRowLayout.projectRowMinHeight <= 40)
         #expect(ExpandedWorktreeRowLayout.worktreeRowMinHeight <= 30)
-        #expect(ExpandedWorktreeRowLayout.worktreeLeadingContentInset <= 28)
+        #expect(ExpandedWorktreeRowLayout.worktreeLeadingContentInset == 20)
         #expect(ExpandedWorktreeRowLayout.worktreeMarkerWidth <= 20)
-        #expect(ExpandedWorktreeRowLayout.worktreeTitleLeadingEdge <= 56)
-        #expect(ExpandedWorktreeRowLayout.projectTitleLeadingEdge <= 52)
+        #expect(ExpandedWorktreeRowLayout.worktreeTitleLeadingEdge == 44)
+        #expect(ExpandedWorktreeRowLayout.projectTitleLeadingEdge == 36)
     }
 
     @Test("project rows match expanded add project sizing")

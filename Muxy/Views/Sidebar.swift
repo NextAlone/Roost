@@ -29,7 +29,7 @@ enum SidebarLayout {
 enum AddProjectButtonLayout {
     static let expandedRowHeight: CGFloat = 36
     static let expandedIconSize: CGFloat = 28
-    static let expandedLeadingContentInset: CGFloat = 4
+    static let expandedLeadingContentInset: CGFloat = 0
     static let expandedTrailingContentInset: CGFloat = 10
     static let expandedColumnSpacing: CGFloat = 8
 }

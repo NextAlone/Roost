@@ -59,4 +59,15 @@ struct ExpandedProjectRowSelectionTests {
         #expect(ExpandedWorktreeRowClickPolicy.action(forClickCount: 2) == .doubleClick)
         #expect(ExpandedWorktreeRowClickPolicy.action(forClickCount: 3) == .doubleClick)
     }
+
+    @Test("workspace row background emphasizes only waiting and completed agents")
+    func workspaceRowBackgroundEmphasizesOnlyWaitingAndCompletedAgents() {
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: nil, hovered: false) == .neutral)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .idle, hovered: false) == .neutral)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .running, hovered: false) == .neutral)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .exited, hovered: false) == .neutral)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .needsInput, hovered: false) == .needsInput)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .completed, hovered: false) == .completed)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .running, hovered: true) == .hover)
+    }
 }

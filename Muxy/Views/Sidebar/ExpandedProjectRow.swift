@@ -545,7 +545,7 @@ enum ExpandedWorktreeRowLayout {
     static let projectLetterFontSize: CGFloat = 13
     static let projectColumnSpacing: CGFloat = AddProjectButtonLayout.expandedColumnSpacing
     static let projectTitleLeadingEdge: CGFloat = projectLeadingContentInset + projectIconSize + projectColumnSpacing
-    static let worktreeLeadingContentInset: CGFloat = 24
+    static let worktreeLeadingContentInset: CGFloat = 20
     static let newWorktreeLeadingContentInset: CGFloat = worktreeLeadingContentInset
     static let worktreeMarkerWidth: CGFloat = 18
     static let newWorktreeMarkerWidth: CGFloat = worktreeMarkerWidth
@@ -569,6 +569,27 @@ enum ExpandedWorktreeRowClickAction {
 enum ExpandedWorktreeRowClickPolicy {
     static func action(forClickCount clickCount: Int) -> ExpandedWorktreeRowClickAction {
         clickCount >= 2 ? .doubleClick : .select
+    }
+}
+
+enum ExpandedWorktreeRowBackgroundKind: Equatable {
+    case neutral
+    case hover
+    case needsInput
+    case completed
+
+    static func resolve(dominantState: AgentActivityState?, hovered: Bool) -> ExpandedWorktreeRowBackgroundKind {
+        switch dominantState {
+        case .needsInput:
+            .needsInput
+        case .completed:
+            .completed
+        case .running,
+             .idle,
+             .exited,
+             nil:
+            hovered ? .hover : .neutral
+        }
     }
 }
 
@@ -714,7 +735,11 @@ private struct ExpandedWorktreeRow: View {
     }
 
     private var rowBackground: AnyShapeStyle {
-        if agentActivitySummary?.dominantState == .needsInput {
+        switch ExpandedWorktreeRowBackgroundKind.resolve(
+            dominantState: agentActivitySummary?.dominantState,
+            hovered: hovered
+        ) {
+        case .needsInput:
             return AnyShapeStyle(LinearGradient(
                 colors: [
                     MuxyTheme.diffRemoveFg.opacity(0.16),
@@ -723,8 +748,7 @@ private struct ExpandedWorktreeRow: View {
                 startPoint: .leading,
                 endPoint: .trailing
             ))
-        }
-        if agentActivitySummary?.dominantState == .completed {
+        case .completed:
             return AnyShapeStyle(LinearGradient(
                 colors: [
                     MuxyTheme.diffAddFg.opacity(0.13),
@@ -733,19 +757,11 @@ private struct ExpandedWorktreeRow: View {
                 startPoint: .leading,
                 endPoint: .trailing
             ))
+        case .hover:
+            return AnyShapeStyle(MuxyTheme.hover)
+        case .neutral:
+            return AnyShapeStyle(Color.clear)
         }
-        if agentActivitySummary?.dominantState == .running {
-            return AnyShapeStyle(LinearGradient(
-                colors: [
-                    MuxyTheme.accent.opacity(0.12),
-                    MuxyTheme.accent.opacity(0.04),
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            ))
-        }
-        if hovered { return AnyShapeStyle(MuxyTheme.hover) }
-        return AnyShapeStyle(Color.clear)
     }
 
     private func startRename() {

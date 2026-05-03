@@ -1,6 +1,6 @@
 # Roost Release Checklist
 
-This checklist tracks the current self-signed/ad-hoc local signature release path. Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, telemetry, crash reporting, and the real XPC host daemon are future work.
+This checklist tracks the current self-signed/ad-hoc local signature release path. Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, telemetry, and crash reporting are future work.
 
 ## Current Release: 1.0.0 Self-Signed / Ad-Hoc ZIP
 
@@ -14,6 +14,13 @@ This checklist tracks the current self-signed/ad-hoc local signature release pat
   ```bash
   cd build
   shasum -a 256 -c SHA256SUMS.txt
+  ```
+
+- [ ] Verify the Nix package hash if the release asset changed:
+
+  ```bash
+  nix --extra-experimental-features 'nix-command flakes' build .#packages.aarch64-darwin.default --no-link
+  nix --extra-experimental-features 'nix-command flakes' build github:NextAlone/Roost/v1.0.0#packages.aarch64-darwin.default --refresh --no-link
   ```
 
 - [ ] Verify local code signature integrity (this is not notarization or Gatekeeper trust):
@@ -63,14 +70,14 @@ This checklist tracks the current self-signed/ad-hoc local signature release pat
 - [ ] Decide whether Sparkle bridges from any old Muxy feed or starts as a fresh Roost feed.
 - [ ] Host appcast XML on a stable URL if Sparkle is enabled.
 - [ ] Generate and protect Sparkle EdDSA keys if Sparkle is enabled.
+- [ ] Generate ZIP appcasts with `scripts/generate-appcast.sh build/Roost-<version>-arm64.zip v<version> <build-number> build/appcast.xml` if Sparkle is enabled.
 - [ ] Define Homebrew cask auto-update strategy if Homebrew is enabled.
 
-## Future: XPC Service
+## Hostd Runtime
 
-- [ ] Build `RoostHostdXPCService` as a separate `.xpc` bundle.
-- [ ] Embed it under `Roost.app/Contents/XPCServices/`.
-- [ ] Implement `NSXPCConnection` client behind the existing `RoostHostdClient` protocol.
-- [ ] Define sandbox and entitlement boundaries for inter-process PTY ownership.
+- [ ] Verify `RoostHostdXPCService.xpc` is embedded in `Roost.app/Contents/XPCServices/`.
+- [ ] Verify `roost-hostd-attach` and `roost-hostd-daemon` are embedded in `Roost.app/Contents/MacOS/`.
+- [ ] Smoke-test hostd-owned runtime mode on a disposable project before enabling it by default.
 
 ## Future: Telemetry and Crash Reporting
 

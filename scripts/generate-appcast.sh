@@ -5,14 +5,19 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 if [[ $# -lt 3 ]]; then
-  echo "Usage: $0 <dmg> <tag> <build-number> [output-path]" >&2
+  echo "Usage: $0 <archive> <tag> <build-number> [output-path]" >&2
   exit 1
 fi
 
-DMG="$1"
+ARCHIVE="$1"
 TAG="$2"
 BUILD_NUMBER="$3"
 OUT_PATH="${4:-appcast.xml}"
+
+if [[ ! -f "$ARCHIVE" ]]; then
+  echo "Error: archive not found at $ARCHIVE" >&2
+  exit 1
+fi
 
 if [[ -z "${SPARKLE_PRIVATE_KEY:-}" ]]; then
   echo "SPARKLE_PRIVATE_KEY is required." >&2
@@ -29,10 +34,12 @@ REPOSITORY="${GITHUB_REPOSITORY:-NextAlone/Roost}"
 DOWNLOAD_URL_PREFIX="${DOWNLOAD_URL_PREFIX:-https://github.com/$REPOSITORY/releases/download/$TAG/}"
 
 VERSION="${TAG#v}"
-SIG=$(echo "$SPARKLE_PRIVATE_KEY" | "$SIGN_UPDATE" --ed-key-file - -p "$DMG")
-SIZE=$(stat -f%z "$DMG")
-FILENAME=$(basename "$DMG")
+SIG=$(printf "%s" "$SPARKLE_PRIVATE_KEY" | "$SIGN_UPDATE" --ed-key-file - -p "$ARCHIVE")
+SIZE=$(wc -c < "$ARCHIVE" | tr -d '[:space:]')
+FILENAME=$(basename "$ARCHIVE")
 PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
+
+mkdir -p "$(dirname "$OUT_PATH")"
 
 cat > "$OUT_PATH" << EOF
 <?xml version="1.0" encoding="utf-8"?>

@@ -810,7 +810,7 @@ Tasks:
 **Follow-up status (2026-05-01): self-signed/ad-hoc release path designed.**
 
 - Current release target is self-signed/ad-hoc, non-notarized, manually distributed as `Roost-<version>-<arch>.zip` with `SHA256SUMS.txt`.
-- Developer ID notarization, Sparkle feed hosting, Homebrew cask distribution, telemetry, crash reporting, and real XPC hostd remain future work.
+- Developer ID notarization, Sparkle feed hosting, Homebrew cask distribution, telemetry, and crash reporting remain future work. Hostd XPC and daemon-backed live attach have since landed; release validation now tracks their bundle/runtime smoke separately.
 - Permission model documented in `docs/permissions.md`: Roost is a terminal host, subprocesses can trigger macOS privacy prompts, Keychain env values are resolved at launch time and not persisted as plaintext.
 
 ## Risk Register
@@ -834,7 +834,7 @@ Tasks:
 
 - sessions: terminal lifecycle remains running/exited; agent activity states are hook-driven and visible in the sidebar. Future work is real-time agent running/idle detection if provider CLIs expose reliable streaming state.
 - hostd: real cross-process XPC service extraction with signing, sandbox, PTY ownership, and attach/release protocol.
-- release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design.
+- release: Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, crash reporting/log export, and any future telemetry only after a separate opt-in design. The first post-1.0.0 distribution slice made ZIP appcast generation archive-agnostic and documented the manual ZIP, Nix, Sparkle, Homebrew, and Developer ID paths.
 - upstream integration: keep Muxy lineage mergeable and avoid large source-directory renames until the upstream strategy changes.
 
 ## Historical Near-Term Task List

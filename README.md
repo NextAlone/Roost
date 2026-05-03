@@ -88,7 +88,7 @@ See [docs/architecture.md](docs/architecture.md) and [docs/roost-migration-plan.
 
 The current release path uses a self-signed/ad-hoc local signature, is non-notarized, and is manually distributed as `Roost-<version>-<arch>.zip` plus `SHA256SUMS.txt`.
 
-See [docs/permissions.md](docs/permissions.md) for the trust model and install notes. See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for release gates and future distribution work.
+See [docs/permissions.md](docs/permissions.md) for the trust model and install notes. See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for release gates and [docs/release-distribution.md](docs/release-distribution.md) for distribution paths.
 
 For declarative Apple Silicon installs, see [docs/nix-darwin.md](docs/nix-darwin.md).
 

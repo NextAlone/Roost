@@ -67,4 +67,4 @@ Sparkle is still present in the codebase, but automatic updates are not the curr
 
 ## Future Work
 
-Developer ID notarization, Sparkle appcast hosting, Homebrew cask distribution, crash reporting, telemetry, sandboxing, and the real XPC host daemon are separate future designs.
+Developer ID notarization, Sparkle appcast hosting, Homebrew cask distribution, crash reporting, telemetry, and sandboxing are separate future designs.

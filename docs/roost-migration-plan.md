@@ -616,6 +616,11 @@ Exit criteria:
 - Metadata-only clients and the current XPC service reject those runtime-control calls with explicit errors instead of silently pretending to attach or release a process.
 - Real hostd-owned PTY lifecycle, stdin/stdout streaming, resize, signal delivery, and live reattach remain the next Phase 6 work.
 
+**Status (2026-05-03): Phase 6g (hostd-owned PTY runtime core) landed.**
+
+- `HostdProcessRegistry` opens a PTY, launches the configured command with `posix_spawn`, keeps the master fd in hostd memory, supports attach metadata, exposes bounded output reads for future streaming, and terminates the process before marking the session exited.
+- This slice is core-only and test-covered. The shipped app and XPC service still report `.appOwnedMetadataOnly`; Ghostty rendering, stdin forwarding, resize, signal delivery, release semantics, and live reattach UI remain the next Phase 6 work.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

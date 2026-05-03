@@ -663,6 +663,12 @@ Exit criteria:
 - Hostd-owned process launch resets terminal-relevant signal dispositions and signal masks, creates a dedicated process group, and sends SIGINT to that group for interrupt delivery.
 - Hostd-owned panes map Ctrl-C to `sendSessionSignal(.interrupt)` instead of raw input bytes. ANSI rendering and live Ghostty attach remain next.
 
+**Status (2026-05-03): Phase 6o (hostd-owned ANSI output rendering) landed.**
+
+- Hostd-owned panes parse ANSI CSI SGR output into plain text plus style runs before rendering.
+- The renderer supports reset, foreground/background 16-color and 256-color palette indexes, bold, dim, normal intensity, and default foreground/background resets, using the active Ghostty palette.
+- Non-SGR CSI and OSC title sequences are stripped from the visible output, and incomplete trailing escape sequences are hidden until more output arrives. Live Ghostty attach remains next.
+
 ## Phase 7: Roost Config and Presets
 
 Goal: standardize project and agent automation.

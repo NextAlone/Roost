@@ -158,9 +158,7 @@ struct HostdOwnedTerminalView: View {
     private var outputScroll: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: true) {
-                Text(output.text)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(MuxyTheme.fg)
+                Text(AttributedString(HostdANSITextRenderer.attributedString(from: output.text)))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .padding(14)

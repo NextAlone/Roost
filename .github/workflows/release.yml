@@ -6,12 +6,17 @@ on:
       version:
         description: "Version (format: X.Y.Z)"
         required: true
-        default: "1.0.0"
+        default: "1.1.0"
         type: string
       build_number:
         description: "Build number (defaults to GitHub run number)"
         required: false
         type: string
+      draft:
+        description: "Create a draft release"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -53,12 +58,44 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build arm64 ZIP
+    name: Build arm64 ZIP and release metadata
     needs: validate
     runs-on: macos-26
     timeout-minutes: 45
+    permissions:
+      contents: write
+    outputs:
+      release_commit: ${{ steps.metadata.outputs.release_commit }}
+      zip_name: ${{ steps.hashes.outputs.zip_name }}
+      sha256: ${{ steps.hashes.outputs.sha256 }}
+      nix_hash: ${{ steps.hashes.outputs.nix_hash }}
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Require branch run
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref_type }}" != "branch" ]]; then
+            echo "Error: run this workflow from a branch, usually main"
+            exit 1
+          fi
+
+      - name: Refuse duplicate release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="v${{ needs.validate.outputs.version }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Error: tag $TAG already exists"
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Error: release $TAG already exists"
+            exit 1
+          fi
 
       - name: Setup GhosttyKit
         run: scripts/setup.sh
@@ -95,6 +132,40 @@ jobs:
           cd build
           shasum -a 256 -c SHA256SUMS.txt
 
+      - name: Compute release hashes
+        id: hashes
+        run: |
+          set -euo pipefail
+          ZIP_NAME="Roost-${{ needs.validate.outputs.version }}-arm64.zip"
+          ZIP_PATH="build/$ZIP_NAME"
+          SHA256="$(shasum -a 256 "$ZIP_PATH" | awk '{print $1}')"
+          NIX_HASH="sha256-$(openssl dgst -sha256 -binary "$ZIP_PATH" | openssl base64 -A)"
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "nix_hash=$NIX_HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Update release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.validate.outputs.version }}"
+          NIX_HASH="${{ steps.hashes.outputs.nix_hash }}"
+          scripts/update-release-metadata.sh "$VERSION" "$NIX_HASH"
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add \
+              Muxy/Info.plist \
+              RoostHostdXPCService/Info.plist \
+              nix/package.nix \
+              docs/nix-darwin.md \
+              docs/release-distribution.md \
+              RELEASE-CHECKLIST.md
+            git commit -m "chore(release): prepare v$VERSION"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+          echo "release_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -103,7 +174,7 @@ jobs:
             build/Roost-${{ needs.validate.outputs.version }}-arm64.zip
 
   release:
-    name: Create draft GitHub release
+    name: Create GitHub release
     needs: [validate, build]
     runs-on: macos-26
     permissions:
@@ -125,11 +196,15 @@ jobs:
 
           This is the current self-signed/ad-hoc ZIP release. It is not Developer ID signed or notarized.
 
+          Commit: ${{ needs.build.outputs.release_commit }}
+          SHA256: ${{ needs.build.outputs.sha256 }}
+          Nix hash: ${{ needs.build.outputs.nix_hash }}
+
           Verify the downloaded archive with SHA256SUMS.txt before opening it.
           EOF
           ls -lh
 
-      - name: Create draft release
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -139,10 +214,17 @@ jobs:
             echo "Error: release $TAG already exists"
             exit 1
           fi
+          RELEASE_FLAGS=()
+          if [[ "${{ inputs.draft }}" == "true" ]]; then
+            RELEASE_FLAGS+=(--draft)
+          else
+            RELEASE_FLAGS+=(--latest)
+          fi
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --title "Roost $TAG" \
-            --draft \
+            --target "${{ needs.build.outputs.release_commit }}" \
             --notes-file release-assets/notes.md \
+            "${RELEASE_FLAGS[@]}" \
             release-assets/Roost-${{ needs.validate.outputs.version }}-*.zip \
             release-assets/SHA256SUMS.txt

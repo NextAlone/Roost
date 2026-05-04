@@ -5,21 +5,23 @@ This checklist tracks the current self-signed/ad-hoc local signature release pat
 ## Current Release: 1.1.0 Self-Signed / Ad-Hoc ZIP
 
 - [ ] Run `scripts/checks.sh`.
-- [ ] Run `scripts/build-release.sh --arch arm64 --version 1.1.0 --zip --sign-identity -` to produce `build/Roost-1.1.0-arm64.zip`.
+- [ ] Run the GitHub Actions `Release` workflow from `main` with `version = 1.1.0`.
+- [ ] Leave `draft` disabled unless the release assets must stay private before publishing.
+- [ ] Confirm the workflow commits updated release metadata, including `nix/package.nix`, before creating `v1.1.0`.
 - [ ] Confirm `--sign-identity -` uses ad-hoc local signing and does not provide Developer ID or notarization trust.
-- [ ] Verify `build/Roost-1.1.0-arm64.zip` exists.
-- [ ] Verify `build/SHA256SUMS.txt` exists and contains the versioned archive.
+- [ ] Verify the GitHub release contains `Roost-1.1.0-arm64.zip`.
+- [ ] Verify the GitHub release contains `SHA256SUMS.txt`.
 - [ ] Verify checksum:
 
   ```bash
-  cd build
+  gh release download v1.1.0 --repo NextAlone/Roost --pattern 'Roost-1.1.0-arm64.zip' --pattern SHA256SUMS.txt --dir /tmp/roost-release
+  cd /tmp/roost-release
   shasum -a 256 -c SHA256SUMS.txt
   ```
 
-- [ ] Verify the Nix package hash if the release asset changed:
+- [ ] Verify the tagged Nix package:
 
   ```bash
-  nix --extra-experimental-features 'nix-command flakes' build .#packages.aarch64-darwin.default --no-link
   nix --extra-experimental-features 'nix-command flakes' build github:NextAlone/Roost/v1.1.0#packages.aarch64-darwin.default --refresh --no-link
   ```
 

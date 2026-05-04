@@ -8,24 +8,20 @@ Roost currently has three distribution paths:
 
 ## Current ZIP Release
 
-Build the first-party archive with:
+Run the first-party GitHub Actions workflow from `main`:
 
-```bash
-scripts/build-release.sh \
-  --arch arm64 \
-  --version 1.1.0 \
-  --zip \
-  --sign-identity -
-```
+1. Open **Actions > Release > Run workflow**.
+2. Set `version` to the release version.
+3. Leave `build_number` empty to use the GitHub run number, or provide a numeric build number.
+4. Leave `draft` disabled for a publishable release.
 
-The self-signed/ad-hoc archive is not Developer ID signed and is not notarized. Keep publishing `SHA256SUMS.txt` next to the ZIP.
+The workflow builds the self-signed/ad-hoc ZIP, computes the ZIP SHA256 and Nix SRI hash, updates release metadata in the repository, commits those metadata changes back to the triggering branch, creates the version tag at that commit, and uploads `Roost-<version>-arm64.zip` plus `SHA256SUMS.txt`. The self-signed/ad-hoc archive is not Developer ID signed and is not notarized.
 
 ## Nix
 
-The Nix package fetches the GitHub release ZIP by version and validates it with a fixed-output hash. After uploading or replacing a release asset, update `nix/package.nix` and verify both refs:
+The Nix package fetches the GitHub release ZIP by version and validates it with a fixed-output hash. The release workflow writes the matching hash into `nix/package.nix` before it creates the tag. After the workflow publishes the release, verify the tagged flake:
 
 ```bash
-nix --extra-experimental-features 'nix-command flakes' build .#packages.aarch64-darwin.default --no-link
 nix --extra-experimental-features 'nix-command flakes' build github:NextAlone/Roost/v1.1.0#packages.aarch64-darwin.default --refresh --no-link
 ```
 

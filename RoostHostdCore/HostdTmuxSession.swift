@@ -166,8 +166,17 @@ public struct HostdTmuxController: HostdTmuxControlling {
             ";", "set-option", "-t", sessionName, "status", "off",
             ";", "set-option", "-t", sessionName, "prefix", "None",
             ";", "set-option", "-t", sessionName, "prefix2", "None",
+            ";", "bind-key", "-T", "root", "WheelUpPane", rootWheelUpBinding,
+            ";", "bind-key", "-T", "copy-mode", "WheelUpPane", "send-keys", "-X", "-N", "1", "scroll-up",
+            ";", "bind-key", "-T", "copy-mode", "WheelDownPane", "send-keys", "-X", "-N", "1", "scroll-down",
+            ";", "bind-key", "-T", "copy-mode-vi", "WheelUpPane", "send-keys", "-X", "-N", "1", "scroll-up",
+            ";", "bind-key", "-T", "copy-mode-vi", "WheelDownPane", "send-keys", "-X", "-N", "1", "scroll-down",
         ]
     }
+
+    private static let rootWheelUpBinding =
+        ##"if-shell -F "#{||:#{alternate_on},#{pane_in_mode},#{mouse_any_flag}}" "##
+            + ##""send-keys -M" "copy-mode -e; send-keys -X -N 1 scroll-up""##
 }
 
 private struct HostdTmuxCommandResult: Sendable {

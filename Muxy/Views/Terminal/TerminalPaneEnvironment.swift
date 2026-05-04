@@ -75,7 +75,16 @@ enum TerminalPaneEnvironment {
             "set-option -t \(session) status off",
             "set-option -t \(session) prefix None",
             "set-option -t \(session) prefix2 None",
+            "bind-key -T root WheelUpPane \(ShellEscaper.escape(rootWheelUpBinding))",
+            "bind-key -T copy-mode WheelUpPane send-keys -X -N 1 scroll-up",
+            "bind-key -T copy-mode WheelDownPane send-keys -X -N 1 scroll-down",
+            "bind-key -T copy-mode-vi WheelUpPane send-keys -X -N 1 scroll-up",
+            "bind-key -T copy-mode-vi WheelDownPane send-keys -X -N 1 scroll-down",
             "attach-session -t \(session)",
         ].joined(separator: " \\; ")
     }
+
+    private static let rootWheelUpBinding =
+        ##"if-shell -F "#{||:#{alternate_on},#{pane_in_mode},#{mouse_any_flag}}" "##
+            + ##""send-keys -M" "copy-mode -e; send-keys -X -N 1 scroll-up""##
 }

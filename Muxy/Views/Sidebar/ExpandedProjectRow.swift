@@ -314,6 +314,7 @@ struct ExpandedProjectRow: View {
     }
 
     private func agentActivitySummary(for worktree: Worktree, selected: Bool) -> SidebarAgentActivitySummary? {
+        _ = appState.agentActivityRevision
         let key = WorktreeKey(projectID: project.id, worktreeID: worktree.id)
         return SidebarAgentActivityResolver.summary(
             tabs: appState.allTabs(forKey: key),

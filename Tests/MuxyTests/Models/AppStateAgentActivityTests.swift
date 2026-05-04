@@ -22,11 +22,36 @@ struct AppStateAgentActivityTests {
         #expect(area.activeTab?.content.pane?.activityState == .needsInput)
     }
 
+    @Test("agent activity updates advance an app-level revision for inactive workspaces")
+    func agentActivityUpdatesAdvanceRevisionForInactiveWorkspaces() {
+        let appState = makeAppState()
+        let projectID = UUID()
+        let activeKey = WorktreeKey(projectID: projectID, worktreeID: UUID())
+        let inactiveKey = WorktreeKey(projectID: projectID, worktreeID: UUID())
+        let activeArea = TabArea(projectPath: "/tmp/active")
+        let inactiveArea = TabArea(projectPath: "/tmp/inactive")
+        inactiveArea.createAgentTab(kind: .codex)
+        let paneID = inactiveArea.activeTab!.content.pane!.id
+        appState.activeProjectID = projectID
+        appState.activeWorktreeID[projectID] = activeKey.worktreeID
+        appState.workspaceRoots[activeKey] = .tabArea(activeArea)
+        appState.workspaceRoots[inactiveKey] = .tabArea(inactiveArea)
+
+        let revisionBefore = appState.agentActivityRevision
+        let updated = appState.updateAgentActivity(paneID: paneID, state: .needsInput)
+
+        #expect(updated == true)
+        #expect(inactiveArea.activeTab?.content.pane?.activityState == .needsInput)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
+    }
+
     @Test("returns false for missing pane")
     func missingPane() {
         let appState = makeAppState()
+        let revisionBefore = appState.agentActivityRevision
         let updated = appState.updateAgentActivity(paneID: UUID(), state: .completed)
         #expect(updated == false)
+        #expect(appState.agentActivityRevision == revisionBefore)
     }
 
     @Test("clears completed agent activity in workspace")
@@ -38,10 +63,12 @@ struct AppStateAgentActivityTests {
         area.activeTab?.content.pane?.activityState = .completed
         appState.workspaceRoots[key] = .tabArea(area)
 
+        let revisionBefore = appState.agentActivityRevision
         let cleared = appState.clearCompletedAgentActivity(for: key)
 
         #expect(cleared == true)
         #expect(area.activeTab?.content.pane?.activityState == .idle)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
     @Test("does not clear running agent activity in workspace")
@@ -53,10 +80,12 @@ struct AppStateAgentActivityTests {
         area.activeTab?.content.pane?.activityState = .running
         appState.workspaceRoots[key] = .tabArea(area)
 
+        let revisionBefore = appState.agentActivityRevision
         let cleared = appState.clearCompletedAgentActivity(for: key)
 
         #expect(cleared == false)
         #expect(area.activeTab?.content.pane?.activityState == .running)
+        #expect(appState.agentActivityRevision == revisionBefore)
     }
 
     @Test("selecting already active completed agent tab acknowledges it")
@@ -74,9 +103,11 @@ struct AppStateAgentActivityTests {
         appState.workspaceRoots[key] = .tabArea(area)
         appState.focusedAreaID[key] = area.id
 
+        let revisionBefore = appState.agentActivityRevision
         appState.dispatch(.selectTab(projectID: projectID, areaID: area.id, tabID: tabID))
 
         #expect(area.activeTab?.content.pane?.activityState == .idle)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
     @Test("focusing already focused completed agent area acknowledges it")
@@ -93,9 +124,29 @@ struct AppStateAgentActivityTests {
         appState.workspaceRoots[key] = .tabArea(area)
         appState.focusedAreaID[key] = area.id
 
+        let revisionBefore = appState.agentActivityRevision
         appState.dispatch(.focusArea(projectID: projectID, areaID: area.id))
 
         #expect(area.activeTab?.content.pane?.activityState == .idle)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
+    }
+
+    @Test("marking an agent pane exited advances activity revision")
+    func markingAgentPaneExitedAdvancesRevision() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let paneID = area.activeTab!.content.pane!.id
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let revisionBefore = appState.agentActivityRevision
+        let marked = appState.markPaneSessionExited(paneID: paneID)
+
+        #expect(marked == true)
+        #expect(area.activeTab?.content.pane?.activityState == .exited)
+        #expect(area.activeTab?.content.pane?.lastState == .exited)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
     private func makeAppState() -> AppState {

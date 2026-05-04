@@ -103,6 +103,7 @@ final class AppState {
 
     var workspaceRoots: [WorktreeKey: SplitNode] = [:]
     var focusedAreaID: [WorktreeKey: UUID] = [:]
+    private(set) var agentActivityRevision = 0
     var pendingLayoutApply: PendingLayoutApply?
     var pendingLayoutApplyBlockedMessage: String?
     var pendingLastTabClose: PendingTabClose?
@@ -261,7 +262,9 @@ final class AppState {
             for area in root.allAreas() {
                 for tab in area.tabs {
                     guard let pane = tab.content.pane, pane.id == paneID else { continue }
+                    guard pane.activityState != state else { return true }
                     pane.activityState = state
+                    advanceAgentActivityRevision()
                     return true
                 }
             }
@@ -283,7 +286,32 @@ final class AppState {
                 }
             }
         }
+        if cleared {
+            advanceAgentActivityRevision()
+        }
         return cleared
+    }
+
+    @discardableResult
+    func acknowledgeAgentActivity(paneID: UUID) -> Bool {
+        guard let pane = pane(forSessionID: paneID) else { return false }
+        let acknowledged = pane.acknowledgeUserInteraction()
+        if acknowledged {
+            advanceAgentActivityRevision()
+        }
+        return acknowledged
+    }
+
+    @discardableResult
+    func markPaneSessionExited(paneID: UUID) -> Bool {
+        guard let pane = pane(forSessionID: paneID) else { return false }
+        let changed = pane.lastState != .exited || pane.activityState != .exited
+        pane.lastState = .exited
+        pane.activityState = .exited
+        if changed {
+            advanceAgentActivityRevision()
+        }
+        return true
     }
 
     func splitFocusedArea(direction: SplitDirection, projectID: UUID) {
@@ -407,6 +435,10 @@ final class AppState {
             }
         }
         return nil
+    }
+
+    private func advanceAgentActivityRevision() {
+        agentActivityRevision &+= 1
     }
 
     func applyHostdRuntimeOwnership(_ ownership: HostdRuntimeOwnership) {
@@ -892,7 +924,12 @@ final class AppState {
         } else {
             tab = area.activeTab
         }
-        return tab?.content.pane?.acknowledgeUserInteraction() ?? false
+        guard let pane = tab?.content.pane else { return false }
+        let acknowledged = pane.acknowledgeUserInteraction()
+        if acknowledged {
+            advanceAgentActivityRevision()
+        }
+        return acknowledged
     }
 
     func goBack() {

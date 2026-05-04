@@ -100,9 +100,8 @@ struct TabAreaView: View {
                         onProcessExit: {
                             if let pane = tab.content.pane {
                                 if TabProcessExitPolicy.representsPaneSessionExit(pane) {
-                                    pane.lastState = .exited
-                                    pane.activityState = .exited
                                     let paneID = pane.id
+                                    appState.markPaneSessionExited(paneID: paneID)
                                     if let hostdClient {
                                         Task { [hostdClient] in
                                             try? await hostdClient.markExited(sessionID: paneID)

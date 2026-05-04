@@ -168,6 +168,7 @@ struct TerminalBridge: NSViewRepresentable {
     let onFocus: () -> Void
     let onProcessExit: () -> Void
     let onSplitRequest: (SplitDirection, SplitPosition) -> Void
+    @Environment(AppState.self) private var appState
     @Environment(\.overlayActive) private var overlayActive
     @Environment(\.activeWorktreeKey) private var worktreeKey
 
@@ -194,9 +195,10 @@ struct TerminalBridge: NSViewRepresentable {
         view.isFocused = focused
         view.overlayActive = overlayActive
         view.onFocus = onFocus
-        view.onUserInteraction = { [weak state] in
+        view.onUserInteraction = { [weak state, appState] in
             Task { @MainActor in
-                state?.acknowledgeUserInteraction()
+                guard let paneID = state?.id else { return }
+                appState.acknowledgeAgentActivity(paneID: paneID)
             }
         }
         view.onProcessExit = onProcessExit

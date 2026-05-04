@@ -4,7 +4,6 @@ Open settings with `Cmd+,` (**Roost → Settings...**).
 
 ## General
 
-- **Update channel** — *Stable* (tagged releases) or *Beta* (auto‑built per commit). Switching channels updates Sparkle's appcast immediately.
 - **Auto‑expand worktrees on project switch** — automatically opens the worktree list when you switch to a project that has more than one.
 - **Keep projects open after closing all tabs** — keeps a project visible in the sidebar even after its last tab is closed.
 - **Confirm before closing tab with running process** — prompts before killing a non‑idle terminal.
@@ -21,6 +20,7 @@ See [Themes](features/themes.md).
 
 - **Default editor** — built-in Roost editor, or an external command.
 - **External editor command** — used when default is set to "external". `{file}`, `{line}`, `{column}` placeholders are substituted.
+- **Wrap lines** — opt-in soft wrapping in the built-in editor. It is off by default to preserve the fast unwrapped path.
 - **Font** — font family and size for the built‑in editor.
 
 ## Keyboard Shortcuts

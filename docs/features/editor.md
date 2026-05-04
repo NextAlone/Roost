@@ -14,6 +14,7 @@ Roost includes a lightweight built-in code editor that opens files as tabs. It's
 - Standard macOS text editing shortcuts.
 - **Save:** `Cmd+S`.
 - **Undo / Redo:** `Cmd+Z` / `Cmd+Shift+Z`.
+- **Wrap Lines:** enable in **Settings → Editor → Appearance** when you want long lines to soft-wrap to the editor width.
 
 Unsaved changes are tracked per tab; quitting with unsaved files prompts to **Save All / Cancel / Discard**.
 

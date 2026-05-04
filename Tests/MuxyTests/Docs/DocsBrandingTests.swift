@@ -26,6 +26,10 @@ struct DocsBrandingTests {
 
         let readme = try String(contentsOf: root.appendingPathComponent("docs/README.md"), encoding: .utf8)
         #expect(readme.hasPrefix("# Roost Documentation"))
+        let settings = try String(contentsOf: root.appendingPathComponent("docs/settings.md"), encoding: .utf8)
+        #expect(!settings.contains("Update channel"))
+        #expect(!settings.contains("appcast"))
+        #expect(settings.contains("Wrap lines"))
 
         for path in paths {
             let text = try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)

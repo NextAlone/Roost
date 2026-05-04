@@ -6,6 +6,7 @@ struct TerminalPane: View {
     let state: TerminalPaneState
     let focused: Bool
     let visible: Bool
+    let areaID: UUID
     let onFocus: () -> Void
     let onProcessExit: () -> Void
     let onSplitRequest: (SplitDirection, SplitPosition) -> Void
@@ -22,6 +23,7 @@ struct TerminalPane: View {
                 TerminalBridge(
                     state: state,
                     focused: focused,
+                    areaID: areaID,
                     onFocus: onFocus,
                     onProcessExit: onProcessExit,
                     onSplitRequest: onSplitRequest
@@ -162,6 +164,7 @@ struct RemoteControlledPlaceholder: View {
 struct TerminalBridge: NSViewRepresentable {
     let state: TerminalPaneState
     let focused: Bool
+    let areaID: UUID
     let onFocus: () -> Void
     let onProcessExit: () -> Void
     let onSplitRequest: (SplitDirection, SplitPosition) -> Void
@@ -198,6 +201,7 @@ struct TerminalBridge: NSViewRepresentable {
         }
         view.onProcessExit = onProcessExit
         view.onSplitRequest = onSplitRequest
+        view.onExternalDragHoverChange = makeExternalDragHoverHandler(areaID: areaID)
         view.onTitleChange = { [weak state] title in
             DispatchQueue.main.async {
                 state?.setTitle(title)
@@ -243,6 +247,7 @@ struct TerminalBridge: NSViewRepresentable {
         }
         nsView.onProcessExit = onProcessExit
         nsView.onSplitRequest = onSplitRequest
+        nsView.onExternalDragHoverChange = makeExternalDragHoverHandler(areaID: areaID)
         nsView.onTitleChange = { [weak state] title in
             DispatchQueue.main.async {
                 state?.setTitle(title)
@@ -275,6 +280,19 @@ struct TerminalBridge: NSViewRepresentable {
             }
         } else if !focused, wasFocused {
             nsView.notifySurfaceUnfocused()
+        }
+    }
+
+    private func makeExternalDragHoverHandler(areaID: UUID) -> (Bool) -> Void {
+        { hovering in
+            NotificationCenter.default.post(
+                name: .externalDragHoverChanged,
+                object: nil,
+                userInfo: [
+                    ExternalDragHoverUserInfoKey.isHovering: hovering,
+                    ExternalDragHoverUserInfoKey.areaID: areaID,
+                ]
+            )
         }
     }
 

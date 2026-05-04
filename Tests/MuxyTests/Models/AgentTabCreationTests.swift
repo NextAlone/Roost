@@ -36,7 +36,7 @@ struct AgentTabCreationTests {
         area.createAgentTab(kind: .codex)
         let pane = area.activeTab?.content.pane
         #expect(pane?.projectPath == "/Users/me/repo/wt-feature-x")
-        #expect(pane?.startupCommand == "codex --dangerously-bypass-approvals-and-sandbox")
+        #expect(pane?.startupCommand == "codex --disable apps --dangerously-bypass-approvals-and-sandbox")
     }
 
     @Test("Claude Code tab default title shows agent name")
@@ -101,7 +101,7 @@ struct AgentTabCreationTests {
         #expect(records.first?.worktreeID == worktreeID)
         #expect(records.first?.workspacePath == "/tmp/wt")
         #expect(records.first?.agentKind == .codex)
-        #expect(records.first?.command == "codex --dangerously-bypass-approvals-and-sandbox")
+        #expect(records.first?.command == "codex --disable apps --dangerously-bypass-approvals-and-sandbox")
     }
 
     @Test("AppState createAgentTab records hostd launch environment")
@@ -228,9 +228,9 @@ struct AgentTabCreationTests {
         let pane = try #require(appState.focusedArea(for: projectID)?.activeTab?.content.pane)
         let records = try await client.waitForRecords()
         #expect(pane.hostdRuntimeOwnership == .hostdOwnedProcess)
-        #expect(pane.startupCommand == "codex --dangerously-bypass-approvals-and-sandbox")
+        #expect(pane.startupCommand == "codex --disable apps --dangerously-bypass-approvals-and-sandbox")
         #expect(records.first?.command?.contains("export PATH=") == true)
-        #expect(records.first?.command?.hasSuffix("; codex --dangerously-bypass-approvals-and-sandbox") == true)
+        #expect(records.first?.command?.hasSuffix("; codex --disable apps --dangerously-bypass-approvals-and-sandbox") == true)
     }
 
     @Test("hostd-owned agent panes wait for session creation before attaching")
@@ -436,7 +436,7 @@ struct AgentTabCreationTests {
         #expect(request.environment["COLORTERM"] == "truecolor")
         #expect(request.command?.contains("export PATH=") == true)
         #expect(request.command?.contains("export TERM=") == false)
-        #expect(request.command?.hasSuffix("; codex --dangerously-bypass-approvals-and-sandbox") == true)
+        #expect(request.command?.hasSuffix("; codex --disable apps --dangerously-bypass-approvals-and-sandbox") == true)
     }
 
     @Test("AppState does not recreate restored live hostd agent panes")

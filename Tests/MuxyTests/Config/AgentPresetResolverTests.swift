@@ -55,7 +55,7 @@ struct AgentPresetResolverTests {
             projectConfig: projectConfig
         )
 
-        #expect(preset.defaultCommand == "codex --dangerously-bypass-approvals-and-sandbox")
+        #expect(preset.defaultCommand == "codex --disable apps --dangerously-bypass-approvals-and-sandbox")
         #expect(!preset.requiresDedicatedWorkspace)
     }
 

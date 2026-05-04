@@ -23,7 +23,7 @@ struct AgentPresetTests {
         #expect(AgentPresetCatalog.preset(for: .claudeCode).defaultCommand == "claude --dangerously-skip-permissions")
         #expect(
             AgentPresetCatalog.preset(for: .codex).defaultCommand ==
-                "codex --dangerously-bypass-approvals-and-sandbox"
+                "codex --disable apps --dangerously-bypass-approvals-and-sandbox"
         )
         #expect(AgentPresetCatalog.preset(for: .geminiCli).defaultCommand == "gemini --yolo")
         #expect(AgentPresetCatalog.preset(for: .openCode).defaultCommand == "opencode")
@@ -65,7 +65,7 @@ struct AgentPresetTests {
             cardinality: .dedicated
         )]
         let preset = AgentPresetCatalog.preset(for: .codex, configuredPresets: configured)
-        #expect(preset.defaultCommand == "codex --dangerously-bypass-approvals-and-sandbox")
+        #expect(preset.defaultCommand == "codex --disable apps --dangerously-bypass-approvals-and-sandbox")
         #expect(preset.requiresDedicatedWorkspace == false)
     }
 }

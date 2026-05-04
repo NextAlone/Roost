@@ -53,7 +53,7 @@ public enum AgentPresetCatalog {
         case .claudeCode:
             AgentPreset(kind: .claudeCode, defaultCommand: "claude --dangerously-skip-permissions")
         case .codex:
-            AgentPreset(kind: .codex, defaultCommand: "codex --dangerously-bypass-approvals-and-sandbox")
+            AgentPreset(kind: .codex, defaultCommand: "codex --disable apps --dangerously-bypass-approvals-and-sandbox")
         case .geminiCli:
             AgentPreset(kind: .geminiCli, defaultCommand: "gemini --yolo")
         case .openCode:

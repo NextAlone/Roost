@@ -19,4 +19,26 @@ struct TerminalPaneActivityStateTests {
 
         #expect(pane.activityState == .idle)
     }
+
+    @Test("completed agent interaction acknowledges to idle")
+    func completedAgentInteractionAcknowledgesToIdle() {
+        let pane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .codex)
+        pane.activityState = .completed
+
+        let acknowledged = pane.acknowledgeUserInteraction()
+
+        #expect(acknowledged == true)
+        #expect(pane.activityState == .idle)
+    }
+
+    @Test("running agent interaction stays running")
+    func runningAgentInteractionStaysRunning() {
+        let pane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .codex)
+        pane.activityState = .running
+
+        let acknowledged = pane.acknowledgeUserInteraction()
+
+        #expect(acknowledged == false)
+        #expect(pane.activityState == .running)
+    }
 }

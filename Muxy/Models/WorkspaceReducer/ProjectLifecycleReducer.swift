@@ -21,6 +21,9 @@ enum ProjectLifecycleReducer {
             worktreePath: worktreePath,
             state: &state
         )
+        if let key = WorkspaceReducerShared.activeKey(projectID: projectID, state: state) {
+            WorkspaceReducerShared.acknowledgeFocusedAgentActivity(key: key, areaID: nil, state: state)
+        }
     }
 
     static func removeProject(
@@ -114,5 +117,8 @@ enum ProjectLifecycleReducer {
             worktreePath: worktree.path,
             state: &state
         )
+        if let key = WorkspaceReducerShared.activeKey(projectID: project.id, state: state) {
+            WorkspaceReducerShared.acknowledgeFocusedAgentActivity(key: key, areaID: nil, state: state)
+        }
     }
 }

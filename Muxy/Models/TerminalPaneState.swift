@@ -82,6 +82,13 @@ final class TerminalPaneState: Identifiable {
         currentWorkingDirectory = path
     }
 
+    @discardableResult
+    func acknowledgeUserInteraction() -> Bool {
+        guard agentKind != .terminal, activityState == .completed else { return false }
+        activityState = .idle
+        return true
+    }
+
     func markHostdAttachPreparing() {
         guard hostdRuntimeOwnership == .hostdOwnedProcess, agentKind != .terminal else {
             hostdAttachState = .inactive

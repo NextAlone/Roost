@@ -10,6 +10,7 @@ final class GhosttyTerminalNSView: NSView {
     var onTitleChange: ((String) -> Void)?
     var onWorkingDirectoryChange: ((String) -> Void)?
     var onFocus: (() -> Void)?
+    var onUserInteraction: (() -> Void)?
     var onProcessExit: (() -> Void)?
     var onSplitRequest: ((SplitDirection, SplitPosition) -> Void)?
     var onSearchStart: ((String?) -> Void)?
@@ -171,6 +172,7 @@ final class GhosttyTerminalNSView: NSView {
         resolveCmdHoverFile = nil
         onTitleChange = nil
         onFocus = nil
+        onUserInteraction = nil
         onProcessExit = nil
         onSplitRequest = nil
         onSearchStart = nil
@@ -369,6 +371,7 @@ final class GhosttyTerminalNSView: NSView {
         guard let surface else { super.keyDown(with: event)
             return
         }
+        onUserInteraction?()
 
         let action: ghostty_input_action_e = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -469,6 +472,7 @@ final class GhosttyTerminalNSView: NSView {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let hasActionModifier = flags.contains(.command) || flags.contains(.control) || flags.contains(.option)
         guard hasActionModifier else { return false }
+        onUserInteraction?()
 
         if isPasteShortcut(event, flags: flags), pasteboardHasImage() {
             sendRemoteBytes(Data([0x16]))
@@ -490,6 +494,7 @@ final class GhosttyTerminalNSView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        onUserInteraction?()
         let alreadyFirstResponder = window?.firstResponder === self
         let shouldRequestFocus = !isFocused || !alreadyFirstResponder
         window?.makeFirstResponder(self)
@@ -580,6 +585,7 @@ final class GhosttyTerminalNSView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        onUserInteraction?()
         guard let surface else { return }
         let pt = mousePoint(from: event)
         ghostty_surface_mouse_pos(surface, pt.x, pt.y, modsFromEvent(event))
@@ -668,6 +674,7 @@ final class GhosttyTerminalNSView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        onUserInteraction?()
         guard let surface else { return }
         var mods: ghostty_input_scroll_mods_t = 0
         if event.hasPreciseScrollingDeltas { mods |= 1 }
@@ -921,6 +928,7 @@ extension GhosttyTerminalNSView: @preconcurrency NSTextInputClient {
         unmarkText()
 
         guard !text.isEmpty else { return }
+        onUserInteraction?()
 
         if currentKeyEvent != nil {
             keyTextAccumulator.append(text)

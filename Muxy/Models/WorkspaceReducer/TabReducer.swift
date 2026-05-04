@@ -115,6 +115,7 @@ enum TabReducer {
         else { return }
         FocusReducer.focusArea(area.id, key: key, state: &state)
         area.selectTab(tabID)
+        WorkspaceReducerShared.acknowledgeFocusedAgentActivity(key: key, areaID: area.id, state: state)
     }
 
     static func selectTabByIndex(projectID: UUID, areaID: UUID?, index: Int, state: inout WorkspaceState) {
@@ -123,6 +124,7 @@ enum TabReducer {
         else { return }
         FocusReducer.focusArea(area.id, key: key, state: &state)
         area.selectTabByIndex(index)
+        WorkspaceReducerShared.acknowledgeFocusedAgentActivity(key: key, areaID: area.id, state: state)
     }
 
     static func selectNextTab(projectID: UUID, state: WorkspaceState) {
@@ -130,6 +132,7 @@ enum TabReducer {
               let area = WorkspaceReducerShared.resolveArea(key: key, areaID: nil, state: state)
         else { return }
         area.selectNextTab()
+        WorkspaceReducerShared.acknowledgeFocusedAgentActivity(key: key, areaID: area.id, state: state)
     }
 
     static func selectPreviousTab(projectID: UUID, state: WorkspaceState) {
@@ -137,6 +140,7 @@ enum TabReducer {
               let area = WorkspaceReducerShared.resolveArea(key: key, areaID: nil, state: state)
         else { return }
         area.selectPreviousTab()
+        WorkspaceReducerShared.acknowledgeFocusedAgentActivity(key: key, areaID: area.id, state: state)
     }
 
     static func closeTab(

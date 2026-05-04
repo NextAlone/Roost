@@ -269,10 +269,9 @@ final class AppState {
                 guard let pane = tab.content.pane,
                       pane.agentKind != .terminal
                 else { continue }
-                let acknowledgedState = pane.activityState.acknowledgedSidebarState
-                guard acknowledgedState != pane.activityState else { continue }
-                pane.activityState = acknowledgedState
-                cleared = true
+                if pane.acknowledgeUserInteraction() {
+                    cleared = true
+                }
             }
         }
         return cleared
@@ -718,6 +717,7 @@ final class AppState {
            let key = activeWorktreeKey(for: projectID),
            focusedAreaID[key] == areaID
         {
+            acknowledgeAgentActivity(key: key, areaID: areaID)
             return
         }
 
@@ -728,6 +728,7 @@ final class AppState {
            area.activeTabID == tabID,
            focusedAreaID[key] == areaID
         {
+            acknowledgeAgentActivity(key: key, areaID: areaID, tabID: tabID)
             return
         }
 
@@ -779,6 +780,18 @@ final class AppState {
             saveWorkspaces()
         }
         saveSelection()
+    }
+
+    @discardableResult
+    private func acknowledgeAgentActivity(key: WorktreeKey, areaID: UUID, tabID: UUID? = nil) -> Bool {
+        guard let area = workspaceRoots[key]?.findArea(id: areaID) else { return false }
+        let tab: TerminalTab?
+        if let tabID {
+            tab = area.tabs.first { $0.id == tabID }
+        } else {
+            tab = area.activeTab
+        }
+        return tab?.content.pane?.acknowledgeUserInteraction() ?? false
     }
 
     func goBack() {

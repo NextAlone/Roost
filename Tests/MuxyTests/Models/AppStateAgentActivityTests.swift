@@ -59,6 +59,45 @@ struct AppStateAgentActivityTests {
         #expect(area.activeTab?.content.pane?.activityState == .running)
     }
 
+    @Test("selecting already active completed agent tab acknowledges it")
+    func selectingAlreadyActiveCompletedAgentTabAcknowledgesIt() {
+        let appState = makeAppState()
+        let projectID = UUID()
+        let worktreeID = UUID()
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let tabID = area.activeTabID!
+        area.activeTab?.content.pane?.activityState = .completed
+        appState.activeProjectID = projectID
+        appState.activeWorktreeID[projectID] = worktreeID
+        appState.workspaceRoots[key] = .tabArea(area)
+        appState.focusedAreaID[key] = area.id
+
+        appState.dispatch(.selectTab(projectID: projectID, areaID: area.id, tabID: tabID))
+
+        #expect(area.activeTab?.content.pane?.activityState == .idle)
+    }
+
+    @Test("focusing already focused completed agent area acknowledges it")
+    func focusingAlreadyFocusedCompletedAgentAreaAcknowledgesIt() {
+        let appState = makeAppState()
+        let projectID = UUID()
+        let worktreeID = UUID()
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        area.activeTab?.content.pane?.activityState = .completed
+        appState.activeProjectID = projectID
+        appState.activeWorktreeID[projectID] = worktreeID
+        appState.workspaceRoots[key] = .tabArea(area)
+        appState.focusedAreaID[key] = area.id
+
+        appState.dispatch(.focusArea(projectID: projectID, areaID: area.id))
+
+        #expect(area.activeTab?.content.pane?.activityState == .idle)
+    }
+
     private func makeAppState() -> AppState {
         AppState(
             selectionStore: AgentActivitySelectionStoreStub(),

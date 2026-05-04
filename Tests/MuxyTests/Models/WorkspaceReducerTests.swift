@@ -303,6 +303,29 @@ struct WorkspaceReducerTests {
         #expect(area.activeTabID == firstTabID)
     }
 
+    @Test("selectTab acknowledges completed agent tab")
+    func selectTabAcknowledgesCompletedAgentTab() {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let areaID = state.focusedAreaID[key]!
+        let area = focusedArea(in: state, projectID: projectID)!
+
+        area.createAgentTab(kind: .codex)
+        let agentTabID = area.activeTabID!
+        area.activeTab?.content.pane?.activityState = .completed
+        area.selectTab(area.tabs[0].id)
+
+        _ = WorkspaceReducer.reduce(
+            action: .selectTab(projectID: projectID, areaID: areaID, tabID: agentTabID),
+            state: &state
+        )
+
+        #expect(area.activeTabID == agentTabID)
+        #expect(area.activeTab?.content.pane?.activityState == .idle)
+    }
+
     @Test("selectNextTab cycles through tabs")
     func selectNextTab() {
         let projectID = UUID()
@@ -321,6 +344,27 @@ struct WorkspaceReducerTests {
             state: &state
         )
         #expect(area.activeTabID == firstTabID)
+    }
+
+    @Test("selectNextTab acknowledges completed agent tab")
+    func selectNextTabAcknowledgesCompletedAgentTab() {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        let area = focusedArea(in: state, projectID: projectID)!
+
+        area.createAgentTab(kind: .codex)
+        let agentTabID = area.activeTabID!
+        area.activeTab?.content.pane?.activityState = .completed
+        area.selectTab(area.tabs[0].id)
+
+        _ = WorkspaceReducer.reduce(
+            action: .selectNextTab(projectID: projectID),
+            state: &state
+        )
+
+        #expect(area.activeTabID == agentTabID)
+        #expect(area.activeTab?.content.pane?.activityState == .idle)
     }
 
     @Test("splitArea creates split and focuses new area")
@@ -419,6 +463,42 @@ struct WorkspaceReducerTests {
         #expect(state.focusHistory[key]?.contains(secondAreaID) == true)
     }
 
+    @Test("focusArea acknowledges completed agent in focused pane")
+    func focusAreaAcknowledgesCompletedAgentInFocusedPane() {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let firstAreaID = state.focusedAreaID[key]!
+
+        _ = WorkspaceReducer.reduce(
+            action: .splitArea(AppState.SplitAreaRequest(
+                projectID: projectID,
+                areaID: firstAreaID,
+                direction: .horizontal,
+                position: .second
+            )),
+            state: &state
+        )
+        let secondAreaID = state.focusedAreaID[key]!
+        let secondArea = state.workspaceRoots[key]!.findArea(id: secondAreaID)!
+        secondArea.createAgentTab(kind: .codex)
+        secondArea.activeTab?.content.pane?.activityState = .completed
+
+        _ = WorkspaceReducer.reduce(
+            action: .focusArea(projectID: projectID, areaID: firstAreaID),
+            state: &state
+        )
+
+        _ = WorkspaceReducer.reduce(
+            action: .focusArea(projectID: projectID, areaID: secondAreaID),
+            state: &state
+        )
+
+        #expect(state.focusedAreaID[key] == secondAreaID)
+        #expect(secondArea.activeTab?.content.pane?.activityState == .idle)
+    }
+
     @Test("focus history does not exceed 20 entries")
     func focusHistoryLimit() {
         let projectID = UUID()
@@ -476,6 +556,42 @@ struct WorkspaceReducerTests {
             state: &state
         )
         #expect(state.focusedAreaID[key] == rightAreaID)
+    }
+
+    @Test("focusPaneRight acknowledges completed agent in target pane")
+    func focusPaneRightAcknowledgesCompletedAgentInTargetPane() {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let leftAreaID = state.focusedAreaID[key]!
+
+        _ = WorkspaceReducer.reduce(
+            action: .splitArea(AppState.SplitAreaRequest(
+                projectID: projectID,
+                areaID: leftAreaID,
+                direction: .horizontal,
+                position: .second
+            )),
+            state: &state
+        )
+        let rightAreaID = state.focusedAreaID[key]!
+        let rightArea = state.workspaceRoots[key]!.findArea(id: rightAreaID)!
+        rightArea.createAgentTab(kind: .codex)
+        rightArea.activeTab?.content.pane?.activityState = .completed
+
+        _ = WorkspaceReducer.reduce(
+            action: .focusArea(projectID: projectID, areaID: leftAreaID),
+            state: &state
+        )
+
+        _ = WorkspaceReducer.reduce(
+            action: .focusPaneRight(projectID: projectID),
+            state: &state
+        )
+
+        #expect(state.focusedAreaID[key] == rightAreaID)
+        #expect(rightArea.activeTab?.content.pane?.activityState == .idle)
     }
 
     @Test("focusPaneLeft selects pane to the left")
@@ -677,6 +793,27 @@ struct WorkspaceReducerTests {
 
         let area = focusedArea(in: state, projectID: projectID)!
         #expect(area.activeTabID == area.tabs[0].id)
+    }
+
+    @Test("selectTabByIndex acknowledges completed agent tab")
+    func selectTabByIndexAcknowledgesCompletedAgentTab() {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        let area = focusedArea(in: state, projectID: projectID)!
+
+        area.createAgentTab(kind: .codex)
+        let agentTabID = area.activeTabID!
+        area.activeTab?.content.pane?.activityState = .completed
+        area.selectTab(area.tabs[0].id)
+
+        _ = WorkspaceReducer.reduce(
+            action: .selectTabByIndex(projectID: projectID, areaID: nil, index: 1),
+            state: &state
+        )
+
+        #expect(area.activeTabID == agentTabID)
+        #expect(area.activeTab?.content.pane?.activityState == .idle)
     }
 
     @Test("createAgentTab opens pane in active worktree path")

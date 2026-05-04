@@ -191,6 +191,11 @@ struct TerminalBridge: NSViewRepresentable {
         view.isFocused = focused
         view.overlayActive = overlayActive
         view.onFocus = onFocus
+        view.onUserInteraction = { [weak state] in
+            Task { @MainActor in
+                state?.acknowledgeUserInteraction()
+            }
+        }
         view.onProcessExit = onProcessExit
         view.onSplitRequest = onSplitRequest
         view.onTitleChange = { [weak state] title in
@@ -231,6 +236,11 @@ struct TerminalBridge: NSViewRepresentable {
         }
         nsView.overlayActive = overlayActive
         nsView.onFocus = onFocus
+        nsView.onUserInteraction = { [weak state] in
+            Task { @MainActor in
+                state?.acknowledgeUserInteraction()
+            }
+        }
         nsView.onProcessExit = onProcessExit
         nsView.onSplitRequest = onSplitRequest
         nsView.onTitleChange = { [weak state] title in

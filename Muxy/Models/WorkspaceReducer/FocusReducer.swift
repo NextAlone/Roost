@@ -21,6 +21,7 @@ enum FocusReducer {
             state.focusHistory[key] = history
         }
         state.focusedAreaID[key] = areaID
+        WorkspaceReducerShared.acknowledgeFocusedAgentActivity(key: key, areaID: areaID, state: state)
     }
 
     static func focusArea(projectID: UUID, areaID: UUID, state: inout WorkspaceState) {

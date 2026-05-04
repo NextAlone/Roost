@@ -16,6 +16,14 @@ enum WorkspaceReducerShared {
         return root.findArea(id: focusedID)
     }
 
+    @discardableResult
+    static func acknowledgeFocusedAgentActivity(key: WorktreeKey, areaID: UUID?, state: WorkspaceState) -> Bool {
+        guard let area = resolveArea(key: key, areaID: areaID, state: state),
+              let pane = area.activeTab?.content.pane
+        else { return false }
+        return pane.acknowledgeUserInteraction()
+    }
+
     static func ensureWorkspaceExists(
         projectID: UUID,
         worktreeID: UUID,

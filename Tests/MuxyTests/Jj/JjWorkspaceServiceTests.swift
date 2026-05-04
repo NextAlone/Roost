@@ -33,6 +33,18 @@ struct JjWorkspaceServiceTests {
         #expect(cmd == ["workspace", "add", "--name", "feat-x", "/repo/.worktrees/feat-x"])
     }
 
+    @Test("add with base revision invokes workspace add revision")
+    func addWithBaseRevision() async throws {
+        let captured = CapturedArgs()
+        let svc = JjWorkspaceService(queue: JjProcessQueue()) { repo, cmd, _, _ in
+            await captured.set(repo: repo, cmd: cmd)
+            return JjProcessResult(status: 0, stdout: Data(), stderr: "")
+        }
+        try await svc.add(repoPath: "/repo", name: "feat-x", path: "/repo/.worktrees/feat-x", baseRevision: "main")
+        let cmd = await captured.cmd
+        #expect(cmd == ["workspace", "add", "--name", "feat-x", "-r", "main", "/repo/.worktrees/feat-x"])
+    }
+
     @Test("forget invokes workspace forget")
     func forget() async throws {
         let captured = CapturedArgs()

@@ -26,8 +26,13 @@ struct JjWorkspaceService: Sendable {
         return try JjWorkspaceParser.parse(raw)
     }
 
-    func add(repoPath: String, name: String, path: String) async throws {
-        try await runMutating(repoPath: repoPath, command: ["workspace", "add", "--name", name, path])
+    func add(repoPath: String, name: String, path: String, baseRevision: String? = nil) async throws {
+        var command = ["workspace", "add", "--name", name]
+        if let baseRevision, !baseRevision.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            command += ["-r", baseRevision]
+        }
+        command.append(path)
+        try await runMutating(repoPath: repoPath, command: command)
     }
 
     func forget(repoPath: String, name: String) async throws {

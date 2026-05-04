@@ -11,13 +11,10 @@ struct JjWorktreeControllerTests {
         let calls = JjControllerCallLog()
         let controller = JjWorktreeController(
             workspaceList: { _ in [] },
-            workspaceAdd: { _, name, path in
-                await calls.append("workspace.add:\(name)@\(path)")
+            workspaceAdd: { _, name, path, baseRevision in
+                await calls.append("workspace.add:\(name)@\(path)#\(baseRevision ?? "nil")")
             },
             workspaceForget: { _, _ in },
-            bookmarkCreate: { _, _ in
-                await calls.append("bookmark.create:should-not-be-called")
-            },
             bookmarkForget: { _, _ in }
         )
         try await controller.addWorktree(
@@ -28,21 +25,18 @@ struct JjWorktreeControllerTests {
             createRef: false
         )
         let log = await calls.entries
-        #expect(log == ["workspace.add:feat-x@/repo/.worktrees/feat-x"])
+        #expect(log == ["workspace.add:feat-x@/repo/.worktrees/feat-x#nil"])
     }
 
-    @Test("addWorktree with createRef also creates bookmark")
-    func addWithCreateRef() async throws {
+    @Test("addWorktree with ref uses it as base revision without creating bookmark")
+    func addWithBaseRevision() async throws {
         let calls = JjControllerCallLog()
         let controller = JjWorktreeController(
             workspaceList: { _ in [] },
-            workspaceAdd: { _, name, path in
-                await calls.append("workspace.add:\(name)@\(path)")
+            workspaceAdd: { _, name, path, baseRevision in
+                await calls.append("workspace.add:\(name)@\(path)#\(baseRevision ?? "nil")")
             },
             workspaceForget: { _, _ in },
-            bookmarkCreate: { _, name in
-                await calls.append("bookmark.create:\(name)")
-            },
             bookmarkForget: { _, _ in }
         )
         try await controller.addWorktree(
@@ -53,10 +47,7 @@ struct JjWorktreeControllerTests {
             createRef: true
         )
         let log = await calls.entries
-        #expect(log == [
-            "workspace.add:feat-x@/repo/.worktrees/feat-x",
-            "bookmark.create:feat-x"
-        ])
+        #expect(log == ["workspace.add:feat-x@/repo/.worktrees/feat-x#feat-x"])
     }
 
     @Test("removeWorktree with explicit identifier calls workspace forget by name + deletes path")
@@ -69,11 +60,10 @@ struct JjWorktreeControllerTests {
         let calls = JjControllerCallLog()
         let controller = JjWorktreeController(
             workspaceList: { _ in [] },
-            workspaceAdd: { _, _, _ in },
+            workspaceAdd: { _, _, _, _ in },
             workspaceForget: { _, name in
                 await calls.append("workspace.forget:\(name)")
             },
-            bookmarkCreate: { _, _ in },
             bookmarkForget: { _, _ in }
         )
         try await controller.removeWorktree(
@@ -103,11 +93,10 @@ struct JjWorktreeControllerTests {
         )
         let controller = JjWorktreeController(
             workspaceList: { _ in [entry] },
-            workspaceAdd: { _, _, _ in },
+            workspaceAdd: { _, _, _, _ in },
             workspaceForget: { _, name in
                 await calls.append("workspace.forget:\(name)")
             },
-            bookmarkCreate: { _, _ in },
             bookmarkForget: { _, _ in }
         )
         try await controller.removeWorktree(repoPath: "/repo", path: tmp.path, target: .orphan, force: true)
@@ -124,11 +113,10 @@ struct JjWorktreeControllerTests {
         let calls = JjControllerCallLog()
         let controller = JjWorktreeController(
             workspaceList: { _ in [] },
-            workspaceAdd: { _, _, _ in },
+            workspaceAdd: { _, _, _, _ in },
             workspaceForget: { _, name in
                 await calls.append("workspace.forget:\(name)")
             },
-            bookmarkCreate: { _, _ in },
             bookmarkForget: { _, _ in }
         )
         try await controller.removeWorktree(
@@ -147,9 +135,8 @@ struct JjWorktreeControllerTests {
         let calls = JjControllerCallLog()
         let controller = JjWorktreeController(
             workspaceList: { _ in [] },
-            workspaceAdd: { _, _, _ in },
+            workspaceAdd: { _, _, _, _ in },
             workspaceForget: { _, _ in },
-            bookmarkCreate: { _, _ in },
             bookmarkForget: { _, name in
                 await calls.append("bookmark.forget:\(name)")
             }

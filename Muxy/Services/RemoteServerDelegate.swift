@@ -461,6 +461,8 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
 
         let kind = worktreeStore.primary(for: project.id)?.vcsKind ?? .git
         let controller = resolver.controller(kind)
+        let storedRef = kind == .jj && trimmedBranch == "@" ? nil : trimmedBranch
+        let ownsRef = kind == .git && createBranch
         try await controller.addWorktree(
             repoPath: project.path,
             name: trimmedName,
@@ -472,8 +474,8 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
         let worktree = Worktree(
             name: trimmedName,
             path: worktreeDirectory,
-            branch: trimmedBranch,
-            ownsBranch: createBranch,
+            branch: storedRef,
+            ownsBranch: ownsRef,
             isPrimary: false,
             vcsKind: kind,
             jjWorkspaceName: kind == .jj ? trimmedName : nil

@@ -6,6 +6,11 @@ enum CreateWorktreeResult {
     case cancelled
 }
 
+enum JjWorkspaceBaseMode: Hashable {
+    case currentWorkingCopy
+    case bookmark
+}
+
 struct CreateWorktreeSheet: View {
     let project: Project
     let onFinish: (CreateWorktreeResult) -> Void
@@ -15,6 +20,7 @@ struct CreateWorktreeSheet: View {
     @State private var branchName: String = ""
     @State private var branchNameEdited = false
     @State private var createNewBranch = true
+    @State private var jjBaseMode = JjWorkspaceBaseMode.currentWorkingCopy
     @State private var selectedExistingBranch: String = ""
     @State private var availableBranches: [String] = []
     @State private var setupCommands: [String] = []
@@ -60,30 +66,10 @@ struct CreateWorktreeSheet: View {
                     .textFieldStyle(.roundedBorder)
             }
 
-            SegmentedPicker(
-                selection: $createNewBranch,
-                options: [(true, "Create new \(refTermLower)"), (false, "Use existing \(refTermLower)")]
-            )
-
-            if createNewBranch {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("\(refTerm) Name").font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
-                    TextField("feature-x", text: $branchName)
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: branchName) { _, newValue in
-                            branchNameEdited = newValue != name
-                        }
-                }
+            if projectVcsKind == .jj {
+                jjBaseSection
             } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(refTerm).font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
-                    Picker("", selection: $selectedExistingBranch) {
-                        ForEach(availableBranches, id: \.self) { branch in
-                            Text(branch).tag(branch)
-                        }
-                    }
-                    .labelsHidden()
-                }
+                gitBranchSection
             }
 
             if setupCommands.isEmpty {
@@ -111,7 +97,7 @@ struct CreateWorktreeSheet: View {
         .padding(20)
         .frame(width: 460)
         .task {
-            await loadBranches()
+            await loadRefs()
             loadSetupCommands()
         }
         .onChange(of: name) { _, newValue in
@@ -121,6 +107,56 @@ struct CreateWorktreeSheet: View {
         .onChange(of: createNewBranch) { _, isCreatingNewBranch in
             guard isCreatingNewBranch, !branchNameEdited else { return }
             branchName = name
+        }
+    }
+
+    private var gitBranchSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SegmentedPicker(
+                selection: $createNewBranch,
+                options: [(true, "Create new \(refTermLower)"), (false, "Use existing \(refTermLower)")]
+            )
+
+            if createNewBranch {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(refTerm) Name").font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
+                    TextField("feature-x", text: $branchName)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: branchName) { _, newValue in
+                            branchNameEdited = newValue != name
+                        }
+                }
+            } else {
+                existingRefPicker(title: refTerm, refs: availableBranches)
+            }
+        }
+    }
+
+    private var jjBaseSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SegmentedPicker(
+                selection: $jjBaseMode,
+                options: [
+                    (.currentWorkingCopy, "Current working copy"),
+                    (.bookmark, "Bookmark"),
+                ]
+            )
+
+            if jjBaseMode == .bookmark {
+                existingRefPicker(title: "Base Bookmark", refs: availableBranches)
+            }
+        }
+    }
+
+    private func existingRefPicker(title: String, refs: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
+            Picker("", selection: $selectedExistingBranch) {
+                ForEach(refs, id: \.self) { branch in
+                    Text(branch).tag(branch)
+                }
+            }
+            .labelsHidden()
         }
     }
 
@@ -196,13 +232,21 @@ struct CreateWorktreeSheet: View {
 
     private var canCreate: Bool {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        if projectVcsKind == .jj {
+            return jjBaseMode == .currentWorkingCopy || !selectedExistingBranch.isEmpty
+        }
         if createNewBranch {
             return !branchName.trimmingCharacters(in: .whitespaces).isEmpty
         }
         return !selectedExistingBranch.isEmpty
     }
 
-    private func loadBranches() async {
+    private func loadRefs() async {
+        if projectVcsKind == .jj {
+            await loadBookmarks()
+            return
+        }
+
         do {
             let branches = try await gitRepository.listBranches(repoPath: project.path)
             await MainActor.run {
@@ -218,13 +262,27 @@ struct CreateWorktreeSheet: View {
         }
     }
 
+    private func loadBookmarks() async {
+        do {
+            let bookmarks = try await JjBookmarkService(queue: JjProcessQueue.shared).list(repoPath: project.path)
+            let locals = bookmarks.filter(\.isLocal).map(\.name)
+            await MainActor.run {
+                availableBranches = locals
+                if selectedExistingBranch.isEmpty {
+                    selectedExistingBranch = locals.first ?? ""
+                }
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     private func create() async {
         inProgress = true
         errorMessage = nil
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        let branch = createNewBranch
-            ? branchName.trimmingCharacters(in: .whitespaces)
-            : selectedExistingBranch
 
         let slug = Self.slug(from: trimmedName)
         let worktreeDirectory = WorkspaceLocationResolver
@@ -240,14 +298,28 @@ struct CreateWorktreeSheet: View {
         }
 
         let kind = await MainActor.run { worktreeStore.primary(for: project.id)?.vcsKind ?? .git }
+        let ref: String?
+        let storedRef: String?
+        let createRef: Bool
+        if kind == .jj {
+            ref = jjBaseMode == .currentWorkingCopy ? "@" : selectedExistingBranch
+            storedRef = jjBaseMode == .currentWorkingCopy ? nil : selectedExistingBranch
+            createRef = false
+        } else {
+            ref = createNewBranch
+                ? branchName.trimmingCharacters(in: .whitespaces)
+                : selectedExistingBranch
+            storedRef = ref
+            createRef = createNewBranch
+        }
         let controller = vcsResolver.controller(kind)
         do {
             try await controller.addWorktree(
                 repoPath: project.path,
                 name: trimmedName,
                 path: worktreeDirectory,
-                ref: branch,
-                createRef: createNewBranch
+                ref: ref,
+                createRef: createRef
             )
         } catch {
             await MainActor.run {
@@ -260,8 +332,8 @@ struct CreateWorktreeSheet: View {
         let worktree = Worktree(
             name: trimmedName,
             path: worktreeDirectory,
-            branch: branch,
-            ownsBranch: createNewBranch,
+            branch: storedRef,
+            ownsBranch: createRef,
             isPrimary: false,
             vcsKind: kind,
             jjWorkspaceName: kind == .jj ? trimmedName : nil

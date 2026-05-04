@@ -172,7 +172,7 @@ struct CreateWorktreeSheet: View {
     private var locationSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Location").font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
-            Text(parentDirectoryPath)
+            Text(locationPreviewPath)
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(MuxyTheme.fg)
                 .textSelection(.enabled)
@@ -288,6 +288,15 @@ struct CreateWorktreeSheet: View {
             .path
     }
 
+    private var locationPreviewPath: String {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return parentDirectoryPath }
+        return WorktreeLocationResolver.worktreeDirectory(
+            parentDirectory: URL(fileURLWithPath: parentDirectoryPath, isDirectory: true),
+            workspaceName: trimmedName
+        )
+    }
+
     private func chooseParentDirectory() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -354,11 +363,11 @@ struct CreateWorktreeSheet: View {
         inProgress = true
         errorMessage = nil
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        let slug = Self.slug(from: trimmedName)
         let parentDirectory = parentDirectoryPath
-        let worktreeDirectory = URL(fileURLWithPath: parentDirectory, isDirectory: true)
-            .appendingPathComponent(slug, isDirectory: true)
-            .path
+        let worktreeDirectory = WorktreeLocationResolver.worktreeDirectory(
+            parentDirectory: URL(fileURLWithPath: parentDirectory, isDirectory: true),
+            workspaceName: trimmedName
+        )
 
         if FileManager.default.fileExists(atPath: worktreeDirectory) {
             inProgress = false
@@ -427,14 +436,5 @@ struct CreateWorktreeSheet: View {
         worktreeStore.add(worktree, to: project.id)
         inProgress = false
         onFinish(.created(worktree, runSetup: runSetup))
-    }
-
-    private static func slug(from name: String) -> String {
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
-        let scalars = name.unicodeScalars.map { allowed.contains($0) ? Character($0) : "-" }
-        let collapsed = String(scalars)
-            .split(separator: "-", omittingEmptySubsequences: true)
-            .joined(separator: "-")
-        return collapsed.isEmpty ? UUID().uuidString : collapsed
     }
 }

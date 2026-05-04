@@ -294,7 +294,24 @@ final class WorktreeStore {
         let primaryKind = knownWorktrees.first(where: \.isPrimary)?.vcsKind ?? .git
         let controller = VcsWorktreeControllerFactory.controller(for: primaryKind)
 
-        let root = MuxyFileStorage.worktreeRoot(forProjectID: project.id)
+        let roots = [
+            MuxyFileStorage.workspaceRoot(create: false)
+                .appendingPathComponent(
+                    WorktreeLocationResolver.sanitizedDirectoryName(from: project.name),
+                    isDirectory: true
+                ),
+            MuxyFileStorage.worktreeRoot(forProjectID: project.id, create: false),
+        ]
+        for root in roots {
+            await cleanupOrphanRoot(root, project: project, controller: controller)
+        }
+    }
+
+    private static func cleanupOrphanRoot(
+        _ root: URL,
+        project: Project,
+        controller: any VcsWorktreeController
+    ) async {
         guard FileManager.default.fileExists(atPath: root.path) else { return }
         let children = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
         for child in children {

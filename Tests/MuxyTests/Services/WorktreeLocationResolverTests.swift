@@ -32,7 +32,7 @@ struct WorktreeLocationResolverTests {
         #expect(path == "/tmp/global-worktrees/My-Repo/feature-a")
     }
 
-    @Test("missing settings fall back to app support")
+    @Test("missing settings fall back to app support workspaces grouped by project name")
     func missingSettingsFallback() {
         let project = Project(name: "Repo", path: "/tmp/repo")
 
@@ -42,9 +42,30 @@ struct WorktreeLocationResolverTests {
             defaultParentPath: nil
         )
 
-        let expected = MuxyFileStorage.worktreeRoot(forProjectID: project.id, create: false)
+        let expected = MuxyFileStorage.workspaceRoot(create: false)
+            .appendingPathComponent("Repo", isDirectory: true)
             .appendingPathComponent("feature-a", isDirectory: true)
             .path
         #expect(path == expected)
+    }
+
+    @Test("workspace directory appends sanitized workspace name to parent")
+    func workspaceDirectoryAppendsSanitizedWorkspaceName() {
+        let path = WorktreeLocationResolver.worktreeDirectory(
+            parentDirectory: URL(fileURLWithPath: "/tmp/workspaces", isDirectory: true),
+            workspaceName: "feature/a"
+        )
+
+        #expect(path == "/tmp/workspaces/feature-a")
+    }
+
+    @Test("workspace directory falls back to stable name when input has no path-safe characters")
+    func workspaceDirectoryFallsBackToStableName() {
+        let path = WorktreeLocationResolver.worktreeDirectory(
+            parentDirectory: URL(fileURLWithPath: "/tmp/workspaces", isDirectory: true),
+            workspaceName: "///"
+        )
+
+        #expect(path == "/tmp/workspaces/workspace")
     }
 }

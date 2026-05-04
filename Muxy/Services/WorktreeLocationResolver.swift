@@ -15,6 +15,12 @@ enum WorktreeLocationResolver {
             .path
     }
 
+    static func worktreeDirectory(parentDirectory: URL, workspaceName: String) -> String {
+        parentDirectory
+            .appendingPathComponent(workspaceDirectoryName(from: workspaceName), isDirectory: true)
+            .path
+    }
+
     static func parentDirectory(for project: Project, defaultParentPath: String?) -> URL {
         if let parent = normalizedPath(project.preferredWorktreeParentPath) {
             return URL(fileURLWithPath: parent, isDirectory: true)
@@ -25,7 +31,8 @@ enum WorktreeLocationResolver {
                 .appendingPathComponent(sanitizedDirectoryName(from: project.name), isDirectory: true)
         }
 
-        return MuxyFileStorage.worktreeRoot(forProjectID: project.id, create: false)
+        return MuxyFileStorage.workspaceRoot(create: false)
+            .appendingPathComponent(sanitizedDirectoryName(from: project.name), isDirectory: true)
     }
 
     static func normalizedPath(_ path: String?) -> String? {
@@ -36,11 +43,19 @@ enum WorktreeLocationResolver {
     }
 
     static func sanitizedDirectoryName(from name: String) -> String {
+        sanitizedDirectoryName(from: name, fallback: "project")
+    }
+
+    static func workspaceDirectoryName(from name: String) -> String {
+        sanitizedDirectoryName(from: name, fallback: "workspace")
+    }
+
+    private static func sanitizedDirectoryName(from name: String, fallback: String) -> String {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
         let scalars = name.unicodeScalars.map { allowed.contains($0) ? Character($0) : "-" }
         let collapsed = String(scalars)
             .split(separator: "-", omittingEmptySubsequences: true)
             .joined(separator: "-")
-        return collapsed.isEmpty ? "project" : collapsed
+        return collapsed.isEmpty ? fallback : collapsed
     }
 }

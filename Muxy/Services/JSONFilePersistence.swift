@@ -28,6 +28,18 @@ enum MuxyFileStorage {
         return dir
     }
 
+    static func workspaceRoot(create: Bool = true) -> URL {
+        let dir = appSupportDirectory(create: create)
+            .appendingPathComponent("workspaces", isDirectory: true)
+        guard create else { return dir }
+        try? FileManager.default.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: FilePermissions.privateDirectory]
+        )
+        return dir
+    }
+
     static func worktreeRoot(forProjectID projectID: UUID, create: Bool = true) -> URL {
         let dir = appSupportDirectory(create: create)
             .appendingPathComponent("worktree-checkouts", isDirectory: true)

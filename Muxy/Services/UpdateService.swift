@@ -23,10 +23,14 @@ enum UpdateChannel: String, CaseIterable, Identifiable {
     var feedURL: String {
         switch self {
         case .stable:
-            "https://github.com/muxy-app/muxy/releases/latest/download/appcast-\(Self.archSlug).xml"
+            ""
         case .beta:
-            "https://github.com/muxy-app/muxy/releases/download/beta-channel/appcast-beta-\(Self.archSlug).xml"
+            ""
         }
+    }
+
+    var hasConfiguredFeed: Bool {
+        !feedURL.isEmpty
     }
 
     private static var archSlug: String {
@@ -56,7 +60,9 @@ final class UpdateService: NSObject {
             feedDelegate.channel = newValue
             UserDefaults.standard.set(newValue.rawValue, forKey: UpdateChannel.storageKey)
             availableUpdateVersion = nil
-            updater.checkForUpdatesInBackground()
+            if newValue.hasConfiguredFeed {
+                updater.checkForUpdatesInBackground()
+            }
         }
     }
 
@@ -83,6 +89,10 @@ final class UpdateService: NSObject {
     }
 
     func start() {
+        guard feedDelegate.channel.hasConfiguredFeed else {
+            canCheckForUpdates = false
+            return
+        }
         do {
             try updater.start()
         } catch {
@@ -91,6 +101,7 @@ final class UpdateService: NSObject {
     }
 
     func checkForUpdates() {
+        guard feedDelegate.channel.hasConfiguredFeed else { return }
         controller.checkForUpdates(nil)
     }
 
@@ -129,7 +140,7 @@ private final class FeedDelegate: NSObject, SPUUpdaterDelegate {
     }
 
     func feedURLString(for _: SPUUpdater) -> String? {
-        channel.feedURL
+        channel.feedURL.isEmpty ? nil : channel.feedURL
     }
 
     func allowedChannels(for _: SPUUpdater) -> Set<String> {

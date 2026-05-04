@@ -1,6 +1,6 @@
 # Editor
 
-Muxy includes a lightweight built‑in code editor that opens files as tabs. It's designed for quick edits in the same workspace as your terminals — not as a replacement for a full IDE.
+Roost includes a lightweight built-in code editor that opens files as tabs. It's designed for quick edits in the same workspace as your terminals — not as a replacement for a full IDE.
 
 ## Opening files
 

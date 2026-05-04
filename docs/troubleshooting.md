@@ -1,10 +1,10 @@
 # Troubleshooting
 
-If something goes wrong, this page collects the common fixes. If your issue isn't here, please [open an issue](https://github.com/muxy-app/muxy/issues).
+If something goes wrong, this page collects the common fixes. If your issue isn't here, please [open an issue](https://github.com/NextAlone/Roost/issues).
 
 ## Logs
 
-Muxy writes logs through the unified macOS logging system. Stream them live:
+Roost writes logs through the unified macOS logging system. Stream them live:
 
 ```bash
 log stream --predicate 'subsystem == "app.muxy"' --info --debug
@@ -18,15 +18,15 @@ log show --predicate 'subsystem == "app.muxy"' --last 10m --info --debug
 
 ## Terminal is blank or unresponsive
 
-- Try **Muxy → Reload Configuration** (`Cmd+Shift+R`).
+- Try **Roost → Reload Configuration** (`Cmd+Shift+R`).
 - Check `~/.config/ghostty/config` parses by opening it in **Open Configuration…**.
 - If the issue is reproducible, check `log stream` while reproducing.
 
-## "muxy" CLI not found
+## "roost" CLI not found
 
-Run **Muxy → Install CLI** from the menu. This writes a wrapper to `/usr/local/bin/muxy`. Make sure `/usr/local/bin` is on your `$PATH`.
+Run **Roost → Install CLI** from the menu. This writes a wrapper to `/usr/local/bin/roost`. Make sure `/usr/local/bin` is on your `$PATH`.
 
-## Project won't open via `muxy <path>`
+## Project won't open via `roost <path>`
 
 The path must exist and must be a directory (not a file). Relative paths are resolved against the shell's current directory. Quote paths with spaces.
 
@@ -39,7 +39,7 @@ brew install gh
 gh auth login
 ```
 
-After authenticating, restart Muxy or click **Refresh** in the PR list.
+After authenticating, restart Roost or click **Refresh** in the PR list.
 
 ## Mobile server won't start
 
@@ -49,8 +49,8 @@ After authenticating, restart Muxy or click **Refresh** in the PR list.
 ## Notifications aren't showing
 
 - Check **Settings → Notifications** that the global toggle and the relevant per‑source toggle are on.
-- macOS may have suppressed Muxy's system notifications — check **System Settings → Notifications → Muxy**.
-- For socket‑based integrations, verify the socket exists: `ls -l ~/Library/Application\ Support/Muxy/muxy.sock`.
+- macOS may have suppressed Roost's system notifications — check **System Settings → Notifications → Roost**.
+- For socket-based integrations, verify the socket exists: `ls -l ~/Library/Application\ Support/Roost/roost.sock`.
 
 ## AI usage shows nothing
 
@@ -60,10 +60,10 @@ After authenticating, restart Muxy or click **Refresh** in the PR list.
 
 ## Reset state
 
-If you want to start fresh, quit Muxy and remove:
+If you want to start fresh, quit Roost and remove:
 
 ```
-~/Library/Application Support/Muxy/
+~/Library/Application Support/Roost/
 ```
 
 This wipes projects, worktrees, notifications, and approved mobile devices. Ghostty config at `~/.config/ghostty/config` is left alone.
@@ -73,6 +73,6 @@ This wipes projects, worktrees, notifications, and approved mobile devices. Ghos
 When filing an issue, include:
 
 - macOS version
-- Muxy version (Muxy menu → About Muxy)
+- Roost version (**Roost → About Roost**)
 - Reproduction steps
 - A `log show --predicate 'subsystem == "app.muxy"' --last 10m` snippet if relevant

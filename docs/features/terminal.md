@@ -1,12 +1,12 @@
 # Terminal
 
-Muxy's terminals are powered by [libghostty](https://github.com/ghostty-org/ghostty), running on a Metal layer for fast, GPU‑accelerated rendering.
+Roost's terminals are powered by [libghostty](https://github.com/ghostty-org/ghostty), running on a Metal layer for fast, GPU-accelerated rendering.
 
 ## Configuration
 
-Ghostty is configured via `~/.config/ghostty/config`. Open it with **Muxy → Open Configuration…** Reload after editing with **Muxy → Reload Configuration** (`Cmd+Shift+R`).
+Ghostty is configured via `~/.config/ghostty/config`. Open it with **Roost → Open Configuration...** Reload after editing with **Roost → Reload Configuration** (`Cmd+Shift+R`).
 
-Most Ghostty options work — fonts, colors, padding, keybinds, shell integration. Muxy applies the active light/dark variant automatically when the system appearance changes.
+Most Ghostty options work — fonts, colors, padding, keybinds, shell integration. Roost applies the active light/dark variant automatically when the system appearance changes.
 
 ## Find in terminal
 
@@ -20,7 +20,7 @@ Most Ghostty options work — fonts, colors, padding, keybinds, shell integratio
 
 ## Working directory
 
-Muxy tracks the current directory using Ghostty's shell integration (OSC 7). The directory is persisted in workspace snapshots so newly recreated tabs land in the same folder when applicable.
+Roost tracks the current directory using Ghostty's shell integration (OSC 7). The directory is persisted in workspace snapshots so newly recreated tabs land in the same folder when applicable.
 
 ## Custom command shortcuts
 
@@ -40,7 +40,7 @@ Inside a terminal pane:
 
 ## Notifications from the terminal
 
-OSC 9 and OSC 777 notification escape sequences are routed into Muxy's notification panel and (optionally) macOS notifications. See [Notifications](notifications.md).
+OSC 9 and OSC 777 notification escape sequences are routed into Roost's notification panel and optionally macOS notifications. See [Notifications](notifications.md).
 
 ## Quick‑select labels
 

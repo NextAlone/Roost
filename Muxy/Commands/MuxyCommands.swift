@@ -424,7 +424,7 @@ struct MuxyCommands: Commands {
         }
 
         CommandGroup(replacing: .help) {
-            Button("Muxy Help") {
+            Button("Roost Help") {
                 openHelpWindow()
             }
 
@@ -436,10 +436,6 @@ struct MuxyCommands: Commands {
 
             Button("GitHub Repository") {
                 HelpLinks.openRepo()
-            }
-
-            Button("Mobile App Repository") {
-                HelpLinks.openMobileRepo()
             }
 
             Button("Discord") {

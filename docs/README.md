@@ -1,6 +1,6 @@
-# Muxy Documentation
+# Roost Documentation
 
-Muxy is a native macOS terminal multiplexer built around projects, worktrees, tabs, and split panes — with a built‑in editor, source control view, and a remote API for mobile companion apps.
+Roost is a macOS-native, jj-first terminal orchestrator for projects, workspaces, tabs, split panes, coding agents, and companion clients.
 
 ## Getting started
 
@@ -22,9 +22,9 @@ Muxy is a native macOS terminal multiplexer built around projects, worktrees, ta
 - [Notifications](features/notifications.md) — OSC sequences, hooks, socket API
 - [AI Usage](features/ai-usage.md) — Claude Code, Copilot, Codex, Cursor, and more
 - [Themes](features/themes.md) — theme picker and Ghostty config
-- [Remote Server](features/remote-server.md) — WebSocket API for mobile clients
+- [Remote Server](features/remote-server.md) — WebSocket API for companion clients
 
 ## Developer
 
-- [Architecture](developer/architecture.md) — system architecture and module map
+- [Architecture](architecture.md) — system architecture and module map
 - [Building Ghostty](developer/building-ghostty.md) — building the GhosttyKit xcframework

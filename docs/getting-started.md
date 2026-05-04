@@ -1,6 +1,6 @@
 # Getting Started
 
-Muxy is a macOS terminal multiplexer focused on per‑project workspaces. This guide gets you from install to a working layout.
+Roost is a macOS terminal orchestrator focused on per-project jj workspaces and coding-agent sessions. This guide gets you from install to a working layout.
 
 ## Requirements
 
@@ -9,19 +9,19 @@ Muxy is a macOS terminal multiplexer focused on per‑project workspaces. This g
 
 ## Install
 
-Download the latest build from the project's releases page, drag `Muxy.app` to `/Applications`, and launch it. On first launch macOS may prompt to confirm the developer.
+Download the latest build from the project's releases page, drag `Roost.app` to `/Applications`, and launch it. On first launch macOS may prompt to confirm the developer.
 
-Optional CLI install (from the menu bar): **Muxy → Install CLI**. This installs a `muxy` command at `/usr/local/bin/muxy` so you can do `muxy /path/to/project` from any shell.
+Optional CLI install (from the menu bar): **Roost → Install CLI**. This installs a `roost` command at `/usr/local/bin/roost` so you can do `roost /path/to/project` from any shell.
 
 ## Add your first project
 
-A project is a directory you've added to Muxy.
+A project is a directory you've added to Roost.
 
 1. Open the sidebar (**View → Toggle Sidebar**, or `Cmd+B`).
 2. Click the **+** button at the bottom of the sidebar — or use **File → Open Project…** (`Cmd+O`) — and pick a directory.
 3. The project appears in the sidebar with a letter badge. Right‑click the project to rename, recolor, or change its icon.
 
-Projects persist between launches in `~/Library/Application Support/Muxy/projects.json`.
+Projects persist between launches in `~/Library/Application Support/Roost/projects.json`.
 
 ## Working with tabs and splits
 
@@ -41,7 +41,7 @@ Tabs can also be source‑control views, file editors, or diff viewers — see [
 
 ## Worktrees
 
-If a project has git worktrees, Muxy shows a worktree picker per project. **Switch Worktree:** `Cmd+Shift+O`. Each worktree has its own tabs and splits. See [Worktrees](features/worktrees.md).
+If a project has workspaces, Roost shows a workspace picker per project. **Switch Workspace:** `Cmd+Shift+O`. Each workspace has its own tabs and splits. See [Worktrees](features/worktrees.md).
 
 ## Source Control
 
@@ -49,7 +49,7 @@ Open a Source Control view with `Cmd+K`. You get staged/unstaged/untracked file 
 
 ## Configuring Ghostty
 
-The terminal is rendered by libghostty. Its configuration lives at `~/.config/ghostty/config` and you can edit it with **Muxy → Open Configuration…** Reload it with `Cmd+Shift+R`.
+The terminal is rendered by libghostty. Its configuration lives at `~/.config/ghostty/config` and you can edit it with **Roost → Open Configuration...** Reload it with `Cmd+Shift+R`.
 
 ## Next steps
 

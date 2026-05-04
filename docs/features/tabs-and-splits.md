@@ -1,6 +1,6 @@
 # Tabs & Splits
 
-Every Muxy worktree owns a tree of split panes; each leaf pane holds a stack of tabs.
+Every Roost workspace owns a tree of split panes; each leaf pane holds a stack of tabs.
 
 ## Tab kinds
 

@@ -1,13 +1,13 @@
 # Projects
 
-A project in Muxy is a directory on disk plus a bit of metadata (name, icon, color, last‑used IDE). Projects are how Muxy groups tabs, splits, and worktrees.
+A project in Roost is a directory on disk plus a bit of metadata (name, icon, color, last-used IDE). Projects are how Roost groups tabs, splits, and workspaces.
 
 ## Adding a project
 
 - Click **+** at the bottom of the sidebar, or use **File → Open Project…** (`Cmd+O`).
-- Drag a folder onto the Muxy dock icon.
-- From a shell: `muxy /path/to/project` (after **Muxy → Install CLI**).
-- Via URL scheme: `muxy://open?path=/path/to/project`.
+- Drag a folder onto the Roost dock icon.
+- From a shell: `roost /path/to/project` (after **Roost → Install CLI**).
+- Via URL scheme: `roost://open?path=/path/to/project`.
 
 All entry points dedupe — opening the same path twice just activates the existing project.
 
@@ -18,7 +18,7 @@ Right‑click a project in the sidebar to:
 - **Rename** the project (display name only — does not move the folder).
 - **Change icon**: emoji logo or letter badge.
 - **Change color**: pick from the preset palette.
-- **Remove** the project from Muxy (does not delete the folder).
+- **Remove** the project from Roost (does not delete the folder).
 
 ## Switching projects
 
@@ -30,28 +30,28 @@ Each project keeps its own tabs, splits, and active tab in memory while the app 
 
 ## Open in IDE
 
-Muxy auto‑discovers IDE‑like apps installed on your Mac (VS Code, Zed, Sublime, JetBrains IDEs, Cursor, …). The **Open in IDE** topbar button and **File → Open in IDE** menu show what was found and remember your last choice. If an editor tab is active, the IDE is launched at that file's line and column when supported.
+Roost auto-discovers IDE-like apps installed on your Mac (VS Code, Zed, Sublime, JetBrains IDEs, Cursor, ...). The **Open in IDE** topbar button and **File → Open in IDE** menu show what was found and remember your last choice. If an editor tab is active, the IDE is launched at that file's line and column when supported.
 
 ## CLI and URL scheme
 
-The bundled `muxy-cli` binary is installed via **Muxy → Install CLI**:
+The bundled `roost` wrapper is installed via **Roost → Install CLI**:
 
 ```bash
-muxy .
-muxy /Users/me/projects/api
+roost .
+roost /Users/me/projects/api
 ```
 
 URL scheme handler:
 
 ```
-muxy://open?path=/percent-encoded/path
+roost://open?path=/percent-encoded/path
 ```
 
 Both routes call the same internal handler, so behaviour is identical.
 
 ## Persistence
 
-Projects are stored as JSON at `~/Library/Application Support/Muxy/projects.json`. Tabs and splits are in‑memory only and lost on app close — use [Layouts](layouts.md) to define a reproducible workspace.
+Projects are stored as JSON at `~/Library/Application Support/Roost/projects.json`. Tabs and splits are persisted through Roost's workspace snapshots, and [Layouts](layouts.md) can define a reproducible workspace.
 
 ## Settings
 

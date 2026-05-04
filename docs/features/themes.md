@@ -1,6 +1,6 @@
 # Themes
 
-Muxy uses a paired light / dark theme model. The chrome (sidebar, tabs, panels) and the terminal share the same color palette so everything stays visually consistent.
+Roost uses a paired light / dark theme model. The chrome (sidebar, tabs, panels) and the terminal share the same color palette so everything stays visually consistent.
 
 ## Theme picker
 
@@ -18,8 +18,8 @@ The editor's syntax theme is chosen separately in **Settings → Appearance**. S
 
 ## Ghostty colors
 
-Terminal colors come from the Ghostty config (`~/.config/ghostty/config`). When you change theme in Muxy, the matching light / dark variant of your Ghostty colors is applied automatically. To customise the terminal palette, edit Ghostty's config directly — see [Ghostty's theme docs](https://ghostty.org/docs/config/reference#theme).
+Terminal colors come from the Ghostty config (`~/.config/ghostty/config`). When you change theme in Roost, the matching light / dark variant of your Ghostty colors is applied automatically. To customise the terminal palette, edit Ghostty's config directly — see [Ghostty's theme docs](https://ghostty.org/docs/config/reference#theme).
 
 ## Reload
 
-After editing Ghostty config, **Muxy → Reload Configuration** (`Cmd+Shift+R`) re‑reads it without restarting the app.
+After editing Ghostty config, **Roost → Reload Configuration** (`Cmd+Shift+R`) re-reads it without restarting the app.

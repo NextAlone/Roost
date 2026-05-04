@@ -1,6 +1,6 @@
 # Settings
 
-Open settings with `Cmd+,` (**Muxy → Settings…**). Settings are split into seven tabs.
+Open settings with `Cmd+,` (**Roost → Settings...**).
 
 ## General
 
@@ -8,7 +8,7 @@ Open settings with `Cmd+,` (**Muxy → Settings…**). Settings are split into s
 - **Auto‑expand worktrees on project switch** — automatically opens the worktree list when you switch to a project that has more than one.
 - **Keep projects open after closing all tabs** — keeps a project visible in the sidebar even after its last tab is closed.
 - **Confirm before closing tab with running process** — prompts before killing a non‑idle terminal.
-- **Confirm before quitting Muxy** — confirmation dialog on `Cmd+Q`. Includes a "Don't ask again" toggle.
+- **Confirm before quitting Roost** — confirmation dialog on `Cmd+Q`. Includes a "Don't ask again" toggle.
 
 ## Appearance
 
@@ -19,7 +19,7 @@ See [Themes](features/themes.md).
 
 ## Editor
 
-- **Default editor** — built‑in Muxy editor, or an external command.
+- **Default editor** — built-in Roost editor, or an external command.
 - **External editor command** — used when default is set to "external". `{file}`, `{line}`, `{column}` placeholders are substituted.
 - **Font** — font family and size for the built‑in editor.
 

@@ -1,6 +1,6 @@
 # Remote Server API
 
-Muxy exposes a WebSocket API that lets external clients connect to the desktop app over the local network.
+Roost exposes a WebSocket API that lets external clients connect to the desktop app over the local network.
 
 This API is intended for mobile apps, dashboards, companion tools, and custom integrations.
 
@@ -14,7 +14,7 @@ This API is intended for mobile apps, dashboards, companion tools, and custom in
 - Date format: ISO 8601
 - Identifier format: UUID strings
 
-The server is disabled by default and must be enabled in Muxy's Mobile settings on macOS.
+The server is disabled by default and must be enabled in Roost's Mobile settings on macOS.
 
 ## Security Model
 
@@ -39,7 +39,7 @@ Connection flow:
 1. Connect to the WebSocket endpoint.
 2. Send `authenticateDevice`.
 3. If the server returns `401`, send `pairDevice`.
-4. The user approves the device in Muxy on macOS.
+4. The user approves the device in Roost on macOS.
 5. On success, the server returns a `clientID` for the active session.
 
 Until authentication succeeds, all other API methods return `401 Authentication required`.
@@ -321,7 +321,7 @@ The server can push these event names:
 | `tabChanged` | `tab` | Tab created, closed, selected, or retitled |
 | `terminalOutput` | `terminalOutput` | Raw PTY bytes for a pane the client owns. Pushed as the shell/TUI writes. |
 | `terminalSnapshot` | `terminalCells` | Full grid snapshot for a pane the client just took over. |
-| `notificationReceived` | `notification` | New notification emitted by Muxy |
+| `notificationReceived` | `notification` | New notification emitted by Roost |
 | `projectsChanged` | `projects` | Updated project list |
 | `paneOwnershipChanged` | `paneOwnership` | Pane control changed between Mac and remote clients |
 | `themeChanged` | `deviceTheme` | Updated terminal foreground/background colors |

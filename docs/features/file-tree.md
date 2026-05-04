@@ -20,7 +20,7 @@ Right‑click any item, or use the keyboard:
 - **New File / New Folder** — inline text field on the parent folder.
 - **Rename** — double‑click or right‑click → Rename.
 - **Delete** — moves to Trash via `NSWorkspace.recycle`.
-- **Cut / Copy / Paste** — uses the system pasteboard with a Muxy cut marker.
+- **Cut / Copy / Paste** — uses the system pasteboard with a Roost cut marker.
 - **Reveal in Finder**.
 - **Open in Terminal** — creates a new terminal tab at that directory.
 
@@ -28,7 +28,7 @@ Multi‑select with `Cmd+Click` and `Shift+Click`. Drag and drop moves files; ho
 
 ## External changes
 
-A FSEvents watcher picks up changes made outside Muxy — no manual refresh needed.
+A FSEvents watcher picks up changes made outside Roost — no manual refresh needed.
 
 ## Resizing
 

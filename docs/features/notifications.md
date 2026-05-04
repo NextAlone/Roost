@@ -1,18 +1,18 @@
 # Notification Setup
 
-Muxy already ships built-in integrations for **Claude Code** and **OpenCode** — toggle them under **Settings → Notifications** and you're done.
+Roost ships built-in integrations for **Claude Code**, **Codex**, **Cursor**, and **OpenCode**. Toggle them under **Settings → Notifications**.
 
-This document is for everything else: sending notifications into Muxy from **any other tool** (a custom CLI, a shell command, a build script, a different AI agent, etc.).
+This document is for everything else: sending notifications into Roost from **any other tool** (a custom CLI, a shell command, a build script, a different AI agent, etc.).
 
-## How Muxy Receives Notifications
+## How Roost Receives Notifications
 
-Muxy listens on a Unix domain socket:
+Roost listens on a Unix domain socket:
 
 ```
-~/Library/Application Support/Muxy/muxy.sock
+~/Library/Application Support/Roost/roost.sock
 ```
 
-The socket path is also exported to every terminal Muxy spawns as the environment variable `MUXY_SOCKET_PATH`, along with a per-pane identifier `MUXY_PANE_ID`. Any process running inside a Muxy terminal pane can read these and send a message.
+The socket path is also exported to every terminal Roost spawns as the compatibility environment variable `MUXY_SOCKET_PATH`, along with a per-pane identifier `MUXY_PANE_ID`. Any process running inside a Roost terminal pane can read these and send a message.
 
 ## Wire Format
 
@@ -25,8 +25,8 @@ One message per connection. The payload is a single UTF-8 line with four pipe-se
 | Field    | Required | Description                                                                 |
 | -------- | -------- | --------------------------------------------------------------------------- |
 | `type`   | yes      | Identifier for the source. Unknown values are accepted and shown generically. Built-in values: `claude_hook`, `opencode`. |
-| `paneID` | yes      | The pane the event belongs to. Use `$MUXY_PANE_ID` when sending from inside a Muxy terminal. Leave empty to attach the notification to the currently active pane. |
-| `title`  | yes      | Shown as the notification title. If empty, Muxy uses `Task completed!`.     |
+| `paneID` | yes      | The pane the event belongs to. Use `$MUXY_PANE_ID` when sending from inside a Roost terminal. Leave empty to attach the notification to the currently active pane. |
+| `title`  | yes      | Shown as the notification title. If empty, Roost uses `Task completed!`.     |
 | `body`   | no       | Notification body. Must not contain `\|` or newlines — replace them first.   |
 
 Constraints:
@@ -37,7 +37,7 @@ Constraints:
 
 ## Minimal Example — Shell
 
-From anywhere inside a Muxy terminal pane:
+From anywhere inside a Roost terminal pane:
 
 ```bash
 printf '%s|%s|%s|%s' \
@@ -100,20 +100,22 @@ def muxy_notify(title: str, body: str = "") -> None:
 
 The built-in integrations are good templates for writing your own:
 
-- **Shell hook (Claude Code):** [`Muxy/Resources/scripts/muxy-claude-hook.sh`](../Muxy/Resources/scripts/muxy-claude-hook.sh)
-- **Node plugin (OpenCode):** [`Muxy/Resources/scripts/opencode-muxy-plugin.js`](../Muxy/Resources/scripts/opencode-muxy-plugin.js)
+- **Shell hook (Claude Code):** [`Muxy/Resources/scripts/roost-claude-hook.sh`](../Muxy/Resources/scripts/roost-claude-hook.sh)
+- **Shell hook (Codex):** [`Muxy/Resources/scripts/roost-codex-hook.sh`](../Muxy/Resources/scripts/roost-codex-hook.sh)
+- **Shell hook (Cursor):** [`Muxy/Resources/scripts/roost-cursor-hook.sh`](../Muxy/Resources/scripts/roost-cursor-hook.sh)
+- **Node plugin (OpenCode):** [`Muxy/Resources/scripts/opencode-roost-plugin.js`](../Muxy/Resources/scripts/opencode-roost-plugin.js)
 
 ## Tips
 
-- **Fire and forget.** If Muxy isn't running or the socket doesn't exist, the connection will fail — swallow the error rather than crashing your tool. Every example above does this.
-- **Don't block.** Open the connection, write the payload, close it. Do not wait for a response — Muxy doesn't send one.
+- **Fire and forget.** If Roost isn't running or the socket doesn't exist, the connection will fail — swallow the error rather than crashing your tool. Every example above does this.
+- **Don't block.** Open the connection, write the payload, close it. Do not wait for a response — Roost doesn't send one.
 - **Sanitize.** Always strip `|`, `\n`, `\r` from user/model-generated content before sending, and cap the body length (200–500 characters is plenty).
-- **Pane routing.** If you send from outside a Muxy pane (e.g. a cron job), omit `paneID`; Muxy will route to the currently active pane of the active project.
-- **Type strings.** Pick something descriptive for `type`. If it doesn't match a registered provider, Muxy still shows the notification with a generic source — your `title` field is what users actually see.
+- **Pane routing.** If you send from outside a Roost pane (e.g. a cron job), omit `paneID`; Roost will route to the currently active pane of the active project.
+- **Type strings.** Pick something descriptive for `type`. If it doesn't match a registered provider, Roost still shows the notification with a generic source — your `title` field is what users actually see.
 
 ## Delivery Settings
 
-Regardless of where a notification comes from, Muxy respects the user's choices under **Settings → Notifications**:
+Regardless of where a notification comes from, Roost respects the user's choices under **Settings → Notifications**:
 
 - **Toast** — show an in-app banner
 - **Sound** — play a system sound on arrival

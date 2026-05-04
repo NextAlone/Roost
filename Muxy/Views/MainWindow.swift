@@ -310,24 +310,47 @@ struct MainWindow: View {
             panelVisible: fileTreePanelVisible,
             sync: syncFileTreeSelection
         ))
-        .onChange(of: appState.pendingUnsavedEditorTabClose != nil) { _, isPresented in
-            guard isPresented else { return }
-            presentCloseConfirmation(.unsavedEditor)
-        }
-        .onChange(of: appState.pendingProcessTabClose != nil) { _, isPresented in
-            guard isPresented else { return }
-            presentCloseConfirmation(.runningProcess)
-        }
-        .onChange(of: appState.pendingSaveErrorMessage != nil) { _, isPresented in
-            guard isPresented, let message = appState.pendingSaveErrorMessage else { return }
-            presentSaveErrorAlert(message: message)
-        }
+        .modifier(AlertObservers(
+            appState: appState,
+            presentCloseConfirmation: presentCloseConfirmation,
+            presentSaveErrorAlert: presentSaveErrorAlert,
+            presentLayoutApplyBlockedAlert: presentLayoutApplyBlockedAlert,
+            presentLayoutApplyConfirmation: presentLayoutApplyConfirmation
+        ))
         .onChange(of: worktreeStore.worktrees, initial: true) { _, current in
             handleWorktreeStoreChange(current)
         }
-        .onChange(of: appState.pendingLayoutApply != nil) { _, isPresented in
-            guard isPresented, let pending = appState.pendingLayoutApply else { return }
-            presentLayoutApplyConfirmation(pending: pending)
+    }
+
+    private struct AlertObservers: ViewModifier {
+        let appState: AppState
+        let presentCloseConfirmation: (CloseConfirmationKind) -> Void
+        let presentSaveErrorAlert: (String) -> Void
+        let presentLayoutApplyBlockedAlert: (String) -> Void
+        let presentLayoutApplyConfirmation: (AppState.PendingLayoutApply) -> Void
+
+        func body(content: Content) -> some View {
+            content
+                .onChange(of: appState.pendingUnsavedEditorTabClose != nil) { _, isPresented in
+                    guard isPresented else { return }
+                    presentCloseConfirmation(.unsavedEditor)
+                }
+                .onChange(of: appState.pendingProcessTabClose != nil) { _, isPresented in
+                    guard isPresented else { return }
+                    presentCloseConfirmation(.runningProcess)
+                }
+                .onChange(of: appState.pendingSaveErrorMessage != nil) { _, isPresented in
+                    guard isPresented, let message = appState.pendingSaveErrorMessage else { return }
+                    presentSaveErrorAlert(message)
+                }
+                .onChange(of: appState.pendingLayoutApplyBlockedMessage != nil) { _, isPresented in
+                    guard isPresented, let message = appState.pendingLayoutApplyBlockedMessage else { return }
+                    presentLayoutApplyBlockedAlert(message)
+                }
+                .onChange(of: appState.pendingLayoutApply != nil) { _, isPresented in
+                    guard isPresented, let pending = appState.pendingLayoutApply else { return }
+                    presentLayoutApplyConfirmation(pending)
+                }
         }
     }
 
@@ -963,6 +986,27 @@ struct MainWindow: View {
 
         alert.beginSheetModal(for: window) { _ in
             appState.pendingSaveErrorMessage = nil
+        }
+    }
+
+    private func presentLayoutApplyBlockedAlert(message: String) {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow,
+              window.attachedSheet == nil
+        else {
+            appState.clearLayoutApplyBlockedMessage()
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Cannot Apply Layout"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.icon = NSApp.applicationIconImage
+        alert.addButton(withTitle: "OK")
+        alert.buttons[0].keyEquivalent = "\r"
+
+        alert.beginSheetModal(for: window) { _ in
+            appState.clearLayoutApplyBlockedMessage()
         }
     }
 

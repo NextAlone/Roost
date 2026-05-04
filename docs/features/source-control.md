@@ -1,6 +1,6 @@
 # Source Control
 
-Muxy ships a full git UI for the active worktree. Open it with `Cmd+K`, or from **File → Source Control**.
+Roost ships a jj-first Source Control panel for jj projects and keeps the legacy Git UI for Git projects. Open it with `Cmd+K`, or from **File → Source Control**.
 
 ## Display modes
 
@@ -39,11 +39,11 @@ For deeper inspection, **Open in Diff Viewer** opens the file as a standalone di
 
 ## Branches and worktrees
 
-The branch dropdown lets you switch branches (Muxy refuses if there are uncommitted changes). The **Create Branch…** sheet creates and checks out a new branch. The worktree picker is shared with the topbar control — see [Worktrees](worktrees.md).
+For Git projects, the branch dropdown lets you switch branches when the worktree is clean. The **Create Branch...** sheet creates and checks out a new branch. For jj projects, Roost surfaces bookmarks, changes, conflicts, and operation history in the jj panel.
 
 ## Pull requests
 
-If the project's `origin` is on GitHub and `gh` is authenticated, Muxy shows:
+If a Git project's `origin` is on GitHub and `gh` is authenticated, Roost shows:
 
 - **PR pill** in the header (state, base, mergeability).
 - **Pull Requests** section with search, state filter (Open/Closed/Merged/All), and manual or interval‑based auto‑sync (Off / 5m / 15m / 30m / 1h).

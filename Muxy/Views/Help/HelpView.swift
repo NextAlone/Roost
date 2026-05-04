@@ -57,13 +57,12 @@ private struct HelpWelcomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Welcome to Muxy")
+                Text("Welcome to Roost")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(MuxyTheme.fg)
                 Text(
-                    "Muxy is a native macOS terminal multiplexer organised around projects, "
-                        + "worktrees, tabs, and split panes — with a built‑in editor, source "
-                        + "control view, and a remote API for mobile companion apps."
+                    "Roost is a macOS-native, jj-first terminal orchestrator for projects, "
+                        + "workspaces, tabs, split panes, coding agents, and companion clients."
                 )
                 .foregroundStyle(MuxyTheme.fgMuted)
 
@@ -316,15 +315,9 @@ private struct HelpLinksView: View {
                 LinkRow(title: "Documentation", subtitle: "Full docs on GitHub", systemImage: "book", action: HelpLinks.openDocs)
                 LinkRow(
                     title: "GitHub Repository",
-                    subtitle: "muxy-app/muxy",
+                    subtitle: HelpLinks.repoDisplayName,
                     systemImage: "chevron.left.forwardslash.chevron.right",
                     action: HelpLinks.openRepo
-                )
-                LinkRow(
-                    title: "Mobile App Repository",
-                    subtitle: "muxy-app/mobile",
-                    systemImage: "iphone",
-                    action: HelpLinks.openMobileRepo
                 )
                 LinkRow(
                     title: "Discord",
@@ -382,11 +375,11 @@ private struct HelpLinksView: View {
 }
 
 enum HelpLinks {
-    static let repoURL = url("https://github.com/muxy-app/muxy")
-    static let docsURL = url("https://github.com/muxy-app/muxy/tree/main/docs")
-    static let mobileRepoURL = url("https://github.com/muxy-app/mobile")
+    static let repoDisplayName = "NextAlone/Roost"
+    static let repoURL = url("https://github.com/NextAlone/Roost")
+    static let docsURL = url("https://github.com/NextAlone/Roost/tree/main/docs")
     static let discordURL = url("https://discord.gg/4eMXAmJQ2n")
-    static let issuesURL = url("https://github.com/muxy-app/muxy/issues")
+    static let issuesURL = url("https://github.com/NextAlone/Roost/issues")
 
     private static func url(_ string: String) -> URL {
         URL(string: string) ?? URL(fileURLWithPath: "/")
@@ -400,10 +393,6 @@ enum HelpLinks {
         NSWorkspace.shared.open(docsURL)
     }
 
-    static func openMobileRepo() {
-        NSWorkspace.shared.open(mobileRepoURL)
-    }
-
     static func openDiscord() {
         NSWorkspace.shared.open(discordURL)
     }
@@ -413,7 +402,7 @@ enum HelpLinks {
     }
 
     static func openDoc(_ relativePath: String) {
-        guard let url = URL(string: "https://github.com/muxy-app/muxy/blob/main/\(relativePath)") else { return }
+        guard let url = URL(string: "https://github.com/NextAlone/Roost/blob/main/\(relativePath)") else { return }
         NSWorkspace.shared.open(url)
     }
 }

@@ -104,6 +104,7 @@ final class AppState {
     var workspaceRoots: [WorktreeKey: SplitNode] = [:]
     var focusedAreaID: [WorktreeKey: UUID] = [:]
     var pendingLayoutApply: PendingLayoutApply?
+    var pendingLayoutApplyBlockedMessage: String?
     var pendingLastTabClose: PendingTabClose?
     var pendingUnsavedEditorTabClose: PendingTabClose?
     var pendingProcessTabClose: PendingTabClose?
@@ -670,7 +671,13 @@ final class AppState {
     }
 
     func requestApplyLayout(projectID: UUID, layoutName: String) {
+        pendingLayoutApplyBlockedMessage = nil
         guard let path = activeWorktreePath(for: projectID) else { return }
+        if let message = layoutApplyBlockedMessage(projectID: projectID) {
+            pendingLayoutApply = nil
+            pendingLayoutApplyBlockedMessage = message
+            return
+        }
         pendingLayoutApply = PendingLayoutApply(
             projectID: projectID,
             worktreePath: path,
@@ -681,6 +688,10 @@ final class AppState {
     func confirmApplyLayout() {
         guard let pending = pendingLayoutApply else { return }
         pendingLayoutApply = nil
+        if let message = layoutApplyBlockedMessage(projectID: pending.projectID) {
+            pendingLayoutApplyBlockedMessage = message
+            return
+        }
         guard let config = LayoutConfig.load(projectPath: pending.worktreePath, name: pending.layoutName) else {
             logger.error("Failed to load layout '\(pending.layoutName)' at \(pending.worktreePath)")
             return
@@ -696,11 +707,41 @@ final class AppState {
         pendingLayoutApply = nil
     }
 
+    func clearLayoutApplyBlockedMessage() {
+        pendingLayoutApplyBlockedMessage = nil
+    }
+
     private func activeWorktreePath(for projectID: UUID) -> String? {
         guard let key = activeWorktreeKey(for: projectID),
               let root = workspaceRoots[key]
         else { return nil }
         return root.allAreas().first?.projectPath
+    }
+
+    private func layoutApplyBlockedMessage(projectID: UUID) -> String? {
+        guard let key = activeWorktreeKey(for: projectID),
+              let root = workspaceRoots[key]
+        else { return nil }
+
+        let tabs = root.allAreas().flatMap(\.tabs)
+        let unsavedCount = tabs.compactMap(\.content.editorState).filter(\.isModified).count
+        if unsavedCount == 1 {
+            return "Save or close the unsaved editor tab before applying a layout."
+        }
+        if unsavedCount > 1 {
+            return "Save or close \(unsavedCount) unsaved editor tabs before applying a layout."
+        }
+
+        guard TabCloseConfirmationPreferences.confirmRunningProcess else { return nil }
+        let runningCount = tabs.compactMap(\.content.pane?.id).filter { terminalViews.needsConfirmQuit(for: $0) }.count
+        if runningCount == 1 {
+            return "Close the running process or disable running process close confirmation before applying a layout."
+        }
+        if runningCount > 1 {
+            return "Close \(runningCount) running processes or disable running process close confirmation before applying a layout."
+        }
+
+        return nil
     }
 
     private func unpinTabIfNeeded(_ tabID: UUID, areaID: UUID, projectID: UUID) {

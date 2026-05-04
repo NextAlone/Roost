@@ -1,6 +1,6 @@
 # Worktrees
 
-Muxy is worktree‑aware. Every project starts with a primary worktree (the project root) and can have additional git worktrees attached. Each worktree has its own tabs, splits, and active selection.
+Roost is workspace-aware. Every project starts with a primary workspace (the project root) and can have additional jj workspaces or Git worktrees attached. Each workspace has its own tabs, splits, and active selection.
 
 ## Worktree picker
 
@@ -20,7 +20,7 @@ The **New Worktree** sheet asks for:
 - **Base** — the ref to branch from (when creating a new branch).
 - **Path** — where the worktree directory should live on disk.
 
-Muxy runs `git worktree add` and then registers the new worktree with the project.
+For Git projects, Roost can run `git worktree add` and then register the new worktree with the project. For jj projects, Roost creates jj workspaces through the jj workspace service.
 
 ## Setup commands
 
@@ -28,9 +28,9 @@ If your project has a `.muxy/worktree.json` file with setup commands, they run a
 
 ## Persistence
 
-Worktree metadata is stored at `~/Library/Application Support/Muxy/worktrees/<projectID>.json`. Removing a project also cleans up its worktree records.
+Workspace metadata is stored at `~/Library/Application Support/Roost/worktrees/<projectID>.json`. Removing a project also cleans up its workspace records.
 
 ## Notes
 
 - Switching worktrees does **not** kill running terminals — they stay alive, you just see a different worktree's tabs.
-- The primary worktree (project root) is always present and cannot be deleted from Muxy.
+- The primary workspace (project root) is always present and cannot be deleted from Roost.

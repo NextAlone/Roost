@@ -2,12 +2,10 @@
 
 Roost is a macOS terminal orchestrator built on the upstream Muxy SwiftUI + libghostty foundation. It keeps the upstream source directory names (`Muxy/`, `MuxyShared/`, `MuxyServer/`) to reduce merge conflicts, while adding jj-first workspace semantics, coding-agent sessions, and Roost configuration. Persistent hostd-owned agent sessions use `tmux` as the attach backend, so that mode requires `tmux` on `PATH`.
 
-The repository also retains the inherited MuxyMobile target for the Roost iOS companion app.
-
 ## Monorepo Structure
 
 ```
-MuxyShared/                    Shared types (macOS + iOS): protocol DTOs, messages, codec
+MuxyShared/                    Shared protocol DTOs, messages, codec
   ProjectDTO.swift             Project data transfer object
   WorktreeDTO.swift            Worktree data transfer object
   WorkspaceDTO.swift           Workspace layout DTOs (SplitNodeDTO, TabAreaDTO, TabDTO)
@@ -21,13 +19,6 @@ MuxyServer/                    WebSocket server library (macOS only, embedded in
   MuxyRemoteServer.swift       NWListener-based WebSocket server + delegate protocol + request routing
   ClientConnection.swift       Per-client NWConnection wrapper, WebSocket framing
 
-MuxyMobile/                    iOS companion app
-  MuxyMobileApp.swift          App entry point
-  ContentView.swift            Root view (connection state router)
-  ConnectView.swift            Host/port connection form
-  RemoteWorkspaceView.swift    Project list + workspace detail
-  ConnectionManager.swift      WebSocket client, state sync, request/response handling
-  DeviceCredentialsStore.swift Persistent deviceID + token stored in iOS Keychain
 ```
 
 ## Desktop App Directory Map
@@ -630,17 +621,18 @@ are filtered out so the sidebar stays focused on usage quotas.
 ## Remote Server (MuxyServer)
 
 The desktop app embeds a WebSocket server (`MuxyRemoteServer`) that exposes
-workspace state and terminal operations to the iOS companion app over the local
-network (LAN, Tailscale, etc.).
+workspace state and terminal operations to external companion clients over the
+local network (LAN, Tailscale, etc.). The in-repo `MuxyMobile` target was removed
+when Roost synced upstream Muxy v0.26.0 behavior.
 
 ### Architecture
 
 ```
-Roost mobile app (MuxyMobile target)  ◄── WebSocket (JSON) ──►  MuxyRemoteServer (inside Roost.app)
-                                                    │
-                                                    ▼
-                                             MuxyRemoteServerDelegate
-                                             (AppState, ProjectStore, etc.)
+Companion client  ◄── WebSocket (JSON) ──►  MuxyRemoteServer (inside Roost.app)
+                                           │
+                                           ▼
+                                    MuxyRemoteServerDelegate
+                                    (AppState, ProjectStore, etc.)
 ```
 
 The server listens on a user-configurable port (default 4865) when enabled in

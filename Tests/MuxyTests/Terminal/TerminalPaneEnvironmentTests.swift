@@ -128,14 +128,18 @@ struct TerminalPaneEnvironmentTests {
         let command = TerminalPaneEnvironment.hostdAttachCommand(sessionID: id, tmuxPath: "tmux")
 
         #expect(command == [
-            "tmux set-option -gq 'terminal-features[100]' xterm-256color:RGB",
-            "set-option -gq 'terminal-features[101]' xterm-ghostty:RGB",
-            "set-option -gq 'terminal-features[102]' 'ghostty*:RGB'",
+            "tmux set-option -gq 'terminal-features[100]' xterm-256color:RGB:extkeys",
+            "set-option -gq 'terminal-features[101]' xterm-ghostty:RGB:extkeys",
+            "set-option -gq 'terminal-features[102]' 'ghostty*:RGB:extkeys'",
+            "set-option -gq extended-keys on",
+            "set-option -gq extended-keys-format csi-u",
             "set-option -t roost-00000000-0000-0000-0000-000000000123 mouse on",
             "set-option -t roost-00000000-0000-0000-0000-000000000123 status off",
             "set-option -t roost-00000000-0000-0000-0000-000000000123 prefix None",
             "set-option -t roost-00000000-0000-0000-0000-000000000123 prefix2 None",
             ##"bind-key -T root WheelUpPane 'if-shell -F "#{||:#{alternate_on},#{pane_in_mode},#{mouse_any_flag}}" "send-keys -M" "copy-mode -e; send-keys -X -N 1 scroll-up"'"##,
+            ##"bind-key -T copy-mode Enter 'if-shell -F "#{selection_present}" "send-keys -X copy-pipe-and-cancel" "send-keys -X cancel; send-keys Enter"'"##,
+            ##"bind-key -T copy-mode-vi Enter 'if-shell -F "#{selection_present}" "send-keys -X copy-pipe-and-cancel" "send-keys -X cancel; send-keys Enter"'"##,
             "bind-key -T copy-mode WheelUpPane send-keys -X -N 1 scroll-up",
             "bind-key -T copy-mode WheelDownPane send-keys -X -N 1 scroll-down",
             "bind-key -T copy-mode-vi WheelUpPane send-keys -X -N 1 scroll-up",
@@ -150,7 +154,7 @@ struct TerminalPaneEnvironmentTests {
         let command = TerminalPaneEnvironment.hostdAttachCommand(sessionID: id, tmuxPath: "/opt/homebrew/bin/tmux with space")
 
         #expect(command.hasPrefix(
-            "'/opt/homebrew/bin/tmux with space' set-option -gq 'terminal-features[100]' xterm-256color:RGB"
+            "'/opt/homebrew/bin/tmux with space' set-option -gq 'terminal-features[100]' xterm-256color:RGB:extkeys"
         ))
         #expect(command.hasSuffix("attach-session -t roost-00000000-0000-0000-0000-000000000123"))
     }

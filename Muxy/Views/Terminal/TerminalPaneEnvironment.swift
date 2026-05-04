@@ -68,14 +68,18 @@ enum TerminalPaneEnvironment {
         let tmux = ShellEscaper.escape(tmuxPath)
         let session = ShellEscaper.escape(HostdTmuxSessionName.name(for: sessionID))
         return [
-            "\(tmux) set-option -gq 'terminal-features[100]' xterm-256color:RGB",
-            "set-option -gq 'terminal-features[101]' xterm-ghostty:RGB",
-            "set-option -gq 'terminal-features[102]' \(ShellEscaper.escape("ghostty*:RGB"))",
+            "\(tmux) set-option -gq 'terminal-features[100]' xterm-256color:RGB:extkeys",
+            "set-option -gq 'terminal-features[101]' xterm-ghostty:RGB:extkeys",
+            "set-option -gq 'terminal-features[102]' \(ShellEscaper.escape("ghostty*:RGB:extkeys"))",
+            "set-option -gq extended-keys on",
+            "set-option -gq extended-keys-format csi-u",
             "set-option -t \(session) mouse on",
             "set-option -t \(session) status off",
             "set-option -t \(session) prefix None",
             "set-option -t \(session) prefix2 None",
             "bind-key -T root WheelUpPane \(ShellEscaper.escape(rootWheelUpBinding))",
+            "bind-key -T copy-mode Enter \(ShellEscaper.escape(copyModeEnterBinding))",
+            "bind-key -T copy-mode-vi Enter \(ShellEscaper.escape(copyModeEnterBinding))",
             "bind-key -T copy-mode WheelUpPane send-keys -X -N 1 scroll-up",
             "bind-key -T copy-mode WheelDownPane send-keys -X -N 1 scroll-down",
             "bind-key -T copy-mode-vi WheelUpPane send-keys -X -N 1 scroll-up",
@@ -87,4 +91,8 @@ enum TerminalPaneEnvironment {
     private static let rootWheelUpBinding =
         ##"if-shell -F "#{||:#{alternate_on},#{pane_in_mode},#{mouse_any_flag}}" "##
             + ##""send-keys -M" "copy-mode -e; send-keys -X -N 1 scroll-up""##
+
+    private static let copyModeEnterBinding =
+        ##"if-shell -F "#{selection_present}" "send-keys -X copy-pipe-and-cancel" "##
+            + ##""send-keys -X cancel; send-keys Enter""##
 }

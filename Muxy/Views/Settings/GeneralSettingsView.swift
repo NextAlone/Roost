@@ -7,6 +7,8 @@ struct GeneralSettingsView: View {
     private var autoExpandWorktrees = false
     @AppStorage(GeneralSettingsKeys.defaultWorktreeParentPath)
     private var defaultWorktreeParentPath = ""
+    @AppStorage(GeneralSettingsKeys.hostdRuntime)
+    private var hostdRuntimeRaw = RoostConfigHostdRuntime.metadataOnly.rawValue
     @AppStorage(TabCloseConfirmationPreferences.confirmRunningProcessKey)
     private var confirmRunningProcess = true
     @AppStorage(AgentToolbarSettings.visibleAgentsKey)
@@ -45,6 +47,21 @@ struct GeneralSettingsView: View {
                     + "Projects can still override this from the new workspace dialog."
             ) {
                 worktreeLocationControl
+            }
+
+            SettingsSection(
+                "Roost",
+                footer: "Changing Hostd Runtime takes effect after restarting Roost."
+            ) {
+                SettingsRow("Hostd Runtime") {
+                    Picker("", selection: $hostdRuntimeRaw) {
+                        ForEach(RoostConfigHostdRuntime.allCases) { option in
+                            Text(option.settingsTitle).tag(option.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: SettingsMetrics.controlWidth, alignment: .trailing)
+                }
             }
 
             SettingsSection("Tabs") {
@@ -147,6 +164,15 @@ struct GeneralSettingsView: View {
             AgentToolbarSettings.isVisible(kind, in: visibleAgentsRaw)
         } set: { visible in
             visibleAgentsRaw = AgentToolbarSettings.setVisible(visible, for: kind, in: visibleAgentsRaw)
+        }
+    }
+}
+
+private extension RoostConfigHostdRuntime {
+    var settingsTitle: String {
+        switch self {
+        case .metadataOnly: "Metadata Only"
+        case .hostdOwnedProcess: "Hostd Owned Process"
         }
     }
 }

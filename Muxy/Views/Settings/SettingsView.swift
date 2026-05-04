@@ -14,7 +14,7 @@ struct SettingsView: View {
             NotificationSettingsView()
                 .tabItem { Label("Notifications", systemImage: "bell") }
             RoostConfigSettingsView()
-                .tabItem { Label("Roost Config", systemImage: "doc.badge.gearshape") }
+                .tabItem { Label("Project Config", systemImage: "doc.badge.gearshape") }
             MobileSettingsView()
                 .tabItem { Label("Mobile", systemImage: "iphone") }
             AIUsageSettingsView()

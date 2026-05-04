@@ -29,7 +29,6 @@ struct RoostConfigStoreTests {
 
         let config = RoostConfig(
             env: ["NODE_ENV": "test"],
-            defaultWorkspaceLocation: ".roost/workspaces",
             notifications: RoostConfigNotifications(sound: "Ping")
         )
         try RoostConfigStore.save(config, projectPath: project.path)
@@ -41,10 +40,23 @@ struct RoostConfigStoreTests {
         let permissions = attrs[.posixPermissions] as? NSNumber
 
         #expect(loaded?.env == ["NODE_ENV": "test"])
-        #expect(loaded?.defaultWorkspaceLocation == ".roost/workspaces")
         #expect(loaded?.notifications == RoostConfigNotifications(sound: "Ping"))
         #expect(permissions?.intValue == 0o600)
         #expect(RoostConfigStore.fileSecurity(projectPath: project.path) == .secure)
+    }
+
+    @Test("save omits app-wide defaults from project config")
+    func saveOmitsAppWideDefaults() throws {
+        let project = try makeProject()
+        defer { try? FileManager.default.removeItem(at: project) }
+
+        try RoostConfigStore.save(RoostConfig(notifications: RoostConfigNotifications(sound: "Ping")), projectPath: project.path)
+
+        let data = try Data(contentsOf: RoostConfigStore.configURL(projectPath: project.path))
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(!json.contains("defaultWorkspaceLocation"))
+        #expect(!json.contains("hostdRuntime"))
+        #expect(!json.contains("agentPresets"))
     }
 
     @Test("fileSecurity reports permissive files")

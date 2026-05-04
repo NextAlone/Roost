@@ -167,8 +167,7 @@ struct MuxyApp: App {
     }
 
     private static func configuredHostdRuntimeOwnership() -> HostdRuntimeOwnership {
-        guard let config = try? RoostAppConfigStore.load() else { return .appOwnedMetadataOnly }
-        return config.hostdRuntime == .hostdOwnedProcess ? .hostdOwnedProcess : .appOwnedMetadataOnly
+        HostdRuntimePreferences.runtime() == .hostdOwnedProcess ? .hostdOwnedProcess : .appOwnedMetadataOnly
     }
 }
 

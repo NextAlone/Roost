@@ -1,5 +1,4 @@
 import Foundation
-import MuxyShared
 import RoostHostdCore
 
 enum HostdXPCServiceRuntime: Sendable {
@@ -8,14 +7,10 @@ enum HostdXPCServiceRuntime: Sendable {
 
     static func fromEnvironment(
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        databaseURL: URL = HostdStorage.defaultDatabaseURL(),
-        configLoader: () -> RoostConfig? = loadAppConfig
+        databaseURL: URL = HostdStorage.defaultDatabaseURL()
     ) -> HostdXPCServiceRuntime {
         if let value = environment["ROOST_HOSTD_RUNTIME"] {
             return runtime(for: value, databaseURL: databaseURL) ?? .metadataOnly(databaseURL: databaseURL)
-        }
-        if configLoader()?.hostdRuntime == .hostdOwnedProcess {
-            return .hostdOwnedProcess(databaseURL: databaseURL)
         }
         return .metadataOnly(databaseURL: databaseURL)
     }
@@ -32,13 +27,6 @@ enum HostdXPCServiceRuntime: Sendable {
         default:
             return nil
         }
-    }
-
-    private static func loadAppConfig() -> RoostConfig? {
-        let url = RoostAppConfigLocation.configURL()
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(RoostConfig.self, from: data)
     }
 
     var databaseURL: URL {

@@ -63,12 +63,22 @@ public struct RoostConfig: Sendable, Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(schemaVersion, forKey: .schemaVersion)
-        try container.encode(EncodedEnv(plain: env, keychain: keychainEnv), forKey: .env)
+        if !env.isEmpty || !keychainEnv.isEmpty {
+            try container.encode(EncodedEnv(plain: env, keychain: keychainEnv), forKey: .env)
+        }
         try container.encodeIfPresent(defaultWorkspaceLocation, forKey: .defaultWorkspaceLocation)
-        try container.encode(hostdRuntime, forKey: .hostdRuntime)
-        try container.encode(setup, forKey: .setup)
-        try container.encode(teardown, forKey: .teardown)
-        try container.encode(agentPresets, forKey: .agentPresets)
+        if hostdRuntime != .metadataOnly {
+            try container.encode(hostdRuntime, forKey: .hostdRuntime)
+        }
+        if !setup.isEmpty {
+            try container.encode(setup, forKey: .setup)
+        }
+        if !teardown.isEmpty {
+            try container.encode(teardown, forKey: .teardown)
+        }
+        if !agentPresets.isEmpty {
+            try container.encode(agentPresets, forKey: .agentPresets)
+        }
         try container.encodeIfPresent(notifications, forKey: .notifications)
     }
 }

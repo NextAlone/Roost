@@ -690,8 +690,8 @@ Exit criteria:
 **Status (2026-05-03): Phase 6s (hostd runtime configuration) landed.**
 
 - `RoostConfig.hostdRuntime` now defaults to `metadataOnly` and supports `hostdOwnedProcess`.
-- The Roost settings UI exposes app-wide hostd runtime mode alongside the default workspace location, preserving existing env, setup, teardown, agent preset, and notification config when saving.
-- `RoostHostdXPCService` still honors `ROOST_HOSTD_RUNTIME` as a development override; when the env var is absent, it reads app-wide `hostdRuntime` from `~/Library/Application Support/Roost/config.json`. Runtime config changes apply on the next XPC service launch.
+- The Roost settings UI now exposes app-wide hostd runtime mode in General settings, using `UserDefaults` like upstream preferences.
+- `RoostHostdXPCService` still honors `ROOST_HOSTD_RUNTIME` as a development override; when the env var is absent, it defaults to metadata-only runtime.
 
 ## Phase 7: Roost Config and Presets
 
@@ -707,7 +707,7 @@ Initial fields (define a versioned JSON Schema before first read site lands):
 - `schemaVersion: int`
 - `env: { [key: string]: string | { fromKeychain: string } }`
 - Project config: `setup: [{ name, command, cwd?, env? }]`, `teardown: [{ name, command, cwd?, env? }]`, `notifications: { ... }`
-- App-wide config: `defaultWorkspaceLocation: string`, `hostdRuntime: "metadataOnly" | "hostdOwnedProcess"`, `agentPresets: [{ name, kind, command, env?, cardinality: "shared" | "dedicated" }]`
+- App-wide compatibility config: `agentPresets: [{ name, kind, command, env?, cardinality: "shared" | "dedicated" }]`. General UI preferences such as default workspace parent and hostd runtime use `UserDefaults`.
 
 Rules:
 
@@ -737,10 +737,10 @@ Rules:
 - Agent tabs merge top-level env with per-preset env and pass the result to Ghostty when creating the terminal surface. Roost's own `ROOST_*` env vars win, with `MUXY_*` aliases exported for compatibility.
 - Historical phase note: no follow-up remained deferred at this checkpoint.
 
-**Follow-up status (2026-04-29): default workspace location landed.**
+**Follow-up status (2026-04-29, superseded 2026-05-05): default workspace location landed.**
 
-- App-wide `RoostConfig.defaultWorkspaceLocation` controls where newly created workspaces are checked out from `~/Library/Application Support/Roost/config.json`. `~` expands to the user home directory, absolute paths are used directly, and relative paths resolve against the user home directory.
-- `CreateWorktreeSheet` and remote `vcsAddWorktree` both use `WorkspaceLocationResolver`, so local and mobile/remote workspace creation share path semantics.
+- General settings now use upstream-style `UserDefaults` storage for the default parent folder for new workspaces.
+- `CreateWorktreeSheet` and remote `vcsAddWorktree` both use `WorktreeLocationResolver`, so local and mobile/remote workspace creation share path semantics.
 - Empty / missing location keeps the original Application Support checkout root.
 - Subsequent follow-ups landed Keychain-backed env values, config write paths with chmod enforcement, teardown, notifications config, and settings UI.
 
@@ -771,10 +771,11 @@ Rules:
 - `fileSecurity` detects missing, secure, overly permissive, and unknown config permission states; `enforceSecurePermissions` fixes existing config files.
 - Historical phase note: settings UI was still deferred at this checkpoint.
 
-**Follow-up status (2026-04-29): settings UI landed.**
+**Follow-up status (2026-04-29, updated 2026-05-05): settings UI landed.**
 
-- Settings has a Roost Config tab with project selection, config file status, open/create, permission repair, default workspace location, and notification override controls.
-- Saving preserves existing env, setup, teardown, and agent preset config while updating the currently exposed fields.
+- Settings has a Project Config tab with project selection, config file status, open/create, permission repair, and notification override controls.
+- General settings own app-wide defaults such as workspace parent folder and hostd runtime via `UserDefaults`.
+- Saving project config preserves existing project env, setup, and teardown config while updating the currently exposed fields.
 - Phase 7 implementation work is complete.
 - Earlier deferred bullets in this phase are historical phase notes. Config write path, chmod enforcement, teardown, notifications config, and settings UI have landed.
 

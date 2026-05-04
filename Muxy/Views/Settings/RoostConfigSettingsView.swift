@@ -5,16 +5,12 @@ import SwiftUI
 struct RoostConfigSettingsView: View {
     @Environment(ProjectStore.self) private var projectStore
     @State private var selectedProjectID: UUID?
-    @State private var defaultWorkspaceLocation = ""
-    @State private var hostdRuntime = RoostConfigHostdRuntime.metadataOnly
     @State private var notificationsEnabled = true
     @State private var toastEnabled = true
     @State private var sound = NotificationSound.funk.rawValue
     @State private var toastPosition = ToastPosition.topCenter.rawValue
     @State private var statusMessage: String?
-    @State private var hostdRuntimeRestartRequired = false
     @State private var fileSecurity: RoostConfigFileSecurity = .missing
-    @State private var appFileSecurity: RoostConfigFileSecurity = .missing
 
     private var selectedProject: Project? {
         guard let selectedProjectID else { return projectStore.projects.first }
@@ -23,35 +19,6 @@ struct RoostConfigSettingsView: View {
 
     var body: some View {
         SettingsContainer {
-            SettingsSection("Roost") {
-                SettingsRow("Config File") {
-                    HStack(spacing: 8) {
-                        Text(appFileSecurityText)
-                            .font(.system(size: SettingsMetrics.footnoteFontSize))
-                            .foregroundStyle(appFileSecurityColor)
-                        Button("Open") { openAppConfig() }
-                        Button("Fix") { fixAppPermissions() }
-                            .disabled(!canFixAppPermissions)
-                    }
-                }
-
-                SettingsRow("Default Workspace Location") {
-                    TextField("~/Documents/Repos/.workspaces", text: $defaultWorkspaceLocation)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: SettingsMetrics.controlWidth)
-                }
-
-                SettingsRow("Hostd Runtime") {
-                    Picker("", selection: $hostdRuntime) {
-                        ForEach(RoostConfigHostdRuntime.allCases) { option in
-                            Text(option.settingsTitle).tag(option)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: SettingsMetrics.controlWidth, alignment: .trailing)
-                }
-            }
-
             SettingsSection("Project") {
                 SettingsRow("Repository") {
                     Picker("", selection: selectedProjectBinding) {
@@ -87,9 +54,8 @@ struct RoostConfigSettingsView: View {
             SettingsSection("Actions", footer: statusMessage, showsDivider: false) {
                 HStack {
                     Button("Reload") { loadAll() }
-                    Button("Save Roost") { saveAppSettings() }
-                        .keyboardShortcut(.defaultAction)
                     Button("Save Project") { saveProjectSettings() }
+                        .keyboardShortcut(.defaultAction)
                         .disabled(selectedProject == nil)
                     Spacer()
                 }
@@ -138,39 +104,8 @@ struct RoostConfigSettingsView: View {
         return false
     }
 
-    private var appFileSecurityText: String {
-        switch appFileSecurity {
-        case .missing: "Missing"
-        case .secure: "0600"
-        case let .tooPermissive(permissions): String(format: "%03o", permissions)
-        case .unknown: "Unknown"
-        }
-    }
-
-    private var appFileSecurityColor: Color {
-        switch appFileSecurity {
-        case .secure: .secondary
-        case .missing: .secondary
-        case .tooPermissive: .orange
-        case .unknown: .red
-        }
-    }
-
-    private var canFixAppPermissions: Bool {
-        if case .tooPermissive = appFileSecurity { return true }
-        return false
-    }
-
     private func loadAll() {
-        loadAppConfig()
         loadSelectedProject()
-    }
-
-    private func loadAppConfig() {
-        appFileSecurity = RoostAppConfigStore.fileSecurity()
-        let config = try? RoostAppConfigStore.load()
-        defaultWorkspaceLocation = config?.defaultWorkspaceLocation ?? ""
-        hostdRuntime = config?.hostdRuntime ?? .metadataOnly
     }
 
     private func loadSelectedProject() {
@@ -191,43 +126,10 @@ struct RoostConfigSettingsView: View {
         statusMessage = nil
     }
 
-    private func saveAppSettings() {
-        guard saveAppConfig() else { return }
-        let restartText = hostdRuntimeRestartRequired ? " Restart Roost to apply hostd runtime." : ""
-        statusMessage = "Saved \(RoostAppConfigStore.configURL().path).\(restartText)"
-    }
-
     private func saveProjectSettings() {
         guard selectedProject != nil else { return }
         guard saveProjectConfig() else { return }
         statusMessage = "Saved project config."
-    }
-
-    @discardableResult
-    private func saveAppConfig() -> Bool {
-        let existing = try? RoostAppConfigStore.load()
-        let location = defaultWorkspaceLocation.trimmingCharacters(in: .whitespacesAndNewlines)
-        hostdRuntimeRestartRequired = (existing?.hostdRuntime ?? .metadataOnly) != hostdRuntime
-        let config = RoostConfig(
-            schemaVersion: existing?.schemaVersion ?? 1,
-            env: existing?.env ?? [:],
-            keychainEnv: existing?.keychainEnv ?? [:],
-            defaultWorkspaceLocation: location.isEmpty ? nil : location,
-            hostdRuntime: hostdRuntime,
-            setup: existing?.setup ?? [],
-            teardown: existing?.teardown ?? [],
-            agentPresets: existing?.agentPresets ?? [],
-            notifications: existing?.notifications
-        )
-
-        do {
-            try RoostAppConfigStore.save(config)
-            appFileSecurity = RoostAppConfigStore.fileSecurity()
-            return true
-        } catch {
-            statusMessage = "Save failed: \(error.localizedDescription)"
-            return false
-        }
     }
 
     @discardableResult
@@ -238,11 +140,8 @@ struct RoostConfigSettingsView: View {
             schemaVersion: existing?.schemaVersion ?? 1,
             env: existing?.env ?? [:],
             keychainEnv: existing?.keychainEnv ?? [:],
-            defaultWorkspaceLocation: existing?.defaultWorkspaceLocation,
-            hostdRuntime: existing?.hostdRuntime ?? .metadataOnly,
             setup: existing?.setup ?? [],
             teardown: existing?.teardown ?? [],
-            agentPresets: existing?.agentPresets ?? [],
             notifications: RoostConfigNotifications(
                 enabled: notificationsEnabled,
                 toastEnabled: toastEnabled,
@@ -261,16 +160,6 @@ struct RoostConfigSettingsView: View {
         }
     }
 
-    private func fixAppPermissions() {
-        do {
-            try RoostAppConfigStore.enforceSecurePermissions()
-            appFileSecurity = RoostAppConfigStore.fileSecurity()
-            statusMessage = "Permissions fixed."
-        } catch {
-            statusMessage = "Permission fix failed: \(error.localizedDescription)"
-        }
-    }
-
     private func fixPermissions() {
         guard let project = selectedProject else { return }
         do {
@@ -279,23 +168,6 @@ struct RoostConfigSettingsView: View {
             statusMessage = "Permissions fixed."
         } catch {
             statusMessage = "Permission fix failed: \(error.localizedDescription)"
-        }
-    }
-
-    private func openAppConfig() {
-        let url = RoostAppConfigStore.configURL()
-        if !FileManager.default.fileExists(atPath: url.path) {
-            saveAppConfig()
-        }
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            statusMessage = "Open failed: config file was not created."
-            return
-        }
-        if NSWorkspace.shared.open(url) {
-            statusMessage = "Opened \(url.path)"
-        } else {
-            NSWorkspace.shared.activateFileViewerSelecting([url])
-            statusMessage = "Revealed \(url.path)"
         }
     }
 
@@ -322,14 +194,5 @@ struct RoostConfigSettingsView: View {
         toastEnabled = true
         sound = NotificationSound.funk.rawValue
         toastPosition = ToastPosition.topCenter.rawValue
-    }
-}
-
-private extension RoostConfigHostdRuntime {
-    var settingsTitle: String {
-        switch self {
-        case .metadataOnly: "Metadata Only"
-        case .hostdOwnedProcess: "Hostd Owned Process"
-        }
     }
 }

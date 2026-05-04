@@ -28,8 +28,14 @@ struct RoostAppConfigStoreTests {
         defer { try? FileManager.default.removeItem(at: base) }
 
         let config = RoostConfig(
-            defaultWorkspaceLocation: "~/Documents/Repos/.workspaces",
-            hostdRuntime: .hostdOwnedProcess
+            env: ["ROOST_SHARED": "1"],
+            agentPresets: [
+                RoostConfigAgentPreset(
+                    name: "Codex",
+                    kind: .codex,
+                    command: "codex"
+                ),
+            ]
         )
         try RoostAppConfigStore.save(config, baseDirectory: base)
 
@@ -39,8 +45,8 @@ struct RoostAppConfigStoreTests {
         )
         let permissions = attrs[.posixPermissions] as? NSNumber
 
-        #expect(loaded?.defaultWorkspaceLocation == "~/Documents/Repos/.workspaces")
-        #expect(loaded?.hostdRuntime == .hostdOwnedProcess)
+        #expect(loaded?.env == ["ROOST_SHARED": "1"])
+        #expect(loaded?.agentPresets.first?.kind == .codex)
         #expect(permissions?.intValue == 0o600)
         #expect(RoostAppConfigStore.fileSecurity(baseDirectory: base) == .secure)
     }

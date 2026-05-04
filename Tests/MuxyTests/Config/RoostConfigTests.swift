@@ -16,8 +16,8 @@ struct RoostConfigTests {
         #expect(config.agentPresets.isEmpty)
     }
 
-    @Test("decodes hostd runtime mode")
-    func hostdRuntimeMode() throws {
+    @Test("legacy hostd runtime mode decodes")
+    func legacyHostdRuntimeMode() throws {
         let json = """
         {
           "schemaVersion": 1,
@@ -33,7 +33,6 @@ struct RoostConfigTests {
         let json = """
         {
           "schemaVersion": 1,
-          "defaultWorkspaceLocation": ".roost/workspaces",
           "notifications": {
             "enabled": true,
             "toastEnabled": false,
@@ -53,7 +52,6 @@ struct RoostConfigTests {
         let config = try JSONDecoder().decode(RoostConfig.self, from: Data(json.utf8))
         #expect(config.setup.count == 2)
         #expect(config.teardown.count == 1)
-        #expect(config.defaultWorkspaceLocation == ".roost/workspaces")
         #expect(config.notifications == RoostConfigNotifications(
             enabled: true,
             toastEnabled: false,

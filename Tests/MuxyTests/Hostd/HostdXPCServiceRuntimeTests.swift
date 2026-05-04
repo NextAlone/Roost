@@ -14,30 +14,24 @@ struct HostdXPCServiceRuntimeTests {
         return tmp.appendingPathComponent("sessions.sqlite")
     }
 
-    @Test("uses app config runtime when environment override is unset")
-    func usesAppConfigRuntime() {
+    @Test("uses metadata runtime when environment override is unset")
+    func usesMetadataRuntimeWhenEnvironmentOverrideIsUnset() {
         let url = makeTempStoreURL()
         let runtime = HostdXPCServiceRuntime.fromEnvironment(
             environment: [:],
-            databaseURL: url,
-            configLoader: {
-                RoostConfig(hostdRuntime: .hostdOwnedProcess)
-            }
+            databaseURL: url
         )
 
-        #expect(runtime.ownership == .hostdOwnedProcess)
+        #expect(runtime.ownership == .appOwnedMetadataOnly)
         #expect(runtime.databaseURL == url)
     }
 
-    @Test("environment runtime overrides app config runtime")
-    func environmentRuntimeOverridesAppConfig() {
+    @Test("environment runtime overrides default runtime")
+    func environmentRuntimeOverridesDefaultRuntime() {
         let url = makeTempStoreURL()
         let runtime = HostdXPCServiceRuntime.fromEnvironment(
             environment: ["ROOST_HOSTD_RUNTIME": "metadata-only"],
-            databaseURL: url,
-            configLoader: {
-                RoostConfig(hostdRuntime: .hostdOwnedProcess)
-            }
+            databaseURL: url
         )
 
         #expect(runtime.ownership == .appOwnedMetadataOnly)

@@ -6,6 +6,8 @@ Open settings with `Cmd+,` (**Roost → Settings...**).
 
 - **Auto‑expand worktrees on project switch** — automatically opens the worktree list when you switch to a project that has more than one.
 - **Keep projects open after closing all tabs** — keeps a project visible in the sidebar even after its last tab is closed.
+- **Default path for new workspaces** — stores the upstream-style default worktree parent folder in `UserDefaults`. Roost creates a project-named subfolder inside it.
+- **Hostd Runtime** — stores the app-wide runtime mode in `UserDefaults`. Restart Roost after changing it.
 - **Confirm before closing tab with running process** — prompts before killing a non‑idle terminal.
 - **Confirm before quitting Roost** — confirmation dialog on `Cmd+Q`. Includes a "Don't ask again" toggle.
 
@@ -38,6 +40,12 @@ See [Keyboard Shortcuts](keyboard-shortcuts.md).
 - **Per‑source delivery** — separate toggles for Claude Code, OpenCode, OSC sequences, and the socket API.
 
 See [Notifications](features/notifications.md).
+
+## Project Config
+
+- **Repository** — selects the project whose `.roost/config.json` is being edited.
+- **Config File** — opens or repairs permissions for the selected project config file.
+- **Notifications** — stores project-level notification overrides in `.roost/config.json`.
 
 ## Mobile
 

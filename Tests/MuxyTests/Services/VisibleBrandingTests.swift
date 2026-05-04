@@ -62,6 +62,7 @@ struct VisibleBrandingTests {
     @Test("notification setup docs prefer Roost environment names")
     func notificationSetupDocsPreferRoostEnvironmentNames() throws {
         let docs = try resourceText("docs/notification-setup.md")
+        let featureDocs = try resourceText("docs/features/notifications.md")
 
         #expect(docs.contains("`ROOST_SOCKET_PATH`"))
         #expect(docs.contains("$ROOST_PANE_ID"))
@@ -70,6 +71,14 @@ struct VisibleBrandingTests {
         #expect(!docs.contains("current integration contract for inherited hook scripts"))
         #expect(!docs.contains("muxy-claude-hook.sh"))
         #expect(!docs.contains("opencode-muxy-plugin.js"))
+        #expect(featureDocs.contains("`ROOST_SOCKET_PATH`"))
+        #expect(featureDocs.contains("$ROOST_PANE_ID"))
+        #expect(featureDocs.contains("roost_notify"))
+        #expect(!featureDocs.contains("compatibility environment variable `MUXY_SOCKET_PATH`"))
+        #expect(!featureDocs.contains("$MUXY_PANE_ID"))
+        #expect(!featureDocs.contains("muxy_notify"))
+        #expect(!featureDocs.contains("process.env.MUXY_SOCKET_PATH"))
+        #expect(!featureDocs.contains("os.environ.get(\"MUXY_SOCKET_PATH\")"))
     }
 
     private func resourceText(_ path: String) throws -> String {

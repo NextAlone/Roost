@@ -12,7 +12,7 @@ Roost listens on a Unix domain socket:
 ~/Library/Application Support/Roost/roost.sock
 ```
 
-The socket path is also exported to every terminal Roost spawns as the compatibility environment variable `MUXY_SOCKET_PATH`, along with a per-pane identifier `MUXY_PANE_ID`. Any process running inside a Roost terminal pane can read these and send a message.
+The socket path is exported to every terminal Roost spawns as `ROOST_SOCKET_PATH`, along with a per-pane identifier `ROOST_PANE_ID`. Any process running inside a Roost terminal pane can read these and send a message. Legacy `MUXY_*` aliases are still exported for existing integrations.
 
 ## Wire Format
 
@@ -25,7 +25,7 @@ One message per connection. The payload is a single UTF-8 line with four pipe-se
 | Field    | Required | Description                                                                 |
 | -------- | -------- | --------------------------------------------------------------------------- |
 | `type`   | yes      | Identifier for the source. Unknown values are accepted and shown generically. Built-in values: `claude_hook`, `opencode`. |
-| `paneID` | yes      | The pane the event belongs to. Use `$MUXY_PANE_ID` when sending from inside a Roost terminal. Leave empty to attach the notification to the currently active pane. |
+| `paneID` | yes      | The pane the event belongs to. Use `$ROOST_PANE_ID` when sending from inside a Roost terminal. Leave empty to attach the notification to the currently active pane. |
 | `title`  | yes      | Shown as the notification title. If empty, Roost uses `Task completed!`.     |
 | `body`   | no       | Notification body. Must not contain `\|` or newlines — replace them first.   |
 
@@ -41,25 +41,25 @@ From anywhere inside a Roost terminal pane:
 
 ```bash
 printf '%s|%s|%s|%s' \
-    "custom" "$MUXY_PANE_ID" "Build finished" "All tests passed" \
-    | nc -U "$MUXY_SOCKET_PATH"
+    "custom" "$ROOST_PANE_ID" "Build finished" "All tests passed" \
+    | nc -U "$ROOST_SOCKET_PATH"
 ```
 
 Wrap it in a function and call it from anywhere:
 
 ```bash
-muxy_notify() {
-    [ -z "${MUXY_SOCKET_PATH:-}" ] && return 0
+roost_notify() {
+    [ -z "${ROOST_SOCKET_PATH:-}" ] && return 0
     local title="${1:-Done}"
     local body="${2:-}"
     local safe_body
     safe_body=$(printf '%s' "$body" | tr '|\n\r' '   ' | head -c 500)
-    printf '%s|%s|%s|%s' "custom" "${MUXY_PANE_ID:-}" "$title" "$safe_body" \
-        | nc -U "$MUXY_SOCKET_PATH" 2>/dev/null || true
+    printf '%s|%s|%s|%s' "custom" "${ROOST_PANE_ID:-}" "$title" "$safe_body" \
+        | nc -U "$ROOST_SOCKET_PATH" 2>/dev/null || true
 }
 
 # Usage
-long-running-build && muxy_notify "Build finished" "main @ $(git rev-parse --short HEAD)"
+long-running-build && roost_notify "Build finished" "All tests passed"
 ```
 
 ## Minimal Example — Node.js
@@ -67,9 +67,9 @@ long-running-build && muxy_notify "Build finished" "main @ $(git rev-parse --sho
 ```javascript
 import { createConnection } from "net"
 
-function muxyNotify(title, body = "") {
-  const socketPath = process.env.MUXY_SOCKET_PATH
-  const paneID = process.env.MUXY_PANE_ID || ""
+function roostNotify(title, body = "") {
+  const socketPath = process.env.ROOST_SOCKET_PATH
+  const paneID = process.env.ROOST_PANE_ID || ""
   if (!socketPath) return
   const safeBody = String(body).replace(/[\n\r|]+/g, " ").slice(0, 500)
   const payload = `custom|${paneID}|${title}|${safeBody}`
@@ -84,9 +84,9 @@ function muxyNotify(title, body = "") {
 ```python
 import os, socket
 
-def muxy_notify(title: str, body: str = "") -> None:
-    path = os.environ.get("MUXY_SOCKET_PATH")
-    pane = os.environ.get("MUXY_PANE_ID", "")
+def roost_notify(title: str, body: str = "") -> None:
+    path = os.environ.get("ROOST_SOCKET_PATH")
+    pane = os.environ.get("ROOST_PANE_ID", "")
     if not path:
         return
     safe_body = body.replace("|", " ").replace("\n", " ")[:500]

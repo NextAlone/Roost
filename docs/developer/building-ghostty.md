@@ -1,6 +1,6 @@
 # GhosttyKit
 
-Muxy depends on libghostty compiled as a static library inside `GhosttyKit.xcframework/`. The xcframework is built and released via GitHub Actions on the [muxy-app/ghostty](https://github.com/muxy-app/ghostty) fork.
+Roost depends on libghostty compiled as a static library inside `GhosttyKit.xcframework/`. The xcframework is built and released via GitHub Actions on the [muxy-app/ghostty](https://github.com/muxy-app/ghostty) fork.
 
 ## Local Setup
 
@@ -34,7 +34,7 @@ scripts/setup.sh
 
 The fork auto-syncs from upstream ghostty daily via the "Sync Upstream" workflow.
 
-## Muxy-specific patches
+## Roost-specific patches
 
 The fork carries two additive exports used by the remote-server integration. Both live near `ghostty_surface_text` in the embedded apprt so
 they're easy to keep on top of upstream:

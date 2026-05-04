@@ -22,6 +22,7 @@ struct DocsBrandingTests {
             "docs/features/terminal.md",
             "docs/features/themes.md",
             "docs/features/worktrees.md",
+            "docs/developer/building-ghostty.md",
         ]
 
         let readme = try String(contentsOf: root.appendingPathComponent("docs/README.md"), encoding: .utf8)
@@ -37,6 +38,8 @@ struct DocsBrandingTests {
             #expect(!text.contains("/usr/local/bin/muxy"), "\(path) still references /usr/local/bin/muxy")
             #expect(!text.contains("Application Support/Muxy"), "\(path) still references Muxy app support")
             #expect(!text.contains("github.com/muxy-app/muxy"), "\(path) still links upstream Muxy")
+            #expect(!text.contains("Muxy depends"), "\(path) still describes the app as Muxy")
+            #expect(!text.contains("Muxy-specific patches"), "\(path) still describes patches as Muxy-specific")
         }
     }
 }

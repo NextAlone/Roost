@@ -313,7 +313,7 @@ Method names retain legacy `vcs*` and `Worktree` terminology for protocol compat
 | `vcsAddWorktree` | `projectID`, `name`, `branch`, `createBranch` | `worktrees` | Git and jj |
 | `vcsRemoveWorktree` | `projectID`, `worktreeID` | `ok` | Git and jj |
 
-For jj projects, `vcsAddWorktree` creates a jj workspace at Roost's resolved workspace location. `name` becomes the workspace name. The legacy `branch` field is only used when `createBranch` is true, where it becomes the bookmark name Roost creates after adding the workspace; it is not used as the workspace start revision.
+For Git projects, `branch` is the branch name and `createBranch` controls whether Roost creates it. For jj projects, `vcsAddWorktree` creates a jj workspace at Roost's resolved workspace location; `name` becomes the workspace name, `branch` is treated as the base revset passed to `jj workspace add -r`, and an empty `branch` defaults to `@`. `createBranch` is ignored for jj and Roost does not create a bookmark.
 
 ## Events
 

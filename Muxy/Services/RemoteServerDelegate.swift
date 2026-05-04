@@ -446,10 +446,12 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
         guard !trimmedName.isEmpty else {
             throw RemoteVCSError.invalidInput("Worktree name is required.")
         }
+        let kind = worktreeStore.primary(for: project.id)?.vcsKind ?? .git
         let trimmedBranch = branch.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedBranch.isEmpty else {
+        guard kind == .jj || !trimmedBranch.isEmpty else {
             throw RemoteVCSError.invalidInput("Branch name is required.")
         }
+        let resolvedRef = kind == .jj && trimmedBranch.isEmpty ? "@" : trimmedBranch
         let slug = Self.worktreeSlug(from: trimmedName)
         let worktreeDirectory = WorkspaceLocationResolver
             .directory(projectID: project.id, projectPath: project.path, name: slug)
@@ -459,16 +461,15 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
             throw RemoteVCSError.invalidInput("A worktree with this name already exists on disk.")
         }
 
-        let kind = worktreeStore.primary(for: project.id)?.vcsKind ?? .git
         let controller = resolver.controller(kind)
-        let storedRef = kind == .jj && trimmedBranch == "@" ? nil : trimmedBranch
+        let storedRef = kind == .jj && resolvedRef == "@" ? nil : resolvedRef
         let ownsRef = kind == .git && createBranch
         try await controller.addWorktree(
             repoPath: project.path,
             name: trimmedName,
             path: worktreeDirectory,
-            ref: trimmedBranch,
-            createRef: createBranch
+            ref: resolvedRef,
+            createRef: ownsRef
         )
 
         let worktree = Worktree(

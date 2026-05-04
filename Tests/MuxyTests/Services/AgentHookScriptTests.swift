@@ -10,6 +10,7 @@ struct AgentHookScriptTests {
         #expect(script.contains("\"claude_hook:running\""))
         #expect(script.contains("\"claude_hook:needs_input\""))
         #expect(script.contains("\"claude_hook:completed\""))
+        #expect(script.contains("nc -w 1 -U"))
     }
 
     @Test("Codex hook emits activity-qualified socket types")
@@ -19,6 +20,8 @@ struct AgentHookScriptTests {
         #expect(script.contains("\"codex_hook:running\""))
         #expect(script.contains("\"codex_hook:needs_input\""))
         #expect(script.contains("\"codex_hook:completed\""))
+        #expect(script.contains("PermissionRequest"))
+        #expect(script.contains("nc -w 1 -U"))
     }
 
     @Test("Cursor hook emits activity-qualified socket types")
@@ -26,6 +29,7 @@ struct AgentHookScriptTests {
         let script = try resourceText("Muxy/Resources/scripts/muxy-cursor-hook.sh")
         #expect(script.contains("\"cursor_hook:needs_input\""))
         #expect(script.contains("\"cursor_hook:completed\""))
+        #expect(script.contains("nc -w 1 -U"))
     }
 
     @Test("OpenCode plugin emits idle activity")

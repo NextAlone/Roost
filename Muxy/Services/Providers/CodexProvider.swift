@@ -10,7 +10,7 @@ struct CodexProvider: AIProviderIntegration {
 
     private static let hooksPath = NSHomeDirectory() + "/.codex/hooks.json"
     private static let muxyMarker = "muxy-notification-hook"
-    static let installedEvents = ["SessionStart", "UserPromptSubmit", "Stop", "Notification"]
+    static let installedEvents = ["SessionStart", "UserPromptSubmit", "Stop", "PermissionRequest"]
 
     func isToolInstalled() -> Bool {
         let home = NSHomeDirectory()
@@ -76,6 +76,8 @@ struct CodexProvider: AIProviderIntegration {
                 [
                     "type": "command",
                     "command": command,
+                    "async": false,
+                    "timeoutSec": 10,
                 ] as [String: Any],
             ],
         ]

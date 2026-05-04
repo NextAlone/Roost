@@ -13,7 +13,7 @@ send_notification() {
     local title="$2"
     local body="$3"
     printf '%s|%s|%s|%s' "$type" "$MUXY_PANE_ID" "$title" "$body" \
-        | nc -U "$MUXY_SOCKET_PATH" 2>/dev/null || true
+        | nc -w 1 -U "$MUXY_SOCKET_PATH" 2>/dev/null || true
 }
 
 extract_last_message() {

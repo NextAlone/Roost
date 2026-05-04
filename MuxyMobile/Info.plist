@@ -7,11 +7,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleName</key>
-	<string>Muxy</string>
+	<string>Roost</string>
 	<key>CFBundleDisplayName</key>
-	<string>Muxy</string>
+	<string>Roost</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.muxy.app</string>
+	<string>app.roost.mobile</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CFBundleShortVersionString</key>
@@ -37,7 +37,7 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.developer-tools</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 Muxy. All rights reserved.</string>
+	<string>Copyright © 2026 Roost. All rights reserved.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIAppFonts</key>
@@ -46,7 +46,7 @@
 		<string>JetBrainsMonoNerdFontMono-Bold.ttf</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Muxy connects to your Mac on the local network or over a private VPN (such as Tailscale) to share terminals.</string>
+	<string>Roost connects to your Mac on the local network or over a private VPN (such as Tailscale) to share terminals.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

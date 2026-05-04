@@ -23,7 +23,13 @@ struct TerminalPaneEnvironmentTests {
         #expect(env["SHELL"] == "/run/current-system/sw/bin/fish")
         #expect(env["TERM"] == "xterm-256color")
         #expect(env["COLORTERM"] == "truecolor")
+        #expect(env["ROOST_PANE_ID"] == "00000000-0000-0000-0000-000000000001")
+        #expect(env["ROOST_PROJECT_ID"] == "00000000-0000-0000-0000-000000000002")
+        #expect(env["ROOST_WORKTREE_ID"] == "00000000-0000-0000-0000-000000000003")
+        #expect(env["ROOST_SOCKET_PATH"] == env["MUXY_SOCKET_PATH"])
         #expect(env["MUXY_PANE_ID"] == "00000000-0000-0000-0000-000000000001")
+        #expect(env["MUXY_PROJECT_ID"] == env["ROOST_PROJECT_ID"])
+        #expect(env["MUXY_WORKTREE_ID"] == env["ROOST_WORKTREE_ID"])
     }
 
     @Test("keeps configured path")

@@ -22,7 +22,7 @@ struct MobileSettingsView: View {
         SettingsContainer {
             SettingsSection(
                 "Mobile",
-                footer: "Muxy listens on the configured port for the iOS app over your local network or a private VPN such as Tailscale."
+                footer: "Roost listens on the configured port for the iOS app over your local network or a private VPN such as Tailscale."
             ) {
                 SettingsToggleRow(label: "Allow mobile device connections", isOn: enabledBinding)
 

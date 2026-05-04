@@ -525,11 +525,10 @@ struct MainWindow: View {
     }
 
     private var windowTitle: String {
-        guard let project = activeProject else { return "Muxy" }
-        guard let tabTitle = appState.activeTab(for: project.id)?.title,
-              !tabTitle.isEmpty
-        else { return project.name }
-        return "\(project.name) — \(tabTitle)"
+        WindowTitleFormatter.title(
+            projectName: activeProject?.name,
+            tabTitle: activeProject.flatMap { appState.activeTab(for: $0.id)?.title }
+        )
     }
 
     private func resolvedActiveWorktree(for project: Project) -> Worktree? {

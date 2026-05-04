@@ -8,9 +8,11 @@ struct OpenCodeProvider: AIProviderIntegration {
     let executableNames = ["opencode"]
 
     private static let pluginsDir = NSHomeDirectory() + "/.opencode/plugins"
-    private static let pluginFileName = "muxy-notify.js"
+    private static let pluginFileName = "roost-notify.js"
     private static var pluginPath: String { pluginsDir + "/" + pluginFileName }
-    private static let pluginScriptName = "opencode-muxy-plugin.js"
+    private static let pluginScriptName = "opencode-roost-plugin.js"
+    static let pluginFileNameForTests = pluginFileName
+    static let pluginScriptNameForTests = pluginScriptName
 
     func isToolInstalled() -> Bool {
         let home = NSHomeDirectory()
@@ -48,7 +50,10 @@ struct OpenCodeProvider: AIProviderIntegration {
     }
 
     private static func findPluginSource(near hookScriptPath: String) -> String? {
-        if let bundled = MuxyNotificationHooks.scriptPath(named: "opencode-muxy-plugin", extension: "js") {
+        if let bundled = MuxyNotificationHooks.scriptPath(
+            named: pluginScriptName.replacingOccurrences(of: ".js", with: ""),
+            extension: "js"
+        ) {
             return bundled
         }
 

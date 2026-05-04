@@ -2,7 +2,7 @@
 
 Roost is a macOS terminal orchestrator built on the upstream Muxy SwiftUI + libghostty foundation. It keeps the upstream source directory names (`Muxy/`, `MuxyShared/`, `MuxyServer/`) to reduce merge conflicts, while adding jj-first workspace semantics, coding-agent sessions, and Roost configuration. Persistent hostd-owned agent sessions use `tmux` as the attach backend, so that mode requires `tmux` on `PATH`.
 
-The repository also retains the inherited MuxyMobile source for local remote-server clients.
+The repository also retains the inherited MuxyMobile target for the Roost iOS companion app.
 
 ## Monorepo Structure
 
@@ -17,7 +17,7 @@ MuxyShared/                    Shared types (macOS + iOS): protocol DTOs, messag
   ProtocolParams.swift         Request parameter types for each method
   MuxyMessage.swift            Message envelope (request/response/event) + JSON codec
 
-MuxyServer/                    WebSocket server library (macOS only, embedded in Muxy.app)
+MuxyServer/                    WebSocket server library (macOS only, embedded in Roost.app)
   MuxyRemoteServer.swift       NWListener-based WebSocket server + delegate protocol + request routing
   ClientConnection.swift       Per-client NWConnection wrapper, WebSocket framing
 
@@ -515,10 +515,10 @@ Terminal event → GhosttyRuntimeEventAdapter / NotificationSocketServer
 
 ### Environment Variables
 
-Each terminal surface receives `MUXY_PANE_ID`, `MUXY_PROJECT_ID`,
-`MUXY_WORKTREE_ID`, and `MUXY_SOCKET_PATH` via `ghostty_surface_config_s.env_vars`.
-These are used by the Claude wrapper script and socket API to identify the
-originating pane.
+Each terminal surface receives `ROOST_PANE_ID`, `ROOST_PROJECT_ID`,
+`ROOST_WORKTREE_ID`, and `ROOST_SOCKET_PATH` via `ghostty_surface_config_s.env_vars`.
+Legacy `MUXY_*` aliases are also exported for compatibility. These variables
+are used by wrapper scripts and the socket API to identify the originating pane.
 
 Project `.roost/config.json` can override notification delivery per project with
 `notifications.enabled`, `toastEnabled`, `sound`, and `toastPosition`. Invalid sound
@@ -636,7 +636,7 @@ network (LAN, Tailscale, etc.).
 ### Architecture
 
 ```
-MuxyMobile (iOS)  ◄── WebSocket (JSON) ──►  MuxyRemoteServer (inside Roost.app)
+Roost mobile app (MuxyMobile target)  ◄── WebSocket (JSON) ──►  MuxyRemoteServer (inside Roost.app)
                                                     │
                                                     ▼
                                              MuxyRemoteServerDelegate
@@ -692,7 +692,7 @@ ghostty_surface_send_input_raw`, so every byte — including escape sequences,
 mouse reports, arrow keys, and control codes — is delivered to the child
 process verbatim.
 
-### iOS App (MuxyMobile)
+### iOS App
 
 `ConnectionManager` manages the WebSocket lifecycle and maintains a local mirror
 of the remote state (projects, workspace layout, notifications). It also keeps a
@@ -717,7 +717,7 @@ TUI's state. When the remote program has enabled mouse reporting
 (`ESC[<64;x;yM` / `ESC[<65;x;yM`) via `terminal.encodeButton` + `sendEvent`.
 When mouse reporting is off, SwiftTerm's built-in gesture converts panning into
 cursor-key sequences (`ESC[A/B`), which scrolls pagers and arrow-key-driven
-TUIs. The custom Muxy accessory bar (`TerminalAccessoryBar` +
+TUIs. The custom terminal accessory bar (`TerminalAccessoryBar` +
 `TerminalAccessoryView`) is wired as `inputAccessoryView` and provides the
 D-pad, esc / tab / `~` / `|` / `/` / `-` keys, a long-press modifier arm-next
 key for Ctrl/Shift/Alt/Cmd chords, and Copy / Paste actions.

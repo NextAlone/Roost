@@ -12,17 +12,17 @@ Roost currently listens on a Unix domain socket under its Application Support di
 ~/Library/Application Support/Roost/roost.sock
 ```
 
-Terminals launched by Roost receive these compatibility environment variables:
+Terminals launched by Roost receive these environment variables:
 
 | Variable | Description |
 | --- | --- |
-| `MUXY_SOCKET_PATH` | Unix socket path for notification messages. |
-| `MUXY_PANE_ID` | Current terminal pane identifier. |
-| `MUXY_PROJECT_ID` | Current project identifier. |
-| `MUXY_WORKTREE_ID` | Current workspace/worktree identifier. |
-| `MUXY_HOOK_SCRIPT` | Bundled hook script path when available. |
+| `ROOST_SOCKET_PATH` | Unix socket path for notification messages. |
+| `ROOST_PANE_ID` | Current terminal pane identifier. |
+| `ROOST_PROJECT_ID` | Current project identifier. |
+| `ROOST_WORKTREE_ID` | Current workspace/worktree identifier. |
+| `ROOST_HOOK_SCRIPT` | Bundled hook script path when available. |
 
-The `MUXY_*` names are the current integration contract for inherited hook scripts. Treat them as compatibility names, not product branding.
+Legacy `MUXY_*` aliases are still exported for existing hook scripts, but new integrations should use `ROOST_*`.
 
 ## Wire Format
 
@@ -35,7 +35,7 @@ One message per connection. The payload is a single UTF-8 line with four pipe-se
 | Field | Required | Description |
 | --- | --- | --- |
 | `type` | yes | Identifier for the source. Unknown values are accepted and shown generically. Built-in values include `claude_hook`, `codex_hook`, `cursor_hook`, and `opencode`. |
-| `paneID` | yes | The pane the event belongs to. Use `$MUXY_PANE_ID` from inside a Roost terminal. Leave empty to attach the notification to the currently active pane. |
+| `paneID` | yes | The pane the event belongs to. Use `$ROOST_PANE_ID` from inside a Roost terminal. Leave empty to attach the notification to the currently active pane. |
 | `title` | yes | Shown as the notification title. If empty, Roost uses a default completion title. |
 | `body` | no | Notification body. Must not contain `|` or newlines. Replace them first. |
 
@@ -63,21 +63,21 @@ From inside a Roost terminal pane:
 
 ```bash
 printf '%s|%s|%s|%s' \
-    "custom:completed" "$MUXY_PANE_ID" "Build finished" "All tests passed" \
-    | nc -U "$MUXY_SOCKET_PATH"
+    "custom:completed" "$ROOST_PANE_ID" "Build finished" "All tests passed" \
+    | nc -U "$ROOST_SOCKET_PATH"
 ```
 
 Reusable helper:
 
 ```bash
 roost_notify() {
-    [ -z "${MUXY_SOCKET_PATH:-}" ] && return 0
+    [ -z "${ROOST_SOCKET_PATH:-}" ] && return 0
     local title="${1:-Done}"
     local body="${2:-}"
     local safe_body
     safe_body=$(printf '%s' "$body" | tr '|\n\r' '   ' | head -c 500)
-    printf '%s|%s|%s|%s' "custom:completed" "${MUXY_PANE_ID:-}" "$title" "$safe_body" \
-        | nc -U "$MUXY_SOCKET_PATH" 2>/dev/null || true
+    printf '%s|%s|%s|%s' "custom:completed" "${ROOST_PANE_ID:-}" "$title" "$safe_body" \
+        | nc -U "$ROOST_SOCKET_PATH" 2>/dev/null || true
 }
 
 long-running-build && roost_notify "Build finished" "All tests passed"
@@ -89,8 +89,8 @@ long-running-build && roost_notify "Build finished" "All tests passed"
 import { createConnection } from "net"
 
 function roostNotify(title, body = "") {
-  const socketPath = process.env.MUXY_SOCKET_PATH
-  const paneID = process.env.MUXY_PANE_ID || ""
+  const socketPath = process.env.ROOST_SOCKET_PATH
+  const paneID = process.env.ROOST_PANE_ID || ""
   if (!socketPath) return
   const safeBody = String(body).replace(/[\n\r|]+/g, " ").slice(0, 500)
   const payload = `custom:completed|${paneID}|${title}|${safeBody}`
@@ -107,8 +107,8 @@ import os
 import socket
 
 def roost_notify(title: str, body: str = "") -> None:
-    path = os.environ.get("MUXY_SOCKET_PATH")
-    pane = os.environ.get("MUXY_PANE_ID", "")
+    path = os.environ.get("ROOST_SOCKET_PATH")
+    pane = os.environ.get("ROOST_PANE_ID", "")
     if not path:
         return
     safe_body = body.replace("|", " ").replace("\n", " ")[:500]
@@ -122,10 +122,10 @@ def roost_notify(title: str, body: str = "") -> None:
 
 The bundled integrations are templates for writing custom integrations:
 
-- Shell hook: [`Muxy/Resources/scripts/muxy-claude-hook.sh`](../Muxy/Resources/scripts/muxy-claude-hook.sh)
-- Shell hook: [`Muxy/Resources/scripts/muxy-codex-hook.sh`](../Muxy/Resources/scripts/muxy-codex-hook.sh)
-- Shell hook: [`Muxy/Resources/scripts/muxy-cursor-hook.sh`](../Muxy/Resources/scripts/muxy-cursor-hook.sh)
-- Node plugin: [`Muxy/Resources/scripts/opencode-muxy-plugin.js`](../Muxy/Resources/scripts/opencode-muxy-plugin.js)
+- Shell hook: [`Muxy/Resources/scripts/roost-claude-hook.sh`](../Muxy/Resources/scripts/roost-claude-hook.sh)
+- Shell hook: [`Muxy/Resources/scripts/roost-codex-hook.sh`](../Muxy/Resources/scripts/roost-codex-hook.sh)
+- Shell hook: [`Muxy/Resources/scripts/roost-cursor-hook.sh`](../Muxy/Resources/scripts/roost-cursor-hook.sh)
+- Node plugin: [`Muxy/Resources/scripts/opencode-roost-plugin.js`](../Muxy/Resources/scripts/opencode-roost-plugin.js)
 
 ## Tips
 

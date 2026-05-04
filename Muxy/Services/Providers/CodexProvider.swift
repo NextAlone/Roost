@@ -6,10 +6,11 @@ struct CodexProvider: AIProviderIntegration {
     let socketTypeKey = "codex_hook"
     let iconName = "codex"
     let executableNames = ["codex"]
-    let hookScriptName = "muxy-codex-hook"
+    let hookScriptName = "roost-codex-hook"
 
     private static let hooksPath = NSHomeDirectory() + "/.codex/hooks.json"
-    private static let muxyMarker = "muxy-notification-hook"
+    private static let hookMarker = "roost-notification-hook"
+    private static let legacyHookMarker = "muxy-notification-hook"
     static let installedEvents = ["SessionStart", "UserPromptSubmit", "Stop", "PermissionRequest"]
 
     func isToolInstalled() -> Bool {
@@ -54,7 +55,7 @@ struct CodexProvider: AIProviderIntegration {
 
         for key in Self.installedEvents {
             guard var entries = hooks[key] as? [[String: Any]] else { continue }
-            entries.removeAll { Self.isMuxyHookEntry($0) }
+            entries.removeAll { Self.isRoostHookEntry($0) }
             if entries.isEmpty {
                 hooks.removeValue(forKey: key)
             } else {
@@ -67,7 +68,7 @@ struct CodexProvider: AIProviderIntegration {
     }
 
     private static func hookCommand(hookScript: String, event: String) -> String {
-        "'\(hookScript)' \(event) # \(muxyMarker)"
+        "'\(hookScript)' \(event) # \(hookMarker)"
     }
 
     private static func buildHookEntry(command: String) -> [String: Any] {
@@ -99,16 +100,16 @@ struct CodexProvider: AIProviderIntegration {
         muxyHook: [String: Any]
     ) -> [[String: Any]] {
         var entries = existing ?? []
-        entries.removeAll { isMuxyHookEntry($0) }
+        entries.removeAll { isRoostHookEntry($0) }
         entries.append(muxyHook)
         return entries
     }
 
-    private static func isMuxyHookEntry(_ entry: [String: Any]) -> Bool {
+    private static func isRoostHookEntry(_ entry: [String: Any]) -> Bool {
         guard let hooks = entry["hooks"] as? [[String: Any]] else { return false }
         return hooks.contains { hook in
             guard let command = hook["command"] as? String else { return false }
-            return command.contains(muxyMarker)
+            return command.contains(hookMarker) || command.contains(legacyHookMarker)
         }
     }
 
@@ -125,7 +126,7 @@ struct CodexProvider: AIProviderIntegration {
 
         let fileURL = URL(fileURLWithPath: hooksPath)
         if FileManager.default.fileExists(atPath: hooksPath) {
-            let backupPath = hooksPath + ".muxy-backup"
+            let backupPath = hooksPath + ".roost-backup"
             let backupURL = URL(fileURLWithPath: backupPath)
             try? FileManager.default.removeItem(at: backupURL)
             try FileManager.default.copyItem(at: fileURL, to: backupURL)

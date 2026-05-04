@@ -37,15 +37,15 @@ final class DemoBackend {
         )
         savedDevices = [seedDevice]
 
-        let muxyID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let roostID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
         let webID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
         let now = Date()
 
         projects = [
             ProjectDTO(
-                id: muxyID,
-                name: "muxy",
-                path: "/Users/demo/Projects/muxy",
+                id: roostID,
+                name: "roost",
+                path: "/Users/demo/Projects/roost",
                 sortOrder: 0,
                 createdAt: now,
                 icon: "terminal",
@@ -64,18 +64,18 @@ final class DemoBackend {
             ),
         ]
 
-        let muxyMainWT = WorktreeDTO(
+        let roostMainWT = WorktreeDTO(
             id: UUID(uuidString: "AAAA0001-0000-0000-0000-000000000001")!,
             name: "main",
-            path: "/Users/demo/Projects/muxy",
+            path: "/Users/demo/Projects/roost",
             branch: "main",
             isPrimary: true,
             createdAt: now
         )
-        let muxyFeatureWT = WorktreeDTO(
+        let roostFeatureWT = WorktreeDTO(
             id: UUID(uuidString: "AAAA0001-0000-0000-0000-000000000002")!,
             name: "feature-search",
-            path: "/Users/demo/Projects/muxy-worktrees/feature-search",
+            path: "/Users/demo/Projects/roost-worktrees/feature-search",
             branch: "feature/search",
             isPrimary: false,
             createdAt: now
@@ -90,17 +90,17 @@ final class DemoBackend {
         )
 
         worktreesByProject = [
-            muxyID: [muxyMainWT, muxyFeatureWT],
+            roostID: [roostMainWT, roostFeatureWT],
             webID: [webMainWT],
         ]
 
         workspaces = [
-            muxyID: Self.makeWorkspace(projectID: muxyID, worktreeID: muxyMainWT.id, projectPath: "/Users/demo/Projects/muxy"),
+            roostID: Self.makeWorkspace(projectID: roostID, worktreeID: roostMainWT.id, projectPath: "/Users/demo/Projects/roost"),
             webID: Self.makeWorkspace(projectID: webID, worktreeID: webMainWT.id, projectPath: "/Users/demo/Projects/web-app"),
         ]
 
         statusByProject = [
-            muxyID: VCSStatusDTO(
+            roostID: VCSStatusDTO(
                 branch: "main",
                 aheadCount: 1,
                 behindCount: 1,
@@ -129,7 +129,7 @@ final class DemoBackend {
         ]
 
         branchesByProject = [
-            muxyID: VCSBranchesDTO(
+            roostID: VCSBranchesDTO(
                 current: "main",
                 locals: ["main", "feature/search", "fix/scrolling"],
                 defaultBranch: "main"
@@ -387,7 +387,7 @@ final class DemoBackend {
                 return MuxyResponse(id: id, error: .notFound)
             }
             let pr = VCSPullRequestDTO(
-                url: "https://github.com/muxy-app/demo/pull/42",
+                url: "https://github.com/roost-app/demo/pull/42",
                 number: 42,
                 state: "open",
                 isDraft: p.draft,
@@ -591,7 +591,7 @@ final class DemoBackend {
     private static let greetingBytes: Data = {
         let text = "\u{1B}[1;32mDemo Mode\u{1B}[0m — this terminal is simulated.\r\n" +
             "Type any command and press Enter to see the demo response.\r\n" +
-            "demo@muxy ~ % "
+            "demo@roost ~ % "
         return Data(text.utf8)
     }()
 
@@ -600,5 +600,5 @@ final class DemoBackend {
         return Data(text.utf8)
     }()
 
-    private static let promptBytes = Data("demo@muxy ~ % ".utf8)
+    private static let promptBytes = Data("demo@roost ~ % ".utf8)
 }

@@ -1,4 +1,4 @@
-This directory contains third-party JavaScript libraries bundled with Muxy
+This directory contains third-party JavaScript libraries bundled with Roost
 for offline markdown rendering. Each library is distributed under its own
 license, reproduced verbatim below.
 

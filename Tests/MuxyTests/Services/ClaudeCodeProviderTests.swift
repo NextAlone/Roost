@@ -8,4 +8,9 @@ struct ClaudeCodeProviderTests {
     func installsLifecycleHooks() {
         #expect(ClaudeCodeProvider.installedEvents == ["SessionStart", "UserPromptSubmit", "Stop", "Notification"])
     }
+
+    @Test("uses Roost hook script name")
+    func usesRoostHookScriptName() {
+        #expect(ClaudeCodeProvider().hookScriptName == "roost-claude-hook")
+    }
 }

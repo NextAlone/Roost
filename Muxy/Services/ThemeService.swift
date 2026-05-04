@@ -14,7 +14,11 @@ struct ThemePreview: Identifiable {
 final class ThemeService {
     static let shared = ThemeService()
     nonisolated static let defaultThemeName = "Ayu Light"
-    nonisolated static let pinnedThemeNames: Set<String> = ["Ayu Light", "Muxy", "Muxy Light"]
+    nonisolated static let pinnedThemeNames: Set<String> = ["Ayu Light", "Roost", "Roost Light"]
+    nonisolated private static let legacyThemeNames = [
+        "Muxy": "Roost",
+        "Muxy Light": "Roost Light",
+    ]
 
     @ObservationIgnored private let config: MuxyConfig
     @ObservationIgnored private let ghostty: GhosttyService
@@ -37,7 +41,10 @@ final class ThemeService {
     }
 
     func currentThemeName() -> String? {
-        config.configValue(for: "theme")?.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        guard let name = config.configValue(for: "theme")?.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) else {
+            return nil
+        }
+        return Self.legacyThemeNames[name] ?? name
     }
 
     func currentThemeColors() -> DeviceThemeEventDTO? {

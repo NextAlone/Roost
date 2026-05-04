@@ -25,7 +25,7 @@ struct FactoryUsageProvider: AIUsageProvider {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("Muxy", forHTTPHeaderField: "User-Agent")
+            request.setValue("Roost", forHTTPHeaderField: "User-Agent")
             request.httpBody = try JSONSerialization.data(withJSONObject: ["useCache": true])
 
             let (data, response) = try await URLSession.shared.data(for: request)

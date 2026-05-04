@@ -7,12 +7,17 @@ struct DeviceCredentials {
 }
 
 enum DeviceCredentialsStore {
-    private static let service = "app.muxy.mobile"
+    private static let service = "app.roost.mobile"
+    private static let legacyService = "app.muxy.mobile"
     private static let account = "device-credentials"
 
     static func load() -> DeviceCredentials {
-        if let existing = readFromKeychain() {
+        if let existing = readFromKeychain(service: service) {
             return existing
+        }
+        if let legacy = readFromKeychain(service: legacyService) {
+            writeToKeychain(legacy)
+            return legacy
         }
         let created = DeviceCredentials(deviceID: UUID(), token: generateToken())
         writeToKeychain(created)
@@ -28,7 +33,7 @@ enum DeviceCredentialsStore {
         return UUID().uuidString + UUID().uuidString
     }
 
-    private static func readFromKeychain() -> DeviceCredentials? {
+    private static func readFromKeychain(service: String) -> DeviceCredentials? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

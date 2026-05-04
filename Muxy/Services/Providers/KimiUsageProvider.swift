@@ -22,7 +22,7 @@ struct KimiUsageProvider: AIUsageProvider {
             request.httpMethod = "GET"
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
-            request.setValue("Muxy", forHTTPHeaderField: "User-Agent")
+            request.setValue("Roost", forHTTPHeaderField: "User-Agent")
 
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {

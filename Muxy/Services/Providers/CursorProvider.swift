@@ -6,10 +6,11 @@ struct CursorProvider: AIProviderIntegration {
     let socketTypeKey = "cursor_hook"
     let iconName = "cursor"
     let executableNames = ["cursor-agent", "cursor"]
-    let hookScriptName = "muxy-cursor-hook"
+    let hookScriptName = "roost-cursor-hook"
 
     private static let hooksPath = NSHomeDirectory() + "/.cursor/hooks.json"
-    private static let muxyMarker = "muxy-notification-hook"
+    private static let hookMarker = "roost-notification-hook"
+    private static let legacyHookMarker = "muxy-notification-hook"
 
     private struct EventBinding {
         let event: String
@@ -48,7 +49,7 @@ struct CursorProvider: AIProviderIntegration {
 
         for binding in Self.bindings {
             guard var entries = hooks[binding.event] as? [[String: Any]] else { continue }
-            entries.removeAll { Self.isMuxyHookEntry($0) }
+            entries.removeAll { Self.isRoostHookEntry($0) }
             if entries.isEmpty {
                 hooks.removeValue(forKey: binding.event)
             } else {
@@ -61,7 +62,7 @@ struct CursorProvider: AIProviderIntegration {
     }
 
     private static func hookCommand(hookScript: String, argument: String) -> String {
-        "'\(hookScript)' \(argument) # \(muxyMarker)"
+        "'\(hookScript)' \(argument) # \(hookMarker)"
     }
 
     private static func muxyHookMatches(entries: [[String: Any]]?, expectedCommand: String) -> Bool {
@@ -73,14 +74,14 @@ struct CursorProvider: AIProviderIntegration {
 
     private static func mergeHookArray(existing: [[String: Any]]?, command: String) -> [[String: Any]] {
         var entries = existing ?? []
-        entries.removeAll { isMuxyHookEntry($0) }
+        entries.removeAll { isRoostHookEntry($0) }
         entries.append(["command": command])
         return entries
     }
 
-    private static func isMuxyHookEntry(_ entry: [String: Any]) -> Bool {
+    private static func isRoostHookEntry(_ entry: [String: Any]) -> Bool {
         guard let command = entry["command"] as? String else { return false }
-        return command.contains(muxyMarker)
+        return command.contains(hookMarker) || command.contains(legacyHookMarker)
     }
 
     private static func readSettings() throws -> [String: Any] {
@@ -96,7 +97,7 @@ struct CursorProvider: AIProviderIntegration {
 
         let fileURL = URL(fileURLWithPath: hooksPath)
         if FileManager.default.fileExists(atPath: hooksPath) {
-            let backupPath = hooksPath + ".muxy-backup"
+            let backupPath = hooksPath + ".roost-backup"
             let backupURL = URL(fileURLWithPath: backupPath)
             try? FileManager.default.removeItem(at: backupURL)
             try FileManager.default.copyItem(at: fileURL, to: backupURL)

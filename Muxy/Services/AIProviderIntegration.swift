@@ -17,7 +17,7 @@ protocol AIProviderIntegration {
 }
 
 extension AIProviderIntegration {
-    var hookScriptName: String { "muxy-claude-hook" }
+    var hookScriptName: String { "roost-claude-hook" }
 }
 
 extension AIProviderIntegration {

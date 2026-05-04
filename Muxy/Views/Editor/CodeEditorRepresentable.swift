@@ -480,11 +480,13 @@ struct CodeEditorView: NSViewRepresentable {
         private static let previewRefreshDebounceNanos: UInt64 = 500_000_000
         private static let perfLogger = Logger(subsystem: "app.muxy", category: "EditorPerf")
         private static let perfEnabled: Bool = {
-            if let env = ProcessInfo.processInfo.environment["MUXY_EDITOR_PERF"] {
+            let environment = ProcessInfo.processInfo.environment
+            if let env = environment["ROOST_EDITOR_PERF"] ?? environment["MUXY_EDITOR_PERF"] {
                 let value = env.lowercased()
                 return value == "1" || value == "true" || value == "yes"
             }
-            return UserDefaults.standard.bool(forKey: "MuxyEditorPerf")
+            return UserDefaults.standard.bool(forKey: "RoostEditorPerf") ||
+                UserDefaults.standard.bool(forKey: "MuxyEditorPerf")
         }()
 
         private lazy var history = ViewportEditHistory(host: self)

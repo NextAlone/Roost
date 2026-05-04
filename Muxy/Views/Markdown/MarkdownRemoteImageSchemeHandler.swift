@@ -34,7 +34,7 @@ final class MarkdownRemoteImageSchemeHandler: NSObject, WKURLSchemeHandler {
     private static let maxImageBytes: Int = 50 * 1024 * 1024
     private static let cacheDirectoryName = "MarkdownImageCache"
     private static let allowedMIMEPrefixes: [String] = ["image/"]
-    private static let userAgent = "Muxy/1.0 (Markdown Preview)"
+    private static let userAgent = "Roost/1.0 (Markdown Preview)"
 
     private static let urlSession: URLSession = {
         let config = URLSessionConfiguration.default

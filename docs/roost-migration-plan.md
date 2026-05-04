@@ -326,7 +326,7 @@ Initial behavior:
   - Implementation: `Session` model keys `(workspaceID, sessionID)`. Multiple sessions can share workspaceID. Per-preset boolean `requiresDedicatedWorkspace` triggers `jj workspace add` at session creation; otherwise reuse active workspace.
   - Data model is forward-only: future move to 1:1-default would require migration. Locked.
 - Session metadata should include agent kind, workspace id/path, command, created time, and last known state.
-- Existing Muxy notification hooks can remain, but Roost should expose agent status in its own model.
+- Legacy Muxy notification hook names can remain as wrappers, but Roost should expose agent status in its own model.
 
 Reference ideas:
 
@@ -734,7 +734,7 @@ Rules:
 
 - `RoostConfig` decodes top-level `env`, per-setup `env`, and per-agent preset `env` plain string maps. Object values such as `{ "fromKeychain": "..." }` are tolerated but ignored until Keychain resolution lands.
 - Setup execution merges top-level env with per-command env and prefixes each command with shell-escaped assignments.
-- Agent tabs merge top-level env with per-preset env and pass the result to Ghostty when creating the terminal surface. Roost's own `MUXY_*` env vars still win.
+- Agent tabs merge top-level env with per-preset env and pass the result to Ghostty when creating the terminal surface. Roost's own `ROOST_*` env vars win, with `MUXY_*` aliases exported for compatibility.
 - Historical phase note: no follow-up remained deferred at this checkpoint.
 
 **Follow-up status (2026-04-29): default workspace location landed.**

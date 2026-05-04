@@ -4,7 +4,7 @@ import os
 private let logger = Logger(subsystem: "app.muxy", category: "MuxyNotificationHooks")
 
 enum MuxyNotificationHooks {
-    private static let hookScriptName = "muxy-claude-hook"
+    private static let hookScriptName = "roost-claude-hook"
 
     static var hookScriptPath: String? {
         if let bundled = findBundledScript(hookScriptName, extension: "sh") {

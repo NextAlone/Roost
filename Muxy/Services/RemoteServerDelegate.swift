@@ -496,7 +496,7 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
             throw RemoteVCSError.invalidInput(
                 worktree.isPrimary
                     ? "The primary worktree cannot be removed."
-                    : "This worktree is managed outside Muxy and cannot be removed here."
+                    : "This worktree is managed outside Roost and cannot be removed here."
             )
         }
 

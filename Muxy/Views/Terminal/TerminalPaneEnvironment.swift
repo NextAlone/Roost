@@ -22,11 +22,16 @@ enum TerminalPaneEnvironment {
         if vars["COLORTERM"]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
             vars["COLORTERM"] = "truecolor"
         }
-        vars["MUXY_PANE_ID"] = paneID.uuidString
-        vars["MUXY_PROJECT_ID"] = key.projectID.uuidString
-        vars["MUXY_WORKTREE_ID"] = key.worktreeID.uuidString
-        vars["MUXY_SOCKET_PATH"] = NotificationSocketServer.socketPath
+        vars["ROOST_PANE_ID"] = paneID.uuidString
+        vars["ROOST_PROJECT_ID"] = key.projectID.uuidString
+        vars["ROOST_WORKTREE_ID"] = key.worktreeID.uuidString
+        vars["ROOST_SOCKET_PATH"] = NotificationSocketServer.socketPath
+        vars["MUXY_PANE_ID"] = vars["ROOST_PANE_ID"]
+        vars["MUXY_PROJECT_ID"] = vars["ROOST_PROJECT_ID"]
+        vars["MUXY_WORKTREE_ID"] = vars["ROOST_WORKTREE_ID"]
+        vars["MUXY_SOCKET_PATH"] = vars["ROOST_SOCKET_PATH"]
         if let hookPath = MuxyNotificationHooks.hookScriptPath {
+            vars["ROOST_HOOK_SCRIPT"] = hookPath
             vars["MUXY_HOOK_SCRIPT"] = hookPath
         }
         return vars

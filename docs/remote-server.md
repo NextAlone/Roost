@@ -14,7 +14,7 @@ This API is intended for mobile apps, dashboards, companion tools, and custom in
 - Date format: ISO 8601
 - Identifier format: UUID strings
 
-The server is disabled by default and must be enabled in Roost's Mobile settings on macOS. The settings name is inherited from the Muxy remote-server module.
+The server is disabled by default and must be enabled in Roost's Mobile settings on macOS.
 
 ## Security Model
 

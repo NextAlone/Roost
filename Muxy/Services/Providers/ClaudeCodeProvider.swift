@@ -8,7 +8,8 @@ struct ClaudeCodeProvider: AIProviderIntegration, AIUsageProvider {
     let executableNames = ["claude"]
 
     private static let settingsPath = NSHomeDirectory() + "/.claude/settings.json"
-    private static let muxyMarker = "muxy-notification-hook"
+    private static let hookMarker = "roost-notification-hook"
+    private static let legacyHookMarker = "muxy-notification-hook"
     static let installedEvents = ["SessionStart", "UserPromptSubmit", "Stop", "Notification"]
 
     func isToolInstalled() -> Bool {
@@ -55,7 +56,7 @@ struct ClaudeCodeProvider: AIProviderIntegration, AIUsageProvider {
 
         for key in Self.installedEvents {
             guard var entries = hooks[key] as? [[String: Any]] else { continue }
-            entries.removeAll { Self.isMuxyHookEntry($0) }
+            entries.removeAll { Self.isRoostHookEntry($0) }
             if entries.isEmpty {
                 hooks.removeValue(forKey: key)
             } else {
@@ -68,7 +69,7 @@ struct ClaudeCodeProvider: AIProviderIntegration, AIUsageProvider {
     }
 
     private static func hookCommand(hookScript: String, event: String) -> String {
-        "'\(hookScript)' \(event) # \(muxyMarker)"
+        "'\(hookScript)' \(event) # \(hookMarker)"
     }
 
     private static func buildHookEntry(command: String) -> [String: Any] {
@@ -100,16 +101,16 @@ struct ClaudeCodeProvider: AIProviderIntegration, AIUsageProvider {
         muxyHook: [String: Any]
     ) -> [[String: Any]] {
         var entries = existing ?? []
-        entries.removeAll { isMuxyHookEntry($0) }
+        entries.removeAll { isRoostHookEntry($0) }
         entries.append(muxyHook)
         return entries
     }
 
-    private static func isMuxyHookEntry(_ entry: [String: Any]) -> Bool {
+    private static func isRoostHookEntry(_ entry: [String: Any]) -> Bool {
         guard let hooks = entry["hooks"] as? [[String: Any]] else { return false }
         return hooks.contains { hook in
             guard let command = hook["command"] as? String else { return false }
-            return command.contains(muxyMarker)
+            return command.contains(hookMarker) || command.contains(legacyHookMarker)
         }
     }
 
@@ -126,7 +127,7 @@ struct ClaudeCodeProvider: AIProviderIntegration, AIUsageProvider {
 
         let fileURL = URL(fileURLWithPath: settingsPath)
         if FileManager.default.fileExists(atPath: settingsPath) {
-            let backupPath = settingsPath + ".muxy-backup"
+            let backupPath = settingsPath + ".roost-backup"
             let backupURL = URL(fileURLWithPath: backupPath)
             try? FileManager.default.removeItem(at: backupURL)
             try FileManager.default.copyItem(at: fileURL, to: backupURL)

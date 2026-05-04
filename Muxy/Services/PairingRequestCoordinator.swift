@@ -81,7 +81,7 @@ final class PairingRequestCoordinator {
 
         let alert = NSAlert()
         alert.messageText = "Allow \(request.deviceName) to connect?"
-        alert.informativeText = "This device is requesting access to Muxy. Only approve devices you recognize."
+        alert.informativeText = "This device is requesting access to Roost. Only approve devices you recognize."
         alert.alertStyle = .warning
         alert.icon = NSApp.applicationIconImage
         alert.addButton(withTitle: "Approve")

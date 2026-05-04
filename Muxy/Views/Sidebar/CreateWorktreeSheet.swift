@@ -172,17 +172,18 @@ struct CreateWorktreeSheet: View {
     private var locationSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Location").font(.system(size: 11)).foregroundStyle(MuxyTheme.fgMuted)
-            HStack(spacing: 8) {
-                Text(parentDirectoryPath)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(MuxyTheme.fg)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(MuxyTheme.surface, in: RoundedRectangle(cornerRadius: 4))
+            Text(parentDirectoryPath)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(MuxyTheme.fg)
+                .textSelection(.enabled)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(MuxyTheme.surface, in: RoundedRectangle(cornerRadius: 4))
 
+            HStack(spacing: 8) {
                 Button("Choose Folder...") {
                     chooseParentDirectory()
                 }

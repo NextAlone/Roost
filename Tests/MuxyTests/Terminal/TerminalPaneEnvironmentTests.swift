@@ -131,7 +131,7 @@ struct TerminalPaneEnvironmentTests {
             "tmux set-option -gq 'terminal-features[100]' xterm-256color:RGB:extkeys",
             "set-option -gq 'terminal-features[101]' xterm-ghostty:RGB:extkeys",
             "set-option -gq 'terminal-features[102]' 'ghostty*:RGB:extkeys'",
-            "set-option -gq extended-keys on",
+            "set-option -gq extended-keys always",
             "set-option -gq extended-keys-format csi-u",
             "set-option -t roost-00000000-0000-0000-0000-000000000123 mouse on",
             "set-option -t roost-00000000-0000-0000-0000-000000000123 status off",

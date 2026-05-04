@@ -117,7 +117,7 @@ struct ExpandedProjectRow: View {
             Divider()
             Button("Remove Project", role: .destructive, action: onRemove)
         }
-        .sheet(isPresented: $showCreateWorktreeSheet) {
+        .popover(isPresented: $showCreateWorktreeSheet, arrowEdge: .trailing) {
             CreateWorktreeSheet(project: project) { result in
                 showCreateWorktreeSheet = false
                 handleCreateWorktreeResult(result)

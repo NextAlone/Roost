@@ -97,7 +97,7 @@ struct ProjectRow: View {
                 .environment(appState)
                 .environment(worktreeStore)
             }
-            .sheet(isPresented: $showCreateWorktreeSheet) {
+            .popover(isPresented: $showCreateWorktreeSheet, arrowEdge: .trailing) {
                 CreateWorktreeSheet(project: project) { result in
                     showCreateWorktreeSheet = false
                     handleCreateWorktreeResult(result)

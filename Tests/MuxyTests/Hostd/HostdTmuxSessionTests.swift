@@ -158,7 +158,7 @@ struct HostdTmuxSessionTests {
             ";", "set-option",
             "-gq", "terminal-features[102]", "ghostty*:RGB:extkeys",
             ";", "set-option",
-            "-gq", "extended-keys", "on",
+            "-gq", "extended-keys", "always",
             ";", "set-option",
             "-gq", "extended-keys-format", "csi-u",
             ";", "set-option",

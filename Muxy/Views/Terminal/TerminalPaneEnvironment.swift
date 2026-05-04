@@ -71,7 +71,7 @@ enum TerminalPaneEnvironment {
             "\(tmux) set-option -gq 'terminal-features[100]' xterm-256color:RGB:extkeys",
             "set-option -gq 'terminal-features[101]' xterm-ghostty:RGB:extkeys",
             "set-option -gq 'terminal-features[102]' \(ShellEscaper.escape("ghostty*:RGB:extkeys"))",
-            "set-option -gq extended-keys on",
+            "set-option -gq extended-keys always",
             "set-option -gq extended-keys-format csi-u",
             "set-option -t \(session) mouse on",
             "set-option -t \(session) status off",

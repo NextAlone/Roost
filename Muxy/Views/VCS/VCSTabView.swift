@@ -158,7 +158,7 @@ struct VCSTabView: View {
         .padding(.horizontal, 8)
         .frame(height: 32)
         .background(MuxyTheme.bg)
-        .sheet(isPresented: $showCreateWorktreeSheet) {
+        .popover(isPresented: $showCreateWorktreeSheet, arrowEdge: .top) {
             if let project = owningProject {
                 CreateWorktreeSheet(project: project) { result in
                     showCreateWorktreeSheet = false

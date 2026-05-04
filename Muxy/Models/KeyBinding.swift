@@ -52,6 +52,7 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
     case newGeminiCliTab
     case newOpenCodeTab
     case quickOpen
+    case findInFiles
     case switchWorktree
     case saveFile
     case toggleSidebar
@@ -104,6 +105,7 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
         .newGeminiCliTab,
         .newOpenCodeTab,
         .quickOpen,
+        .findInFiles,
         .switchWorktree,
         .saveFile,
         .toggleSidebar,
@@ -157,6 +159,7 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
         case .newGeminiCliTab: ShortcutMetadata(displayName: "New Gemini CLI Tab", category: "Tabs", scope: .mainWindow)
         case .newOpenCodeTab: ShortcutMetadata(displayName: "New OpenCode Tab", category: "Tabs", scope: .mainWindow)
         case .quickOpen: ShortcutMetadata(displayName: "Quick Open", category: "App", scope: .mainWindow)
+        case .findInFiles: ShortcutMetadata(displayName: "Find in Files", category: "App", scope: .mainWindow)
         case .switchWorktree: ShortcutMetadata(displayName: "Switch Workspace", category: "Project Navigation", scope: .mainWindow)
         case .saveFile: ShortcutMetadata(displayName: "Save File", category: "Editor", scope: .mainWindow)
         case .toggleSidebar: ShortcutMetadata(displayName: "Toggle Sidebar", category: "App", scope: .mainWindow)
@@ -274,6 +277,7 @@ struct KeyBinding: Codable, Identifiable {
         Self(action: .selectProject9, combo: KeyCombo(key: "9", control: true)),
         Self(action: .findInTerminal, combo: KeyCombo(key: "f", command: true)),
         Self(action: .quickOpen, combo: KeyCombo(key: "p", command: true)),
+        Self(action: .findInFiles, combo: KeyCombo(key: "f", command: true, shift: true)),
         Self(action: .switchWorktree, combo: KeyCombo(key: "o", command: true, shift: true)),
         Self(action: .saveFile, combo: KeyCombo(key: "s", command: true)),
         Self(action: .toggleSidebar, combo: KeyCombo(key: "b", command: true)),

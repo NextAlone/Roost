@@ -3,6 +3,7 @@ import Testing
 @testable import Roost
 
 @Suite("TerminalBridge.resolveFilePath")
+@MainActor
 struct TerminalBridgeResolveFilePathTests {
     private func makeTempDir() -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())

@@ -4,7 +4,7 @@ import SwiftUI
 
 @main
 struct MuxyApp: App {
-    static let launchDate = Date()
+    nonisolated static let launchDate = Date()
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appState: AppState
@@ -152,6 +152,12 @@ struct MuxyApp: App {
         }
         .defaultSize(width: 700, height: 600)
 
+        Window("Muxy Help", id: "help") {
+            HelpView()
+                .preferredColorScheme(MuxyTheme.colorScheme)
+        }
+        .defaultSize(width: 820, height: 580)
+
         Settings {
             SettingsView()
                 .environment(projectStore)
@@ -173,6 +179,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var openProjectFromPath: ((String) -> Void)?
 
     private var pendingOpenPaths: [String] = []
+    private var systemAppearanceObserver: NSObjectProtocol?
 
     @MainActor
     func handleOpenProjectPath(_ path: String) {
@@ -250,7 +257,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate()
         AppIconService.applySelectedIcon()
         _ = GhosttyService.shared
+        GhosttyService.shared.applyInitialColorScheme()
         ThemeService.shared.applyDefaultThemeIfNeeded()
+        ThemeService.shared.migrateToPairedThemeIfNeeded()
+        observeSystemAppearanceChanges()
         UpdateService.shared.start()
         ModifierKeyMonitor.shared.start()
         NotificationSocketServer.shared.start()
@@ -275,7 +285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let unsaved = hasUnsavedEditorTabs?() ?? []
-        guard !unsaved.isEmpty else { return .terminateNow }
+        guard !unsaved.isEmpty else { return confirmQuitIfNeeded() }
 
         let alert = NSAlert()
         alert.messageText = unsaved.count == 1
@@ -318,6 +328,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
+    private func confirmQuitIfNeeded() -> NSApplication.TerminateReply {
+        guard QuitConfirmationPreferences.confirmQuit else { return .terminateNow }
+
+        let alert = NSAlert()
+        alert.messageText = "Quit Muxy?"
+        alert.informativeText = "Are you sure you want to quit Muxy?"
+        alert.alertStyle = .warning
+        alert.icon = NSApp.applicationIconImage
+        alert.addButton(withTitle: "Quit")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons[0].keyEquivalent = "\r"
+        alert.buttons[1].keyEquivalent = "\u{1b}"
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = "Don't ask again"
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else { return .terminateCancel }
+        if alert.suppressionButton?.state == .on {
+            QuitConfirmationPreferences.confirmQuit = false
+        }
+        return .terminateNow
+    }
+
+    @MainActor
     private static func presentSaveFailureAlert(failures: [String]) {
         let alert = NSAlert()
         alert.messageText = failures.count == 1
@@ -332,12 +366,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if let observer = systemAppearanceObserver {
+            DistributedNotificationCenter.default().removeObserver(observer)
+            systemAppearanceObserver = nil
+        }
         onTerminate?()
         NotificationStore.shared.saveToDisk()
         NotificationSocketServer.shared.stop()
         MainActor.assumeIsolated {
             MobileServerService.shared.stopForTermination()
         }
+    }
+
+    @MainActor
+    private func observeSystemAppearanceChanges() {
+        if let observer = systemAppearanceObserver {
+            DistributedNotificationCenter.default().removeObserver(observer)
+            systemAppearanceObserver = nil
+        }
+        systemAppearanceObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                GhosttyService.shared.appearanceDidChange()
+            }
+        }
+    }
+
+    @MainActor
+    private func setAppIcon() {
+        guard let url = Bundle.appResources.url(forResource: "AppIcon", withExtension: "png") else {
+            return
+        }
+        guard let image = NSImage(contentsOf: url) else { return }
+        image.size = NSSize(width: 512, height: 512)
+        NSApp.applicationIconImage = image
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -366,6 +431,7 @@ struct WindowConfigurator: NSViewRepresentable {
             Self.repositionTrafficLights(in: w)
             Self.hideTitlebarDecorationView(in: w)
             Self.neutralizeSafeAreaInsets(in: w)
+            Self.interceptCloseButton(in: w, coordinator: context.coordinator)
             context.coordinator.observe(window: w)
         }
         return v
@@ -377,8 +443,10 @@ struct WindowConfigurator: NSViewRepresentable {
     }
 
     private static func applyWindowBackground(_ window: NSWindow) {
-        window.isOpaque = true
-        window.backgroundColor = MuxyTheme.nsBg
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.contentView?.wantsLayer = true
+        window.contentView?.layer?.backgroundColor = MuxyTheme.nsBg.cgColor
     }
 
     static func neutralizeSafeAreaInsets(in window: NSWindow) {
@@ -420,6 +488,12 @@ struct WindowConfigurator: NSViewRepresentable {
         }
     }
 
+    static func interceptCloseButton(in window: NSWindow, coordinator: Coordinator) {
+        guard let button = window.standardWindowButton(.closeButton) else { return }
+        button.target = coordinator
+        button.action = #selector(Coordinator.handleCloseButton(_:))
+    }
+
     static let trafficLightY: CGFloat = 3.5
 
     static func repositionTrafficLights(in window: NSWindow) {
@@ -440,6 +514,13 @@ struct WindowConfigurator: NSViewRepresentable {
 
     final class Coordinator: NSObject {
         private var observations: [NSObjectProtocol] = []
+
+        @objc
+        func handleCloseButton(_: Any?) {
+            MainActor.assumeIsolated {
+                NSApp.terminate(nil)
+            }
+        }
 
         func observe(window: NSWindow) {
             guard observations.isEmpty else { return }

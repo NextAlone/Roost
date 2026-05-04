@@ -61,6 +61,7 @@ struct MainWindow: View {
     @State private var fileTreeStates: [WorktreeKey: FileTreeState] = [:]
     @State private var mountedTerminalWorktreeKeys: Set<WorktreeKey> = []
     @State private var showQuickOpen = false
+    @State private var showFindInFiles = false
     @State private var showWorktreeSwitcher = false
     @State private var isFullScreen = false
     @State private var sidebarExpanded = UserDefaults.standard.bool(forKey: "muxy.sidebarExpanded")
@@ -181,7 +182,7 @@ struct MainWindow: View {
                 }
             }
         }
-        .environment(\.overlayActive, showQuickOpen || showWorktreeSwitcher)
+        .environment(\.overlayActive, showQuickOpen || showFindInFiles || showWorktreeSwitcher)
         .overlay(alignment: toastAlignment) {
             if let toast = ToastState.shared.message {
                 HStack(spacing: 6) {
@@ -217,6 +218,24 @@ struct MainWindow: View {
             }
         }
         .overlay {
+            if showFindInFiles, let project = activeProject {
+                FindInFilesOverlay(
+                    projectPath: activeWorktreePath(for: project),
+                    onSelect: { match in
+                        showFindInFiles = false
+                        appState.openFile(
+                            match.absolutePath,
+                            projectID: project.id,
+                            line: match.lineNumber,
+                            column: match.column
+                        )
+                    },
+                    onDismiss: { showFindInFiles = false }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            }
+        }
+        .overlay {
             if showWorktreeSwitcher {
                 WorktreeSwitcherOverlay(
                     items: worktreeSwitcherItems,
@@ -236,6 +255,7 @@ struct MainWindow: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: showQuickOpen)
+        .animation(.easeInOut(duration: 0.15), value: showFindInFiles)
         .animation(.easeInOut(duration: 0.15), value: showWorktreeSwitcher)
         .animation(.easeInOut(duration: 0.2), value: ToastState.shared.message != nil)
         .coordinateSpace(name: DragCoordinateSpace.mainWindow)
@@ -252,6 +272,9 @@ struct MainWindow: View {
         .onReceive(NotificationCenter.default.publisher(for: .quickOpen)) { _ in
             showQuickOpen.toggle()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .findInFiles)) { _ in
+            showFindInFiles.toggle()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .switchWorktree)) { _ in
             showWorktreeSwitcher.toggle()
         }
@@ -263,9 +286,7 @@ struct MainWindow: View {
         .onReceive(NotificationCenter.default.publisher(for: .windowFullScreenDidChange)) { notification in
             isFullScreen = notification.userInfo?["isFullScreen"] as? Bool ?? false
         }
-        .onReceive(NotificationCenter.default.publisher(for: .openVCSWindow)) { _ in
-            openWindow(id: "vcs")
-        }
+        .background(WindowOpenReceiver(openWindow: openWindow))
         .onReceive(NotificationCenter.default.publisher(for: .toggleAttachedVCS)) { _ in
             toggleAttachedVCSPanel()
         }
@@ -303,6 +324,10 @@ struct MainWindow: View {
         }
         .onChange(of: worktreeStore.worktrees, initial: true) { _, current in
             handleWorktreeStoreChange(current)
+        }
+        .onChange(of: appState.pendingLayoutApply != nil) { _, isPresented in
+            guard isPresented, let pending = appState.pendingLayoutApply else { return }
+            presentLayoutApplyConfirmation(pending: pending)
         }
     }
 
@@ -364,6 +389,23 @@ struct MainWindow: View {
                 onCloseTab: { tabID in
                     appState.closeTab(tabID, areaID: area.id, projectID: project.id)
                 },
+                onCloseOtherTabs: { tabID in
+                    for id in area.tabs.filter({ $0.id != tabID && !$0.isPinned }).map(\.id) {
+                        appState.closeTab(id, areaID: area.id, projectID: project.id)
+                    }
+                },
+                onCloseTabsToLeft: { tabID in
+                    guard let index = area.tabs.firstIndex(where: { $0.id == tabID }) else { return }
+                    for id in area.tabs.prefix(index).filter({ !$0.isPinned }).map(\.id) {
+                        appState.closeTab(id, areaID: area.id, projectID: project.id)
+                    }
+                },
+                onCloseTabsToRight: { tabID in
+                    guard let index = area.tabs.firstIndex(where: { $0.id == tabID }) else { return }
+                    for id in area.tabs.suffix(from: index + 1).filter({ !$0.isPinned }).map(\.id) {
+                        appState.closeTab(id, areaID: area.id, projectID: project.id)
+                    }
+                },
                 onSplit: { dir in
                     appState.dispatch(.splitArea(.init(
                         projectID: project.id,
@@ -419,6 +461,7 @@ struct MainWindow: View {
                                 filePath: activeEditorFilePath,
                                 cursorProvider: activeEditorCursor
                             )
+                            LayoutPickerMenu(projectID: project.id)
                         }
                         if let version = UpdateService.shared.availableUpdateVersion {
                             UpdateBadge(version: version) {
@@ -922,6 +965,33 @@ struct MainWindow: View {
             appState.pendingSaveErrorMessage = nil
         }
     }
+
+    private func presentLayoutApplyConfirmation(pending: AppState.PendingLayoutApply) {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow,
+              window.attachedSheet == nil
+        else {
+            appState.cancelApplyLayout()
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Apply Layout '\(pending.layoutName)'?"
+        alert.informativeText = "All terminals and tabs in this worktree will be closed and replaced with the layout."
+        alert.alertStyle = .warning
+        alert.icon = NSApp.applicationIconImage
+        alert.addButton(withTitle: "Apply")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons[0].keyEquivalent = "\r"
+        alert.buttons[1].keyEquivalent = "\u{1b}"
+
+        alert.beginSheetModal(for: window) { response in
+            if response == .alertFirstButtonReturn {
+                appState.confirmApplyLayout()
+            } else {
+                appState.cancelApplyLayout()
+            }
+        }
+    }
 }
 
 private struct WindowTitleUpdater: NSViewRepresentable {
@@ -1101,5 +1171,20 @@ private final class ShortcutInterceptingView: NSView {
         guard let mouseMonitor else { return }
         NSEvent.removeMonitor(mouseMonitor)
         self.mouseMonitor = nil
+    }
+}
+
+private struct WindowOpenReceiver: View {
+    let openWindow: OpenWindowAction
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onReceive(NotificationCenter.default.publisher(for: .openVCSWindow)) { _ in
+                openWindow(id: "vcs")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openHelpWindow)) { _ in
+                openWindow(id: "help")
+            }
     }
 }

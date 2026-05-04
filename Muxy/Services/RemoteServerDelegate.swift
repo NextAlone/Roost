@@ -453,12 +453,21 @@ final class RemoteServerDelegate: MuxyRemoteServerDelegate {
         }
         let resolvedRef = kind == .jj && trimmedBranch.isEmpty ? "@" : trimmedBranch
         let slug = Self.worktreeSlug(from: trimmedName)
-        let worktreeDirectory = WorkspaceLocationResolver
-            .directory(projectID: project.id, projectPath: project.path, name: slug)
-            .path(percentEncoded: false)
+        let worktreeDirectory = WorktreeLocationResolver.worktreeDirectory(for: project, slug: slug)
 
         if FileManager.default.fileExists(atPath: worktreeDirectory) {
             throw RemoteVCSError.invalidInput("A worktree with this name already exists on disk.")
+        }
+
+        let parentDirectory = URL(fileURLWithPath: worktreeDirectory)
+            .deletingLastPathComponent()
+            .path
+        try await GitProcessRunner.offMainThrowing {
+            try FileManager.default.createDirectory(
+                atPath: parentDirectory,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
         }
 
         let controller = resolver.controller(kind)

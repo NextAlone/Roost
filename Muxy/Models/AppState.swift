@@ -73,6 +73,7 @@ final class AppState {
         case selectNextProject(projects: [Project], worktrees: [UUID: [Worktree]])
         case selectPreviousProject(projects: [Project], worktrees: [UUID: [Worktree]])
         case navigate(projectID: UUID, worktreeID: UUID, areaID: UUID, tabID: UUID?)
+        case applyLayout(projectID: UUID, worktreePath: String, config: LayoutConfig)
     }
 
     private let selectionStore: any ActiveProjectSelectionStoring
@@ -94,8 +95,16 @@ final class AppState {
         let tabID: UUID
     }
 
+    struct PendingLayoutApply: Equatable {
+        let projectID: UUID
+        let worktreePath: String
+        let layoutName: String
+    }
+
     var workspaceRoots: [WorktreeKey: SplitNode] = [:]
     var focusedAreaID: [WorktreeKey: UUID] = [:]
+    var pendingLayoutApply: PendingLayoutApply?
+    var pendingLastTabClose: PendingTabClose?
     var pendingUnsavedEditorTabClose: PendingTabClose?
     var pendingProcessTabClose: PendingTabClose?
     var pendingSaveErrorMessage: String?
@@ -484,7 +493,13 @@ final class AppState {
         }
     }
 
-    func openFile(_ filePath: String, projectID: UUID, preserveFocus: Bool = false) {
+    func openFile(
+        _ filePath: String,
+        projectID: UUID,
+        preserveFocus: Bool = false,
+        line: Int? = nil,
+        column: Int = 1
+    ) {
         let settings = EditorSettings.shared
         if settings.defaultEditor == .terminalCommand {
             let command = settings.externalEditorCommand.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -496,10 +511,32 @@ final class AppState {
         for area in allAreas(for: projectID) {
             if let tab = area.tabs.first(where: { $0.content.editorState?.filePath == filePath }) {
                 dispatch(.selectTab(projectID: projectID, areaID: area.id, tabID: tab.id))
+                if let line, let editorState = tab.content.editorState {
+                    requestEditorJump(state: editorState, line: line, column: column)
+                }
                 return
             }
         }
         dispatch(.createEditorTab(projectID: projectID, areaID: nil, filePath: filePath, suppressInitialFocus: preserveFocus))
+        if let line {
+            for area in allAreas(for: projectID) {
+                if let tab = area.tabs.first(where: { $0.content.editorState?.filePath == filePath }),
+                   let editorState = tab.content.editorState
+                {
+                    requestEditorJump(state: editorState, line: line, column: column)
+                    break
+                }
+            }
+        }
+    }
+
+    private func requestEditorJump(state: EditorTabState, line: Int, column: Int) {
+        if state.isMarkdownFile, state.markdownViewMode != .code {
+            state.markdownViewMode = .code
+        }
+        state.pendingJumpLine = line
+        state.pendingJumpColumn = max(1, column)
+        state.pendingJumpVersion &+= 1
     }
 
     func handleFileMoved(from oldPath: String, to newPath: String) {
@@ -615,6 +652,55 @@ final class AppState {
 
     private func closeTabAfterConfirmations(_ tabID: UUID, areaID: UUID, projectID: UUID) {
         dispatch(.closeTab(projectID: projectID, areaID: areaID, tabID: tabID))
+    }
+
+    func confirmCloseLastTab() {
+        guard let pending = pendingLastTabClose else { return }
+        pendingLastTabClose = nil
+        dispatch(.closeTab(projectID: pending.projectID, areaID: pending.areaID, tabID: pending.tabID))
+    }
+
+    func cancelCloseLastTab() {
+        pendingLastTabClose = nil
+    }
+
+    func availableLayouts(for projectID: UUID) -> [LayoutDescriptor] {
+        guard let path = activeWorktreePath(for: projectID) else { return [] }
+        return LayoutConfig.discover(projectPath: path)
+    }
+
+    func requestApplyLayout(projectID: UUID, layoutName: String) {
+        guard let path = activeWorktreePath(for: projectID) else { return }
+        pendingLayoutApply = PendingLayoutApply(
+            projectID: projectID,
+            worktreePath: path,
+            layoutName: layoutName
+        )
+    }
+
+    func confirmApplyLayout() {
+        guard let pending = pendingLayoutApply else { return }
+        pendingLayoutApply = nil
+        guard let config = LayoutConfig.load(projectPath: pending.worktreePath, name: pending.layoutName) else {
+            logger.error("Failed to load layout '\(pending.layoutName)' at \(pending.worktreePath)")
+            return
+        }
+        dispatch(.applyLayout(
+            projectID: pending.projectID,
+            worktreePath: pending.worktreePath,
+            config: config
+        ))
+    }
+
+    func cancelApplyLayout() {
+        pendingLayoutApply = nil
+    }
+
+    private func activeWorktreePath(for projectID: UUID) -> String? {
+        guard let key = activeWorktreeKey(for: projectID),
+              let root = workspaceRoots[key]
+        else { return nil }
+        return root.allAreas().first?.projectPath
     }
 
     private func unpinTabIfNeeded(_ tabID: UUID, areaID: UUID, projectID: UUID) {
@@ -880,7 +966,8 @@ final class AppState {
              .focusPaneDown,
              .moveTab,
              .selectNextProject,
-             .selectPreviousProject:
+             .selectPreviousProject,
+             .applyLayout:
             return true
         }
     }

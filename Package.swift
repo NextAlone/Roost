@@ -16,6 +16,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.1"),
         .package(url: "https://github.com/migueldeicaza/SwiftTerm", from: "1.2.0"),
+        .package(url: "https://github.com/jpsim/Yams", from: "5.1.0"),
     ],
     targets: [
         .target(
@@ -50,9 +51,10 @@ let package = Package(
                 "MuxyServer",
                 "RoostHostdCore",
                 .product(name: "Sparkle", package: "Sparkle"),
+                .product(name: "Yams", package: "Yams"),
             ],
             path: "Muxy",
-            exclude: ["Info.plist", "Muxy.entitlements", "Resources/ghostty", "Resources/terminfo"],
+            exclude: ["Info.plist", "Muxy.entitlements", "Resources/ghostty", "Resources/terminfo", "Resources/rg"],
             resources: [
                 .process("Resources/Assets.xcassets"),
                 .copy("Resources/AppIcons"),
@@ -62,6 +64,7 @@ let package = Package(
                 .process("Resources/themes"),
                 .copy("Resources/ghostty"),
                 .copy("Resources/terminfo"),
+                .copy("Resources/rg"),
             ],
             linkerSettings: [
                 .unsafeFlags([
@@ -103,6 +106,7 @@ let package = Package(
                 "MuxyShared",
                 "MuxyServer",
                 "RoostHostdCore",
+                .product(name: "Yams", package: "Yams"),
             ],
             path: "Tests/MuxyTests",
             linkerSettings: [

@@ -39,6 +39,9 @@ struct PaneTabStrip: View {
     let onCreateAgentTab: (AgentKind) -> Void
     let onCreateVCSTab: () -> Void
     let onCloseTab: (UUID) -> Void
+    let onCloseOtherTabs: (UUID) -> Void
+    let onCloseTabsToLeft: (UUID) -> Void
+    let onCloseTabsToRight: (UUID) -> Void
     let onSplit: (SplitDirection) -> Void
     let onDropAction: (TabDragCoordinator.DropResult) -> Void
     let onCreateTabAdjacent: (UUID, TabArea.InsertSide) -> Void
@@ -91,6 +94,7 @@ struct PaneTabStrip: View {
                         filePath: openInIDEFilePath,
                         cursorProvider: openInIDECursorProvider
                     )
+                    LayoutPickerMenu(projectID: projectID)
                 }
                 if isWindowTitleBar, let version = UpdateService.shared.availableUpdateVersion {
                     UpdateBadge(version: version) {
@@ -152,8 +156,14 @@ struct PaneTabStrip: View {
                     hasUnread: NotificationStore.shared.hasUnread(tabID: tab.id),
                     isAnyDragging: dragState.draggedID != nil,
                     shortcutIndex: isFocused && index < 9 ? index + 1 : nil,
+                    closableOthersCount: closableOthersCount(excluding: tab.id),
+                    closableLeftCount: closableCount(leftOf: index),
+                    closableRightCount: closableCount(rightOf: index),
                     onSelect: { onSelectTab(tab.id) },
                     onClose: { onCloseTab(tab.id) },
+                    onCloseOthers: { onCloseOtherTabs(tab.id) },
+                    onCloseLeft: { onCloseTabsToLeft(tab.id) },
+                    onCloseRight: { onCloseTabsToRight(tab.id) },
                     onCreateLeft: { onCreateTabAdjacent(tab.id, .left) },
                     onCreateRight: { onCreateTabAdjacent(tab.id, .right) },
                     onTogglePin: { onTogglePin(tab.id) },
@@ -190,6 +200,18 @@ struct PaneTabStrip: View {
                 )
             }
         }
+    }
+
+    private func closableOthersCount(excluding tabID: UUID) -> Int {
+        tabs.count(where: { $0.id != tabID && !$0.isPinned })
+    }
+
+    private func closableCount(leftOf index: Int) -> Int {
+        tabs.prefix(index).count(where: { !$0.isPinned })
+    }
+
+    private func closableCount(rightOf index: Int) -> Int {
+        tabs.suffix(from: index + 1).count(where: { !$0.isPinned })
     }
 
     private func shortcutTooltip(_ name: String, for action: ShortcutAction) -> String {
@@ -358,8 +380,14 @@ private struct TabCell: View {
     var hasUnread: Bool = false
     var isAnyDragging: Bool = false
     var shortcutIndex: Int?
+    var closableOthersCount: Int = 0
+    var closableLeftCount: Int = 0
+    var closableRightCount: Int = 0
     let onSelect: () -> Void
     let onClose: () -> Void
+    let onCloseOthers: () -> Void
+    let onCloseLeft: () -> Void
+    let onCloseRight: () -> Void
     let onCreateLeft: () -> Void
     let onCreateRight: () -> Void
     let onTogglePin: () -> Void
@@ -431,6 +459,9 @@ private struct TabCell: View {
                         .focused($renameFieldFocused)
                         .onSubmit { commitRename() }
                         .onExitCommand { cancelRename() }
+                        .onChange(of: renameFieldFocused) { _, focused in
+                            if !focused, isRenaming { commitRename() }
+                        }
                 } else if !titleHidden {
                     Text(tab.title)
                         .font(.system(size: 12))
@@ -496,6 +527,10 @@ private struct TabCell: View {
                 InactiveWindowClickView(action: onSelect)
                     .accessibilityHidden(true)
             }
+            .overlay {
+                DoubleClickView(action: startRename)
+                    .accessibilityHidden(true)
+            }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(tabAccessibilityLabel)
             .accessibilityAddTraits(active ? .isSelected : [])
@@ -519,6 +554,12 @@ private struct TabCell: View {
                 if !tab.isPinned {
                     Divider()
                     Button("Close Tab") { onClose() }
+                    Button("Close Other Tabs") { onCloseOthers() }
+                        .disabled(closableOthersCount == 0)
+                    Button("Close Tabs to the Left") { onCloseLeft() }
+                        .disabled(closableLeftCount == 0)
+                    Button("Close Tabs to the Right") { onCloseRight() }
+                        .disabled(closableRightCount == 0)
                 }
             }
             .popover(isPresented: $showColorPicker, arrowEdge: .bottom) {

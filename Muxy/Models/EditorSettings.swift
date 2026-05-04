@@ -38,6 +38,8 @@ final class EditorSettings {
     var externalEditorCommand: String = "vim" { didSet { save() } }
     var markdownPreviewFontFamily: String = EditorSettings.defaultMarkdownPreviewFontFamily { didSet { save() } }
     var markdownPreviewFontScale: CGFloat = EditorSettings.defaultMarkdownPreviewFontScale { didSet { save() } }
+    var showLineNumbers: Bool = true { didSet { save() } }
+    var highlightCurrentLine: Bool = true { didSet { save() } }
 
     @ObservationIgnored private let store: CodableFileStore<Snapshot>
     @ObservationIgnored private var isBatchLoading = false
@@ -108,6 +110,8 @@ final class EditorSettings {
         externalEditorCommand = "vim"
         markdownPreviewFontFamily = Self.defaultMarkdownPreviewFontFamily
         markdownPreviewFontScale = Self.defaultMarkdownPreviewFontScale
+        showLineNumbers = true
+        highlightCurrentLine = true
         isBatchLoading = false
         save()
     }
@@ -126,6 +130,8 @@ final class EditorSettings {
                 max(loadedScale, Self.minMarkdownPreviewFontScale),
                 Self.maxMarkdownPreviewFontScale
             )
+            showLineNumbers = snapshot.showLineNumbers ?? true
+            highlightCurrentLine = snapshot.highlightCurrentLine ?? true
             isBatchLoading = false
         } catch {
             logger.error("Failed to load editor settings: \(error.localizedDescription)")
@@ -142,7 +148,9 @@ final class EditorSettings {
                 quickOpenEditor: nil,
                 externalEditorCommand: externalEditorCommand,
                 markdownPreviewFontFamily: markdownPreviewFontFamily,
-                markdownPreviewFontScale: markdownPreviewFontScale
+                markdownPreviewFontScale: markdownPreviewFontScale,
+                showLineNumbers: showLineNumbers,
+                highlightCurrentLine: highlightCurrentLine
             ))
         } catch {
             logger.error("Failed to save editor settings: \(error.localizedDescription)")
@@ -158,4 +166,6 @@ private struct Snapshot: Codable {
     let externalEditorCommand: String?
     let markdownPreviewFontFamily: String?
     let markdownPreviewFontScale: CGFloat?
+    let showLineNumbers: Bool?
+    let highlightCurrentLine: Bool?
 }

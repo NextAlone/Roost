@@ -32,22 +32,26 @@ enum MuxyTheme {
     @MainActor static var colorScheme: ColorScheme { snapshot.colorScheme }
 
     @MainActor private static var cachedVersion: Int = -1
+    @MainActor private static var cachedAppearance: ThemeAppearance = .light
     @MainActor private static var cachedSnapshot: Snapshot?
 
     @MainActor private static var snapshot: Snapshot {
         let version = GhosttyService.shared.configVersion
-        if let cached = cachedSnapshot, cachedVersion == version {
-            return cached
+        let appearance = ThemeService.shared.activeAppearance()
+        if let cachedSnapshot, cachedVersion == version, cachedAppearance == appearance {
+            return cachedSnapshot
         }
-        let newSnapshot = Snapshot(from: GhosttyService.shared)
-        cachedSnapshot = newSnapshot
+        let newSnapshot = Snapshot(from: GhosttyService.shared, appearance: appearance)
         cachedVersion = version
+        cachedAppearance = appearance
+        cachedSnapshot = newSnapshot
         return newSnapshot
     }
 }
 
 extension MuxyTheme {
     struct Snapshot {
+        let palette: EditorThemePalette
         let nsBg: NSColor
         let bg: Color
         let fg: Color
@@ -74,11 +78,19 @@ extension MuxyTheme {
         let colorScheme: ColorScheme
 
         @MainActor
-        init(from service: GhosttyService) {
-            let bgColor = service.backgroundColor
-            let fgColor = service.foregroundColor
-            let accentColor = service.accentColor
+        init(from service: GhosttyService, appearance: ThemeAppearance) {
+            let resolvedPalette = EditorThemePalette.resolve(
+                preview: ThemeService.shared.activeThemePreview(for: appearance),
+                fallbackBackground: service.backgroundColor,
+                fallbackForeground: service.foregroundColor,
+                fallbackAccent: service.accentColor,
+                fallbackPaletteColor: { service.paletteColor(at: $0) }
+            )
+            let bgColor = resolvedPalette.background
+            let fgColor = resolvedPalette.foreground
+            let accentColor = resolvedPalette.accent
 
+            palette = resolvedPalette
             nsBg = bgColor
             bg = Color(nsColor: bgColor)
             fg = Color(nsColor: fgColor)
@@ -89,18 +101,18 @@ extension MuxyTheme {
             hover = Color(nsColor: fgColor.withAlphaComponent(0.06))
             accent = Color(nsColor: accentColor)
             accentSoft = Color(nsColor: accentColor.withAlphaComponent(0.1))
-            warning = Color(nsColor: service.paletteColor(at: 3) ?? NSColor.systemYellow)
+            warning = Color(nsColor: resolvedPalette.paletteColor(at: 3) ?? NSColor.systemYellow)
 
-            let addColor = service.paletteColor(at: 2) ?? NSColor.systemGreen
-            let removeColor = service.paletteColor(at: 1) ?? NSColor.systemRed
-            let hunkColor = service.paletteColor(at: 6) ?? accentColor
+            let addColor = resolvedPalette.paletteColor(at: 2) ?? NSColor.systemGreen
+            let removeColor = resolvedPalette.paletteColor(at: 1) ?? NSColor.systemRed
+            let hunkColor = resolvedPalette.paletteColor(at: 6) ?? accentColor
 
             nsDiffAdd = addColor
             nsDiffRemove = removeColor
             nsDiffHunk = hunkColor
-            nsDiffString = service.paletteColor(at: 2) ?? NSColor.systemGreen
-            nsDiffNumber = service.paletteColor(at: 3) ?? NSColor.systemYellow
-            nsDiffComment = service.paletteColor(at: 8) ?? fgColor.withAlphaComponent(0.5)
+            nsDiffString = resolvedPalette.paletteColor(at: 2) ?? NSColor.systemGreen
+            nsDiffNumber = resolvedPalette.paletteColor(at: 3) ?? NSColor.systemYellow
+            nsDiffComment = resolvedPalette.paletteColor(at: 8) ?? fgColor.withAlphaComponent(0.5)
 
             diffAddFg = Color(nsColor: addColor)
             diffRemoveFg = Color(nsColor: removeColor)

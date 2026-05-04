@@ -139,6 +139,9 @@ struct ShortcutActionDispatcher {
         case .quickOpen:
             notificationCenter.post(name: .quickOpen, object: nil)
             return true
+        case .findInFiles:
+            notificationCenter.post(name: .findInFiles, object: nil)
+            return true
         case .switchWorktree:
             notificationCenter.post(name: .switchWorktree, object: nil)
             return true

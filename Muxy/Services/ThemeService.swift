@@ -2,12 +2,37 @@ import AppKit
 import Foundation
 import MuxyShared
 
+enum ThemeAppearance: Hashable {
+    case light
+    case dark
+}
+
 struct ThemePreview: Identifiable {
     let name: String
     let background: NSColor
     let foreground: NSColor
     let palette: [NSColor]
     var id: String { name }
+}
+
+struct ThemeSelection: Equatable {
+    let rawValue: String
+    let darkName: String?
+    let lightName: String?
+    let fallbackName: String?
+
+    var displayName: String {
+        if let darkName, let lightName {
+            return "Dark: \(darkName), Light: \(lightName)"
+        }
+        return fallbackName ?? rawValue
+    }
+
+    func resolvedName(isDark: Bool) -> String? {
+        if isDark, let darkName { return darkName }
+        if !isDark, let lightName { return lightName }
+        return fallbackName ?? darkName ?? lightName
+    }
 }
 
 @MainActor @Observable
@@ -41,29 +66,55 @@ final class ThemeService {
     }
 
     func currentThemeName() -> String? {
-        guard let name = config.configValue(for: "theme")?.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) else {
-            return nil
-        }
-        return Self.legacyThemeNames[name] ?? name
+        currentThemeSelection()?.displayName
+    }
+
+    func currentThemeSelection() -> ThemeSelection? {
+        guard let value = config.configValue(for: "theme") else { return nil }
+        return Self.parseThemeSelection(value)
+    }
+
+    func currentLightThemeName() -> String? {
+        guard let selection = currentThemeSelection() else { return nil }
+        return selection.lightName ?? selection.fallbackName
+    }
+
+    func currentDarkThemeName() -> String? {
+        guard let selection = currentThemeSelection() else { return nil }
+        return selection.darkName ?? selection.fallbackName
+    }
+
+    func activeThemeName() -> String? {
+        currentThemeSelection()?.resolvedName(isDark: Self.isCurrentAppearanceDark())
+    }
+
+    func activeThemePreview() -> ThemePreview? {
+        guard let name = activeThemeName() else { return nil }
+        return Self.themePreview(named: name)
+    }
+
+    func activeAppearance() -> ThemeAppearance {
+        Self.isCurrentAppearanceDark() ? .dark : .light
+    }
+
+    func activeThemePreview(for appearance: ThemeAppearance) -> ThemePreview? {
+        guard let name = currentThemeSelection()?.resolvedName(isDark: appearance == .dark) else { return nil }
+        return Self.themePreview(named: name)
     }
 
     func currentThemeColors() -> DeviceThemeEventDTO? {
-        guard let name = currentThemeName() else { return nil }
+        guard let name = activeThemeName() else { return nil }
         if let cached = cachedColors, cached.name == name {
             return DeviceThemeEventDTO(fg: cached.fg, bg: cached.bg, palette: cached.palette)
         }
-        for dir in Self.themeDirectories() {
-            let path = dir + "/" + name
-            guard FileManager.default.fileExists(atPath: path),
-                  let theme = Self.parseThemeFile(atPath: path, name: name)
-            else { continue }
-            let fg = Self.rgb(from: theme.foreground)
-            let bg = Self.rgb(from: theme.background)
-            let palette = currentPalette()
-            cachedColors = CachedThemeColors(name: name, fg: fg, bg: bg, palette: palette)
-            return DeviceThemeEventDTO(fg: fg, bg: bg, palette: palette)
-        }
-        return nil
+        guard let theme = Self.themePreview(named: name) else { return nil }
+        let fg = Self.rgb(from: theme.foreground)
+        let bg = Self.rgb(from: theme.background)
+        let palette = theme.palette.count == 16
+            ? theme.palette.map(Self.rgb(from:))
+            : currentPalette()
+        cachedColors = CachedThemeColors(name: name, fg: fg, bg: bg, palette: palette)
+        return DeviceThemeEventDTO(fg: fg, bg: bg, palette: palette)
     }
 
     private func currentPalette() -> [UInt32] {
@@ -86,12 +137,143 @@ final class ThemeService {
         applyTheme(Self.defaultThemeName)
     }
 
+    func migrateToPairedThemeIfNeeded() {
+        guard let selection = currentThemeSelection() else { return }
+        if selection.darkName != nil, selection.lightName != nil { return }
+        let unified = selection.darkName ?? selection.lightName ?? selection.fallbackName ?? Self.defaultThemeName
+        applyTheme(dark: selection.darkName ?? unified, light: selection.lightName ?? unified)
+    }
+
+    func applyLightTheme(_ name: String) {
+        let dark = currentDarkThemeName() ?? name
+        applyTheme(dark: dark, light: name)
+    }
+
+    func applyDarkTheme(_ name: String) {
+        let light = currentLightThemeName() ?? name
+        applyTheme(dark: name, light: light)
+    }
+
     func applyTheme(_ name: String) {
-        let sanitized = name.filter { $0 != "\"" && $0 != "\n" && $0 != "\r" }
+        let sanitized = sanitizedThemeName(name)
         config.updateConfigValue("theme", value: "\"\(sanitized)\"")
         cachedColors = nil
         ghostty.reloadConfig()
         NotificationCenter.default.post(name: .themeDidChange, object: nil)
+    }
+
+    func applyTheme(dark darkName: String, light lightName: String) {
+        let dark = sanitizedThemeName(darkName)
+        let light = sanitizedThemeName(lightName)
+        config.updateConfigValue("theme", value: "dark:\"\(dark)\",light:\"\(light)\"")
+        cachedColors = nil
+        ghostty.reloadConfig()
+        NotificationCenter.default.post(name: .themeDidChange, object: nil)
+    }
+
+    private func sanitizedThemeName(_ name: String) -> String {
+        name.filter { $0 != "\"" && $0 != "\n" && $0 != "\r" }
+    }
+
+    nonisolated static func parseThemeSelection(_ value: String) -> ThemeSelection {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let unquoted = unquote(trimmed)
+        let entries = splitThemeEntries(unquoted)
+        var darkName: String?
+        var lightName: String?
+        var fallbackParts: [String] = []
+
+        for entry in entries {
+            let parts = entry.split(separator: ":", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else {
+                fallbackParts.append(entry)
+                continue
+            }
+            let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let name = normalizedThemeName(unquote(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)))
+            if key == "dark" {
+                darkName = name
+            } else if key == "light" {
+                lightName = name
+            } else {
+                fallbackParts.append(entry)
+            }
+        }
+
+        let fallback = fallbackParts.isEmpty
+            ? (darkName == nil && lightName == nil ? normalizedThemeName(unquoted) : nil)
+            : normalizedFallbackName(fallbackParts)
+        return ThemeSelection(
+            rawValue: trimmed,
+            darkName: darkName,
+            lightName: lightName,
+            fallbackName: fallback
+        )
+    }
+
+    nonisolated private static func normalizedThemeName(_ name: String) -> String {
+        legacyThemeNames[name] ?? name
+    }
+
+    nonisolated private static func normalizedFallbackName(_ fallbackParts: [String]) -> String {
+        fallbackParts.count == 1
+            ? normalizedThemeName(fallbackParts[0])
+            : fallbackParts.joined(separator: ",")
+    }
+
+    nonisolated private static func splitThemeEntries(_ value: String) -> [String] {
+        var entries: [String] = []
+        var current = ""
+        var isQuoted = false
+        for char in value {
+            if char == "\"" {
+                isQuoted.toggle()
+                current.append(char)
+            } else if char == ",", !isQuoted {
+                let entry = current.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !entry.isEmpty { entries.append(entry) }
+                current = ""
+            } else {
+                current.append(char)
+            }
+        }
+        let entry = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !entry.isEmpty { entries.append(entry) }
+        return entries
+    }
+
+    nonisolated private static func unquote(_ value: String) -> String {
+        guard value.count >= 2, value.first == "\"", value.last == "\"" else { return value }
+        return String(value.dropFirst().dropLast())
+    }
+
+    static func isCurrentAppearanceDark() -> Bool {
+        isDarkAppearance(
+            userInterfaceStyle: UserDefaults.standard.string(forKey: "AppleInterfaceStyle"),
+            effectiveAppearance: NSApp?.effectiveAppearance
+        )
+    }
+
+    nonisolated static func isDarkAppearance(
+        userInterfaceStyle: String?,
+        effectiveAppearance: NSAppearance?
+    ) -> Bool {
+        if let userInterfaceStyle {
+            return userInterfaceStyle.localizedCaseInsensitiveCompare("dark") == .orderedSame
+        }
+        guard let effectiveAppearance else { return false }
+        return effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
+    nonisolated private static func themePreview(named name: String) -> ThemePreview? {
+        for dir in themeDirectories() {
+            let path = dir + "/" + name
+            guard FileManager.default.fileExists(atPath: path),
+                  let theme = parseThemeFile(atPath: path, name: name)
+            else { continue }
+            return theme
+        }
+        return nil
     }
 
     nonisolated private static func discoverThemes() -> [ThemePreview] {

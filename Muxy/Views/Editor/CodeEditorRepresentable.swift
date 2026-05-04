@@ -123,7 +123,7 @@ final class ViewportContainerView: NSView {
     override var isFlipped: Bool { true }
 
     override func mouseDown(with event: NSEvent) {
-        guard let textView = subviews.first as? NSTextView else {
+        guard let textView = subviews.compactMap({ $0 as? NSTextView }).first else {
             super.mouseDown(with: event)
             return
         }
@@ -160,6 +160,7 @@ final class ViewportContainerView: NSView {
 struct CodeEditorView: NSViewRepresentable {
     @Bindable var state: EditorTabState
     let editorSettings: EditorSettings
+    let showLineNumbers: Bool
     let themeVersion: Int
     let showsVerticalScroller: Bool
     let focused: Bool
@@ -223,20 +224,24 @@ struct CodeEditorView: NSViewRepresentable {
         textView.textContainerInset = NSSize(width: 0, height: 4)
 
         let font = editorSettings.resolvedFont
+        let palette = EditorThemePalette.active
         textView.font = font
-        textView.backgroundColor = GhosttyService.shared.backgroundColor
-        textView.insertionPointColor = GhosttyService.shared.foregroundColor
-        textView.textColor = GhosttyService.shared.foregroundColor
+        textView.backgroundColor = palette.background
+        textView.insertionPointColor = palette.foreground
+        textView.textColor = palette.foreground
         textView.typingAttributes = [
             .font: font,
-            .foregroundColor: GhosttyService.shared.foregroundColor,
+            .foregroundColor: palette.foreground,
         ]
         textView.selectedTextAttributes = [
-            .backgroundColor: GhosttyService.shared.foregroundColor.withAlphaComponent(0.15),
+            .backgroundColor: palette.foreground.withAlphaComponent(0.15),
         ]
 
         scrollView.autohidesScrollers = showsVerticalScroller
-        scrollView.drawsBackground = false
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = palette.background
+        scrollView.contentView.drawsBackground = true
+        scrollView.contentView.backgroundColor = palette.background
         scrollView.borderType = .noBorder
         scrollView.contentView.postsBoundsChangedNotifications = true
         scrollView.contentView.postsFrameChangedNotifications = true
@@ -304,6 +309,8 @@ struct CodeEditorView: NSViewRepresentable {
             coordinator.enterViewportMode(scrollView: scrollView)
         }
 
+        coordinator.reconcileLineNumberGutter()
+        coordinator.reconcileCurrentLineHighlight()
         updateNSViewViewportMode(scrollView: scrollView, textView: textView, coordinator: coordinator)
     }
 
@@ -336,11 +343,13 @@ struct CodeEditorView: NSViewRepresentable {
             }
         }
 
+        applyPendingJumpIfNeeded(coordinator: coordinator)
+
         let themeChanged = coordinator.lastThemeVersion != themeVersion
         let font = editorSettings.resolvedFont
         let fontChanged = textView.font != font
 
-        applyThemeAndFont(textView: textView, font: font)
+        applyThemeAndFont(scrollView: scrollView, textView: textView, font: font)
 
         if fontChanged {
             viewport.updateEstimatedLineHeight(font: font)
@@ -372,10 +381,27 @@ struct CodeEditorView: NSViewRepresentable {
         }
     }
 
-    private func applyThemeAndFont(textView: NSTextView, font: NSFont) {
-        let fgColor = GhosttyService.shared.foregroundColor
-        let bgColor = GhosttyService.shared.backgroundColor
+    private func applyThemeAndFont(scrollView: NSScrollView, textView: NSTextView, font: NSFont) {
+        let palette = EditorThemePalette.active
+        let fgColor = palette.foreground
+        let bgColor = palette.background
 
+        if !scrollView.drawsBackground {
+            scrollView.drawsBackground = true
+        }
+        if scrollView.backgroundColor != bgColor {
+            scrollView.backgroundColor = bgColor
+        }
+        if !scrollView.contentView.drawsBackground {
+            scrollView.contentView.drawsBackground = true
+        }
+        if scrollView.contentView.backgroundColor != bgColor {
+            scrollView.contentView.backgroundColor = bgColor
+        }
+        if let documentView = scrollView.documentView, documentView !== textView {
+            documentView.wantsLayer = true
+            documentView.layer?.backgroundColor = bgColor.cgColor
+        }
         if textView.backgroundColor != bgColor {
             textView.backgroundColor = bgColor
         }
@@ -401,6 +427,20 @@ struct CodeEditorView: NSViewRepresentable {
                 .backgroundColor: selectionBackground,
             ]
         }
+    }
+
+    private func applyPendingJumpIfNeeded(coordinator: Coordinator) {
+        guard let line = state.pendingJumpLine else { return }
+        let version = state.pendingJumpVersion
+        if coordinator.lastPendingJumpVersion != version {
+            coordinator.lastPendingJumpVersion = version
+            coordinator.pendingJumpDeferred = true
+        }
+        guard coordinator.pendingJumpDeferred, coordinator.hasAppliedInitialContent else { return }
+        coordinator.pendingJumpDeferred = false
+        let column = state.pendingJumpColumn
+        coordinator.applyPendingJump(line: line, column: column)
+        state.pendingJumpLine = nil
     }
 
     private func updateSearchViewport(coordinator: Coordinator) {
@@ -449,7 +489,9 @@ struct CodeEditorView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, NSTextViewDelegate, SyntaxHighlightCoordinator, SearchControllerHost, ViewportEditHistoryHost {
+    final class Coordinator: NSObject, NSTextViewDelegate, SyntaxHighlightCoordinator, SearchControllerHost, ViewportEditHistoryHost,
+        LineNumberGutterHost, CurrentLineHighlightHost
+    {
         let state: EditorTabState
         let editorSettings: EditorSettings
         weak var textView: NSTextView?
@@ -457,6 +499,7 @@ struct CodeEditorView: NSViewRepresentable {
         weak var scrollView: NSScrollView?
         var viewportState: ViewportState?
         var containerView: ViewportContainerView?
+        var leadingGutterWidth: CGFloat = 0
 
         var isUpdating = false
         private var isEditingViewport = false
@@ -465,6 +508,8 @@ struct CodeEditorView: NSViewRepresentable {
         var lastSearchVisible = false
         var lastSearchNeedle = ""
         var lastSearchNavigationVersion = -1
+        var lastPendingJumpVersion = 0
+        var pendingJumpDeferred = false
         var lastSearchCaseSensitive = false
         var lastSearchUseRegex = false
         var lastReplaceVersion = 0
@@ -512,7 +557,59 @@ struct CodeEditorView: NSViewRepresentable {
             if state.isMarkdownFile {
                 loaded.append(MarkdownInlineExtension())
             }
+            if editorSettings.showLineNumbers {
+                loaded.append(LineNumberGutterExtension(host: self))
+            }
+            if editorSettings.highlightCurrentLine {
+                loaded.append(CurrentLineHighlightExtension(host: self))
+            }
             extensions = loaded
+        }
+
+        func reconcileLineNumberGutter() {
+            let hasGutter = extensions.contains(where: { $0 is LineNumberGutterExtension })
+            if editorSettings.showLineNumbers, !hasGutter {
+                let ext = LineNumberGutterExtension(host: self)
+                extensions.append(ext)
+                if let context = makeRenderContext() {
+                    ext.didMount(context: context)
+                    refreshViewport(force: true)
+                }
+                return
+            }
+            if !editorSettings.showLineNumbers, hasGutter {
+                let context = makeRenderContext()
+                let removed = extensions.filter { $0 is LineNumberGutterExtension }
+                extensions.removeAll { $0 is LineNumberGutterExtension }
+                if let context {
+                    for ext in removed {
+                        ext.willUnmount(context: context)
+                    }
+                }
+                refreshViewport(force: true)
+            }
+        }
+
+        func reconcileCurrentLineHighlight() {
+            let hasHighlight = extensions.contains(where: { $0 is CurrentLineHighlightExtension })
+            if editorSettings.highlightCurrentLine, !hasHighlight {
+                let ext = CurrentLineHighlightExtension(host: self)
+                extensions.append(ext)
+                if let context = makeRenderContext() {
+                    ext.didMount(context: context)
+                }
+                return
+            }
+            if !editorSettings.highlightCurrentLine, hasHighlight {
+                let context = makeRenderContext()
+                let removed = extensions.filter { $0 is CurrentLineHighlightExtension }
+                extensions.removeAll { $0 is CurrentLineHighlightExtension }
+                if let context {
+                    for ext in removed {
+                        ext.willUnmount(context: context)
+                    }
+                }
+            }
         }
 
         private func makeRenderContext() -> EditorRenderContext? {
@@ -594,6 +691,7 @@ struct CodeEditorView: NSViewRepresentable {
 
             let container = ViewportContainerView()
             container.wantsLayer = true
+            container.layer?.backgroundColor = EditorThemePalette.active.background.cgColor
             let height = max(viewport.totalDocumentHeight, scrollView.contentView.bounds.height)
             let width = max(scrollView.contentSize.width, textView.frame.width)
             container.frame = NSRect(x: 0, y: 0, width: width, height: height)
@@ -609,6 +707,12 @@ struct CodeEditorView: NSViewRepresentable {
                 width: width,
                 height: viewport.estimatedLineHeight * CGFloat(min(Self.initialViewportLineLimit, store.lineCount))
             )
+
+            if let context = makeRenderContext() {
+                for ext in extensions {
+                    ext.didMount(context: context)
+                }
+            }
         }
 
         func updateContainerHeight() {
@@ -676,6 +780,7 @@ struct CodeEditorView: NSViewRepresentable {
                 let fullRange = NSRange(location: 0, length: storage.length)
                 storage.beginEditing()
                 storage.addAttribute(.font, value: font, range: fullRange)
+                storage.addAttribute(.foregroundColor, value: EditorThemePalette.active.foreground, range: fullRange)
                 storage.endEditing()
                 applySyntaxHighlights(storage: storage, viewport: viewport)
             }
@@ -891,9 +996,9 @@ struct CodeEditorView: NSViewRepresentable {
                 estimatedHeight
             }
             let newTextFrame = NSRect(
-                x: 0,
+                x: leadingGutterWidth,
                 y: yOffset,
-                width: viewportWidth,
+                width: max(0, viewportWidth - leadingGutterWidth),
                 height: max(estimatedHeight, laidOutHeight, 100)
             )
             if textView.frame != newTextFrame {
@@ -901,7 +1006,10 @@ struct CodeEditorView: NSViewRepresentable {
             }
 
             if let container = containerView {
-                let containerHeight = max(viewport.totalDocumentHeight, scrollView.contentView.bounds.height)
+                let containerHeight = max(
+                    viewport.totalDocumentHeight,
+                    scrollView.contentView.bounds.height
+                )
                 let newContainerFrame = NSRect(
                     x: 0,
                     y: 0,
@@ -1115,7 +1223,7 @@ struct CodeEditorView: NSViewRepresentable {
                 clearViewportHistory()
             }
 
-            if lineDelta != 0 {
+            if lineDelta != 0 || state.isMarkdownFile {
                 updateContainerHeight()
                 updateViewportFrames(
                     viewport: viewport,
@@ -1354,7 +1462,16 @@ struct CodeEditorView: NSViewRepresentable {
             let localLineStart = lineStartOffsets[max(0, min(localLineIndex, lineStartOffsets.count - 1))]
             state.cursorColumn = max(1, loc - localLineStart + 1)
 
+            notifySelectionDidChange()
+
             updateCurrentSelection(in: textView, range: range)
+        }
+
+        private func notifySelectionDidChange() {
+            guard let context = makeRenderContext() else { return }
+            for ext in extensions {
+                ext.selectionDidChange(context: context)
+            }
         }
 
         private func handleMoveAtViewportBoundary(direction: Int) -> Bool {
@@ -1390,7 +1507,11 @@ struct CodeEditorView: NSViewRepresentable {
             return false
         }
 
-        private func scrollToGlobalLine(_ globalLine: Int, column: Int) {
+        func applyPendingJump(line: Int, column: Int) {
+            scrollToGlobalLine(max(0, line - 1), column: max(0, column - 1), placeNearTop: true)
+        }
+
+        private func scrollToGlobalLine(_ globalLine: Int, column: Int, placeNearTop: Bool = false) {
             guard let viewport = viewportState, let scrollView, let textView else { return }
 
             let targetScrollY = viewport.scrollY(forLine: globalLine)
@@ -1401,7 +1522,9 @@ struct CodeEditorView: NSViewRepresentable {
             let lineBottom = targetScrollY + viewport.estimatedLineHeight
 
             var newScrollY = currentScrollY
-            if lineBottom > currentScrollY + visibleHeight {
+            if placeNearTop, lineTop < currentScrollY || lineBottom > currentScrollY + visibleHeight {
+                newScrollY = lineTop - visibleHeight / 3
+            } else if lineBottom > currentScrollY + visibleHeight {
                 newScrollY = lineBottom - visibleHeight
             } else if lineTop < currentScrollY {
                 newScrollY = lineTop
@@ -1435,6 +1558,7 @@ struct CodeEditorView: NSViewRepresentable {
             state.cursorLine = globalLine + 1
             let cursorLineStart = lineStartOffsets[max(0, min(newLocalLine, lineStartOffsets.count - 1))]
             state.cursorColumn = max(1, safeCursor - cursorLineStart + 1)
+            notifySelectionDidChange()
         }
 
         private func updateCurrentSelection(in textView: NSTextView, range: NSRange) {

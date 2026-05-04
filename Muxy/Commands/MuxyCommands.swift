@@ -236,6 +236,12 @@ struct MuxyCommands: Commands {
             }
             .shortcut(for: .quickOpen, store: keyBindings)
 
+            Button("Find in Files") {
+                guard isMainWindowFocused else { return }
+                performShortcutAction(.findInFiles)
+            }
+            .shortcut(for: .findInFiles, store: keyBindings)
+
             Button("Save") {
                 guard isMainWindowFocused else { return }
                 performShortcutAction(.saveFile)
@@ -416,5 +422,39 @@ struct MuxyCommands: Commands {
             }
             .shortcut(for: .toggleAIUsage, store: keyBindings)
         }
+
+        CommandGroup(replacing: .help) {
+            Button("Muxy Help") {
+                openHelpWindow()
+            }
+
+            Divider()
+
+            Button("Documentation") {
+                HelpLinks.openDocs()
+            }
+
+            Button("GitHub Repository") {
+                HelpLinks.openRepo()
+            }
+
+            Button("Mobile App Repository") {
+                HelpLinks.openMobileRepo()
+            }
+
+            Button("Discord") {
+                HelpLinks.openDiscord()
+            }
+
+            Divider()
+
+            Button("Report an Issue...") {
+                HelpLinks.openIssues()
+            }
+        }
+    }
+
+    private func openHelpWindow() {
+        NotificationCenter.default.post(name: .openHelpWindow, object: nil)
     }
 }

@@ -23,14 +23,11 @@ struct MainWindow: View {
     }
 
     private enum CloseConfirmationKind {
-        case lastTab
         case unsavedEditor
         case runningProcess
 
         var title: String {
             switch self {
-            case .lastTab:
-                "Close Project?"
             case .unsavedEditor:
                 "Save Changes Before Closing?"
             case .runningProcess:
@@ -40,8 +37,6 @@ struct MainWindow: View {
 
         var message: String {
             switch self {
-            case .lastTab:
-                "This is the last tab. Closing it will remove the project from the sidebar."
             case .unsavedEditor:
                 "This file has unsaved changes. If you don't save, your changes will be lost."
             case .runningProcess:
@@ -111,14 +106,11 @@ struct MainWindow: View {
                 ZStack {
                     MuxyTheme.bg
                     if let project = activeProject,
-                       appState.workspaceRoot(for: project.id) == nil,
-                       let worktree = resolvedActiveWorktree(for: project)
+                       appState.workspaceRoot(for: project.id) == nil
                     {
-                        EmptyProjectPlaceholder(project: project) {
-                            appState.selectWorktree(projectID: project.id, worktree: worktree)
-                        }
+                        StartupView(project: project, worktree: resolvedActiveWorktree(for: project))
                     } else if projectsWithWorkspaces.isEmpty {
-                        WelcomeView()
+                        StartupView(project: nil, worktree: nil)
                     } else {
                         let activeKey = activeWorktreeKey
                         ForEach(mountedTerminalWorktrees) { item in
@@ -297,10 +289,6 @@ struct MainWindow: View {
             panelVisible: fileTreePanelVisible,
             sync: syncFileTreeSelection
         ))
-        .onChange(of: appState.pendingLastTabClose != nil) { _, isPresented in
-            guard isPresented else { return }
-            presentCloseConfirmation(.lastTab)
-        }
         .onChange(of: appState.pendingUnsavedEditorTabClose != nil) { _, isPresented in
             guard isPresented else { return }
             presentCloseConfirmation(.unsavedEditor)
@@ -879,8 +867,7 @@ struct MainWindow: View {
             alert.buttons[1].keyEquivalent = "\u{1b}"
             alert.buttons[2].keyEquivalent = "d"
             alert.buttons[2].keyEquivalentModifierMask = [.command]
-        case .lastTab,
-             .runningProcess:
+        case .runningProcess:
             alert.addButton(withTitle: "Close")
             alert.addButton(withTitle: "Cancel")
             alert.buttons[0].keyEquivalent = "\r"
@@ -894,12 +881,6 @@ struct MainWindow: View {
 
         alert.beginSheetModal(for: window) { response in
             switch kind {
-            case .lastTab:
-                if response == .alertFirstButtonReturn {
-                    appState.confirmCloseLastTab()
-                } else {
-                    appState.cancelCloseLastTab()
-                }
             case .unsavedEditor:
                 switch response {
                 case .alertFirstButtonReturn:

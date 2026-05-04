@@ -96,7 +96,6 @@ final class AppState {
 
     var workspaceRoots: [WorktreeKey: SplitNode] = [:]
     var focusedAreaID: [WorktreeKey: UUID] = [:]
-    var pendingLastTabClose: PendingTabClose?
     var pendingUnsavedEditorTabClose: PendingTabClose?
     var pendingProcessTabClose: PendingTabClose?
     var pendingSaveErrorMessage: String?
@@ -562,7 +561,7 @@ final class AppState {
             pendingProcessTabClose = PendingTabClose(projectID: projectID, areaID: areaID, tabID: tabID)
             return
         }
-        closeTabWithLastCheck(tabID, areaID: areaID, projectID: projectID)
+        closeTabAfterConfirmations(tabID, areaID: areaID, projectID: projectID)
     }
 
     func forceCloseTab(_ tabID: UUID, areaID: UUID, projectID: UUID) {
@@ -574,7 +573,7 @@ final class AppState {
     func confirmCloseRunningTab() {
         guard let pending = pendingProcessTabClose else { return }
         pendingProcessTabClose = nil
-        closeTabWithLastCheck(pending.tabID, areaID: pending.areaID, projectID: pending.projectID)
+        closeTabAfterConfirmations(pending.tabID, areaID: pending.areaID, projectID: pending.projectID)
     }
 
     func cancelCloseRunningTab() {
@@ -584,7 +583,7 @@ final class AppState {
     func confirmCloseUnsavedEditorTab() {
         guard let pending = pendingUnsavedEditorTabClose else { return }
         pendingUnsavedEditorTabClose = nil
-        closeTabWithLastCheck(pending.tabID, areaID: pending.areaID, projectID: pending.projectID)
+        closeTabAfterConfirmations(pending.tabID, areaID: pending.areaID, projectID: pending.projectID)
     }
 
     func saveAndCloseUnsavedEditorTab() {
@@ -603,7 +602,7 @@ final class AppState {
         Task { [weak self] in
             do {
                 try await editorState.saveFileAsync()
-                self?.closeTabWithLastCheck(pending.tabID, areaID: pending.areaID, projectID: pending.projectID)
+                self?.closeTabAfterConfirmations(pending.tabID, areaID: pending.areaID, projectID: pending.projectID)
             } catch {
                 self?.pendingSaveErrorMessage = "Failed to save \(fileName): \(error.localizedDescription)"
             }
@@ -614,24 +613,8 @@ final class AppState {
         pendingUnsavedEditorTabClose = nil
     }
 
-    private func closeTabWithLastCheck(_ tabID: UUID, areaID: UUID, projectID: UUID) {
-        if !ProjectLifecyclePreferences.keepOpenWhenNoTabs,
-           isLastTabInProject(tabID, areaID: areaID, projectID: projectID)
-        {
-            pendingLastTabClose = PendingTabClose(projectID: projectID, areaID: areaID, tabID: tabID)
-            return
-        }
+    private func closeTabAfterConfirmations(_ tabID: UUID, areaID: UUID, projectID: UUID) {
         dispatch(.closeTab(projectID: projectID, areaID: areaID, tabID: tabID))
-    }
-
-    func confirmCloseLastTab() {
-        guard let pending = pendingLastTabClose else { return }
-        pendingLastTabClose = nil
-        dispatch(.closeTab(projectID: pending.projectID, areaID: pending.areaID, tabID: pending.tabID))
-    }
-
-    func cancelCloseLastTab() {
-        pendingLastTabClose = nil
     }
 
     private func unpinTabIfNeeded(_ tabID: UUID, areaID: UUID, projectID: UUID) {
@@ -642,15 +625,6 @@ final class AppState {
               tab.isPinned
         else { return }
         area.togglePin(tabID)
-    }
-
-    private func isLastTabInProject(_ tabID: UUID, areaID: UUID, projectID: UUID) -> Bool {
-        guard let key = activeWorktreeKey(for: projectID),
-              let root = workspaceRoots[key]
-        else { return false }
-        let allAreas = root.allAreas()
-        let totalTabs = allAreas.reduce(0) { $0 + $1.tabs.count }
-        return totalTabs <= 1
     }
 
     func unsavedEditorTabs() -> [EditorTabState] {
@@ -739,7 +713,7 @@ final class AppState {
             workspaceRoots: workspaceRoots,
             focusedAreaID: focusedAreaID,
             focusHistory: focusHistory,
-            keepProjectOpenWhenEmpty: ProjectLifecyclePreferences.keepOpenWhenNoTabs
+            keepProjectOpenWhenEmpty: true
         )
         let effects = WorkspaceReducer.reduce(action: action, state: &workspace)
         let updatedWorkspaceRootSignature = workspaceRootSignature(workspace.workspaceRoots)
@@ -921,12 +895,6 @@ final class AppState {
     }
 
     private func reconcilePendingClosures() {
-        if let pending = pendingLastTabClose,
-           !tabExists(tabID: pending.tabID, areaID: pending.areaID, projectID: pending.projectID)
-        {
-            pendingLastTabClose = nil
-        }
-
         if let pending = pendingUnsavedEditorTabClose,
            !tabExists(tabID: pending.tabID, areaID: pending.areaID, projectID: pending.projectID)
         {

@@ -62,7 +62,6 @@ Muxy/
     TextBackingStore.swift    Line-array backing store for editor documents
     ViewportState.swift       Viewport window computation and line mapping for editor documents
     TerminalSettings.swift    Terminal preference keys and quick-select label layout helpers
-    ProjectLifecyclePreferences.swift  Project lifecycle preferences (keep-open-when-no-tabs)
     Project.swift             Project folder metadata
     Worktree.swift            Per-project worktree slot (primary or git worktree)
     WorktreeKey.swift         Hashable (projectID, worktreeID) key for workspace maps
@@ -162,7 +161,7 @@ Muxy/
       AIUsagePanel.swift        AI usage popover: preview button, panel header/list, provider and metric rows, used/remaining conversion
     ProviderIconView.swift    Renders SVG provider icons from Muxy/Resources/ProviderIcons with monochrome tinting
     ThemePicker.swift         Theme selection popover (hosted in topbar right)
-    WelcomeView.swift         Empty state view
+    StartupView.swift         Startup and empty-project view
     Components/
       IconButton.swift        Reusable icon button
       FileDiffIcon.swift      Git diff file icon (SVG shape)

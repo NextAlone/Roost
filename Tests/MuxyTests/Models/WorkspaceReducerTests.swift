@@ -267,6 +267,7 @@ struct WorkspaceReducerTests {
         let projectID = UUID()
         let worktreeID = UUID()
         var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        state.keepProjectOpenWhenEmpty = false
         let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
         let areaID = state.focusedAreaID[key]!
         let area = state.workspaceRoots[key]!.findArea(id: areaID)!
@@ -279,6 +280,27 @@ struct WorkspaceReducerTests {
 
         #expect(state.workspaceRoots[key] == nil)
         #expect(effects.projectIDsToRemove.contains(projectID))
+    }
+
+    @Test("closeTab last tab keeps project when empty projects stay open")
+    func closeTabLastInLastAreaKeepsProjectWhenEmptyProjectsStayOpen() {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let areaID = state.focusedAreaID[key]!
+        let area = state.workspaceRoots[key]!.findArea(id: areaID)!
+        let tabID = area.tabs[0].id
+
+        let effects = WorkspaceReducer.reduce(
+            action: .closeTab(projectID: projectID, areaID: areaID, tabID: tabID),
+            state: &state
+        )
+
+        #expect(state.workspaceRoots[key] == nil)
+        #expect(state.activeProjectID == projectID)
+        #expect(state.activeWorktreeID[projectID] == worktreeID)
+        #expect(effects.projectIDsToRemove.isEmpty)
     }
 
     @Test("selectTab changes activeTabID")
@@ -423,6 +445,7 @@ struct WorkspaceReducerTests {
         let projectID = UUID()
         let worktreeID = UUID()
         var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        state.keepProjectOpenWhenEmpty = false
         let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
         let areaID = state.focusedAreaID[key]!
 
@@ -433,6 +456,25 @@ struct WorkspaceReducerTests {
 
         #expect(state.workspaceRoots[key] == nil)
         #expect(effects.projectIDsToRemove.contains(projectID))
+    }
+
+    @Test("closeArea last area keeps project when empty projects stay open")
+    func closeAreaLastKeepsProjectWhenEmptyProjectsStayOpen() {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let areaID = state.focusedAreaID[key]!
+
+        let effects = WorkspaceReducer.reduce(
+            action: .closeArea(projectID: projectID, areaID: areaID),
+            state: &state
+        )
+
+        #expect(state.workspaceRoots[key] == nil)
+        #expect(state.activeProjectID == projectID)
+        #expect(state.activeWorktreeID[projectID] == worktreeID)
+        #expect(effects.projectIDsToRemove.isEmpty)
     }
 
     @Test("focusArea updates focusedAreaID and maintains history")

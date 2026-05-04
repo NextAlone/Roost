@@ -25,9 +25,10 @@ struct AgentActivitySocketEvent: Equatable {
             .running
         case "needs_input",
              "needsInput",
-             "permission",
-             "notification":
+             "permission":
             .needsInput
+        case "notification":
+            nil
         case "idle":
             .idle
         case "completed",

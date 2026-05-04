@@ -84,9 +84,17 @@ final class TerminalPaneState: Identifiable {
 
     @discardableResult
     func acknowledgeUserInteraction() -> Bool {
-        guard agentKind != .terminal, activityState == .completed else { return false }
-        activityState = .idle
-        return true
+        guard agentKind != .terminal else { return false }
+        switch activityState {
+        case .completed:
+            activityState = .idle
+            return true
+        case .needsInput:
+            activityState = .running
+            return true
+        default:
+            return false
+        }
     }
 
     func markHostdAttachPreparing() {

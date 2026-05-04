@@ -112,16 +112,10 @@ struct ExpandedProjectRow: View {
             if isVcsRepo {
                 Divider()
                 Button("Refresh Workspaces") { Task { await refreshWorktrees() } }
-                Button("New Workspace…") { showCreateWorktreeSheet = true }
+                Button("New Workspace…") { presentCreateWorktreeSheet() }
             }
             Divider()
             Button("Remove Project", role: .destructive, action: onRemove)
-        }
-        .popover(isPresented: $showCreateWorktreeSheet, arrowEdge: .trailing) {
-            CreateWorktreeSheet(project: project) { result in
-                showCreateWorktreeSheet = false
-                handleCreateWorktreeResult(result)
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .requestCreateWorkspaceForAgent)) { note in
             guard appState.activeProjectID == project.id,
@@ -129,7 +123,7 @@ struct ExpandedProjectRow: View {
                   let kind = AgentKind(rawValue: raw)
             else { return }
             pendingAgentKind = kind
-            showCreateWorktreeSheet = true
+            presentCreateWorktreeSheet()
         }
         .sheet(item: $logoCropImage) { item in
             LogoCropperSheet(
@@ -301,7 +295,13 @@ struct ExpandedProjectRow: View {
             }
 
             ExpandedNewWorktreeButton {
-                showCreateWorktreeSheet = true
+                presentCreateWorktreeSheet()
+            }
+            .popover(isPresented: $showCreateWorktreeSheet, arrowEdge: .trailing) {
+                CreateWorktreeSheet(project: project) { result in
+                    showCreateWorktreeSheet = false
+                    handleCreateWorktreeResult(result)
+                }
             }
 
             if !untrackedJjWorkspaceNames.isEmpty {
@@ -447,6 +447,11 @@ struct ExpandedProjectRow: View {
         case .cancelled:
             break
         }
+    }
+
+    private func presentCreateWorktreeSheet() {
+        worktreesExpanded = true
+        showCreateWorktreeSheet = true
     }
 
     private func requestRemove(worktree: Worktree) async {

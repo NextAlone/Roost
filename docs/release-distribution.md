@@ -17,6 +17,22 @@ Run the first-party GitHub Actions workflow from `main`:
 
 The workflow builds the self-signed/ad-hoc ZIP, computes the ZIP SHA256 and Nix SRI hash, updates release metadata in the repository, commits those metadata changes back to the triggering branch, creates the version tag at that commit, and uploads `Roost-<version>-arm64.zip` plus `SHA256SUMS.txt`. The self-signed/ad-hoc archive is not Developer ID signed and is not notarized.
 
+## Local Test Build
+
+For local sanity checks (e.g. handing a teammate a build), always pass `--sign-identity -` to ad-hoc sign the bundle:
+
+```bash
+scripts/build-release.sh --arch arm64 --version <X.Y.Z[-beta.N]> --zip --sign-identity -
+```
+
+Without `--sign-identity`, `swift build` only stamps each binary with a linker ad-hoc signature; the app bundle itself is left with `Sealed Resources=none`, no entitlements bound, and no hardened runtime. The Sparkle framework, hostd XPC service, hostd daemon, and the bundle all need the inside-out re-sign that the script performs when an identity is provided. Use `-` for ad-hoc; substitute a Developer ID identity once notarization credentials exist.
+
+Use a version that does not collide with a published release (e.g. `1.2.2-beta.0`) so the artifact under `build/` does not clobber a real release ZIP. Recipients on macOS still need to clear quarantine on first launch:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Roost.app
+```
+
 ## Nix
 
 The Nix package fetches the GitHub release ZIP by version and validates it with a fixed-output hash. The release workflow writes the matching hash into `nix/package.nix` before it creates the tag. After the workflow publishes the release, verify the tagged flake:

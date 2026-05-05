@@ -45,6 +45,80 @@ struct AppStateAgentActivityTests {
         #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
+    @Test("done transitions idle to completed")
+    func doneTransitionsIdleToCompleted() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .idle
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let revisionBefore = appState.agentActivityRevision
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .completed)
+
+        #expect(updated == true)
+        #expect(pane.activityState == .completed)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
+    }
+
+    @Test("done transitions running to completed")
+    func doneTransitionsRunningToCompleted() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .running
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let revisionBefore = appState.agentActivityRevision
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .completed)
+
+        #expect(updated == true)
+        #expect(pane.activityState == .completed)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
+    }
+
+    @Test("done preserves needsInput")
+    func donePreservesNeedsInput() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .needsInput
+        pane.previousActivityState = .running
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let revisionBefore = appState.agentActivityRevision
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .completed)
+
+        #expect(updated == true)
+        #expect(pane.activityState == .needsInput)
+        #expect(pane.previousActivityState == .running)
+        #expect(appState.agentActivityRevision == revisionBefore)
+    }
+
+    @Test("done preserves exited")
+    func donePreservesExited() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .exited
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let revisionBefore = appState.agentActivityRevision
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .completed)
+
+        #expect(updated == true)
+        #expect(pane.activityState == .exited)
+        #expect(appState.agentActivityRevision == revisionBefore)
+    }
+
     @Test("returns false for missing pane")
     func missingPane() {
         let appState = makeAppState()

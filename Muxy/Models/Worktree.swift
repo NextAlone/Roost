@@ -7,6 +7,10 @@ enum WorktreeSource: String, Codable, Hashable {
 }
 
 struct Worktree: Identifiable, Codable, Hashable {
+    // swiftlint:disable:next force_unwrapping
+    static let scratchID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+    static let scratchPath = "/tmp/roost"
+
     let id: UUID
     var name: String
     var path: String

@@ -121,3 +121,35 @@ private struct AgentActivityPulsingStatusIcon: View {
         return .easeInOut(duration: style.duration).repeatForever(autoreverses: true)
     }
 }
+
+struct AgentActivityDotStack: View {
+    let dots: [SidebarAgentActivityDot]
+
+    var body: some View {
+        HStack(spacing: -4) {
+            ForEach(dots) { dot in
+                AgentActivityStackDot(state: dot.state)
+            }
+        }
+        .frame(height: AgentActivityStatusBadgeLayout.height)
+        .help(helpText)
+        .accessibilityLabel(helpText)
+    }
+
+    private var helpText: String {
+        let parts: [String] = AgentActivityState.allCases.compactMap { state in
+            let count = dots.count { $0.state == state }
+            guard count > 0 else { return nil }
+            return "\(count) \(state.accessibilityLabel.lowercased())"
+        }
+        return parts.joined(separator: ", ")
+    }
+}
+
+struct AgentActivityStackDot: View {
+    let state: AgentActivityState
+
+    var body: some View {
+        AgentActivityStatusBadge(state: state)
+    }
+}

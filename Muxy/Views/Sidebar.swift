@@ -108,6 +108,12 @@ struct Sidebar: View {
     private var projectList: some View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: 4) {
+                if isWide {
+                    ScratchRow()
+                } else {
+                    ScratchCollapsedRow()
+                }
+
                 ForEach(Array(projectStore.projects.enumerated()), id: \.element.id) { index, project in
                     Group {
                         if isWide {

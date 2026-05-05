@@ -585,8 +585,13 @@ struct MainWindow: View {
         return WorktreeKey(projectID: projectID, worktreeID: worktreeID)
     }
 
+    private static let scratchProject = Project(id: Project.scratchID, name: "Scratch", path: Worktree.scratchPath)
+
     private var activeProject: Project? {
         guard let pid = appState.activeProjectID else { return nil }
+        if pid == Project.scratchID {
+            return Self.scratchProject
+        }
         return projectStore.projects.first { $0.id == pid }
     }
 
@@ -611,7 +616,8 @@ struct MainWindow: View {
     }
 
     private var mountedTerminalWorktrees: [MountedTerminalWorktree] {
-        let projectByID = Dictionary(uniqueKeysWithValues: projectStore.projects.map { ($0.id, $0) })
+        var projectByID = Dictionary(uniqueKeysWithValues: projectStore.projects.map { ($0.id, $0) })
+        projectByID[Project.scratchID] = Self.scratchProject
         return MountedTerminalWorktreePolicy.displayKeys(
             remembered: mountedTerminalWorktreeKeys,
             active: activeWorktreeKey,
@@ -625,7 +631,8 @@ struct MainWindow: View {
     }
 
     private var availableTerminalWorktreeKeys: Set<WorktreeKey> {
-        let projectIDs = Set(projectStore.projects.map(\.id))
+        var projectIDs = Set(projectStore.projects.map(\.id))
+        projectIDs.insert(Project.scratchID)
         return Set(appState.workspaceRoots.keys.filter { projectIDs.contains($0.projectID) })
     }
 
@@ -715,7 +722,11 @@ struct MainWindow: View {
     }
 
     private var projectsWithWorkspaces: [Project] {
-        projectStore.projects.filter { appState.workspaceRoot(for: $0.id) != nil }
+        var projects = projectStore.projects.filter { appState.workspaceRoot(for: $0.id) != nil }
+        if appState.workspaceRoot(for: Project.scratchID) != nil {
+            projects.insert(Self.scratchProject, at: 0)
+        }
+        return projects
     }
 
     private func sidePanelResizeHandle(onDrag: @escaping (CGFloat) -> Void) -> some View {

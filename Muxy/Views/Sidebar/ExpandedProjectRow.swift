@@ -55,6 +55,17 @@ struct ExpandedProjectRow: View {
         }
     }
 
+    private var projectAgentActivitySummary: SidebarAgentActivitySummary? {
+        guard !isVcsRepo else { return nil }
+        _ = appState.agentActivityRevision
+        guard let worktree = worktrees.first else { return nil }
+        let key = WorktreeKey(projectID: project.id, worktreeID: worktree.id)
+        return SidebarAgentActivityResolver.summary(
+            tabs: appState.allTabs(forKey: key),
+            activeTabID: isActive ? appState.focusedArea(for: project.id)?.activeTabID : nil
+        )
+    }
+
     private var displayLetter: String {
         String(project.name.prefix(1)).uppercased()
     }
@@ -168,6 +179,8 @@ struct ExpandedProjectRow: View {
 
             if isVcsRepo {
                 worktreeChevron
+            } else if let summary = projectAgentActivitySummary {
+                AgentActivityDotStack(dots: summary.dots)
             }
         }
         .frame(minHeight: ExpandedWorktreeRowLayout.projectRowMinHeight)
@@ -864,38 +877,6 @@ private struct ExpandedNewWorktreeButton: View {
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
         .accessibilityLabel("New Workspace")
-    }
-}
-
-private struct AgentActivityDotStack: View {
-    let dots: [SidebarAgentActivityDot]
-
-    var body: some View {
-        HStack(spacing: -4) {
-            ForEach(dots) { dot in
-                AgentActivityStackDot(state: dot.state)
-            }
-        }
-        .frame(height: ExpandedWorktreeRowLayout.statusDotHeight)
-        .help(helpText)
-        .accessibilityLabel(helpText)
-    }
-
-    private var helpText: String {
-        let parts: [String] = AgentActivityState.allCases.compactMap { state in
-            let count = dots.count { $0.state == state }
-            guard count > 0 else { return nil }
-            return "\(count) \(state.accessibilityLabel.lowercased())"
-        }
-        return parts.joined(separator: ", ")
-    }
-}
-
-private struct AgentActivityStackDot: View {
-    let state: AgentActivityState
-
-    var body: some View {
-        AgentActivityStatusBadge(state: state)
     }
 }
 

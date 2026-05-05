@@ -106,7 +106,7 @@ final class TerminalTab: Identifiable {
         isPinned = snapshot.isPinned
         switch snapshot.kind {
         case .terminal:
-            content = .terminal(TerminalPaneState(
+            let pane = TerminalPaneState(
                 id: snapshot.paneID ?? UUID(),
                 projectPath: snapshot.projectPath,
                 title: snapshot.paneTitle,
@@ -119,7 +119,11 @@ final class TerminalTab: Identifiable {
                     agentRuntimeOwnership: agentRuntimeOwnership
                 ),
                 createdAt: snapshot.createdAt
-            ))
+            )
+            if let activityState = snapshot.activityState {
+                pane.activityState = activityState
+            }
+            content = .terminal(pane)
         case .vcs:
             content = .vcs(VCSTabState(projectPath: snapshot.projectPath))
         case .editor:
@@ -154,7 +158,8 @@ final class TerminalTab: Identifiable {
             agentKind: content.pane?.agentKind ?? .terminal,
             startupCommand: content.pane?.startupCommand,
             hostdRuntimeOwnership: content.pane?.hostdRuntimeOwnership ?? .appOwnedMetadataOnly,
-            createdAt: content.pane?.createdAt ?? Date()
+            createdAt: content.pane?.createdAt ?? Date(),
+            activityState: content.pane?.activityState
         )
     }
 }

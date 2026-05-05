@@ -35,6 +35,7 @@ final class TerminalPaneState: Identifiable {
     let createdAt: Date
     var lastState: SessionLifecycleState = .running
     var activityState: AgentActivityState
+    var previousActivityState: AgentActivityState?
     let searchState = TerminalSearchState()
     @ObservationIgnored private var titleDebounceTask: Task<Void, Never>?
 
@@ -88,9 +89,11 @@ final class TerminalPaneState: Identifiable {
         switch activityState {
         case .completed:
             activityState = .idle
+            previousActivityState = nil
             return true
         case .needsInput:
-            activityState = .running
+            activityState = previousActivityState ?? .idle
+            previousActivityState = nil
             return true
         default:
             return false

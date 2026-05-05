@@ -263,6 +263,9 @@ final class AppState {
                 for tab in area.tabs {
                     guard let pane = tab.content.pane, pane.id == paneID else { continue }
                     guard pane.activityState != state else { return true }
+                    if state == .needsInput {
+                        pane.previousActivityState = pane.activityState
+                    }
                     pane.activityState = state
                     advanceAgentActivityRevision()
                     return true

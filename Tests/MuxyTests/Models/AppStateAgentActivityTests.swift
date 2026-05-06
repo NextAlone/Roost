@@ -119,6 +119,62 @@ struct AppStateAgentActivityTests {
         #expect(appState.agentActivityRevision == revisionBefore)
     }
 
+    @Test("needsInput preserves completed")
+    func needsInputPreservesCompleted() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .completed
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let revisionBefore = appState.agentActivityRevision
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .needsInput)
+
+        #expect(updated == true)
+        #expect(pane.activityState == .completed)
+        #expect(pane.previousActivityState == nil)
+        #expect(appState.agentActivityRevision == revisionBefore)
+    }
+
+    @Test("needsInput preserves exited")
+    func needsInputPreservesExited() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .exited
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let revisionBefore = appState.agentActivityRevision
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .needsInput)
+
+        #expect(updated == true)
+        #expect(pane.activityState == .exited)
+        #expect(appState.agentActivityRevision == revisionBefore)
+    }
+
+    @Test("needsInput transitions running normally")
+    func needsInputTransitionsRunning() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .running
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let revisionBefore = appState.agentActivityRevision
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .needsInput)
+
+        #expect(updated == true)
+        #expect(pane.activityState == .needsInput)
+        #expect(pane.previousActivityState == .running)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
+    }
+
     @Test("returns false for missing pane")
     func missingPane() {
         let appState = makeAppState()

@@ -268,6 +268,11 @@ final class AppState {
                     {
                         return true
                     }
+                    if state == .needsInput,
+                       pane.activityState == .completed || pane.activityState == .exited
+                    {
+                        return true
+                    }
                     if state == .needsInput {
                         pane.previousActivityState = pane.activityState
                     }

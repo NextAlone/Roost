@@ -58,6 +58,9 @@ jobs:
             exit 1
           fi
 
+      - name: Install tmux
+        run: brew install tmux
+
       - name: Setup GhosttyKit
         run: scripts/setup.sh
         env:

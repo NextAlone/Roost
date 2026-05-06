@@ -2,19 +2,19 @@
 
 This checklist tracks the current self-signed/ad-hoc local signature release path. Developer ID notarization, Sparkle appcast hosting, Homebrew distribution, telemetry, and crash reporting are future work.
 
-## Current Release: 1.1.0 Self-Signed / Ad-Hoc ZIP
+## Current Release: 1.2.2 Self-Signed / Ad-Hoc ZIP
 
 - [ ] Run `scripts/checks.sh`.
 - [ ] Run the GitHub Actions `Release` workflow from `main` with `version = 1.1.0`.
 - [ ] Leave `draft` disabled unless the release assets must stay private before publishing.
-- [ ] Confirm the workflow commits updated release metadata, including `nix/package.nix`, before creating `v1.1.0`.
+- [ ] Confirm the workflow commits updated release metadata, including `nix/package.nix`, before creating `v1.2.2`.
 - [ ] Confirm `--sign-identity -` uses ad-hoc local signing and does not provide Developer ID or notarization trust.
-- [ ] Verify the GitHub release contains `Roost-1.1.0-arm64.zip`.
+- [ ] Verify the GitHub release contains `Roost-1.2.2-arm64.zip`.
 - [ ] Verify the GitHub release contains `SHA256SUMS.txt`.
 - [ ] Verify checksum:
 
   ```bash
-  gh release download v1.1.0 --repo NextAlone/Roost --pattern 'Roost-1.1.0-arm64.zip' --pattern SHA256SUMS.txt --dir /tmp/roost-release
+  gh release download v1.2.2 --repo NextAlone/Roost --pattern 'Roost-1.2.2-arm64.zip' --pattern SHA256SUMS.txt --dir /tmp/roost-release
   cd /tmp/roost-release
   shasum -a 256 -c SHA256SUMS.txt
   ```
@@ -22,7 +22,7 @@ This checklist tracks the current self-signed/ad-hoc local signature release pat
 - [ ] Verify the tagged Nix package:
 
   ```bash
-  nix --extra-experimental-features 'nix-command flakes' build github:NextAlone/Roost/v1.1.0#packages.aarch64-darwin.default --refresh --no-link
+  nix --extra-experimental-features 'nix-command flakes' build github:NextAlone/Roost/v1.2.2#packages.aarch64-darwin.default --refresh --no-link
   ```
 
 - [ ] Verify local code signature integrity (this is not notarization or Gatekeeper trust):

@@ -164,7 +164,7 @@ if [ "$failed" -ne 0 ]; then
   for i in "${!steps[@]}"; do
     if [ "${statuses[$i]}" = "fail" ] && [ -n "${errors[$i]}" ]; then
       printf "${DIM}─── %s ───${RESET}\n" "${steps[$i]}"
-      echo "${errors[$i]}" | tail -500
+      echo "${errors[$i]}"
       printf "\n"
     fi
   done

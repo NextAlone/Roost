@@ -30,6 +30,7 @@ appcast*.xml
 /apps/
 /crates/
 /pocs/
+/packages/
 /.cargo/
 /Cargo.lock
 /Cargo.toml

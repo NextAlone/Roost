@@ -103,8 +103,10 @@ strip -Sx "$APP_BUNDLE/Contents/MacOS/roost-hostd-daemon"
 
 if [[ -d "$SPM_BUILD_DIR/Roost_Roost.bundle" ]]; then
     cp -R "$SPM_BUILD_DIR/Roost_Roost.bundle" "$APP_BUNDLE/Contents/Resources/Roost_Roost.bundle"
+    cp -R "$SPM_BUILD_DIR/Roost_Roost.bundle" "$APP_BUNDLE/Roost_Roost.bundle"
 elif [[ -d "$SPM_BUILD_DIR/Muxy_Muxy.bundle" ]]; then
     cp -R "$SPM_BUILD_DIR/Muxy_Muxy.bundle" "$APP_BUNDLE/Contents/Resources/Muxy_Muxy.bundle"
+    cp -R "$SPM_BUILD_DIR/Muxy_Muxy.bundle" "$APP_BUNDLE/Muxy_Muxy.bundle"
 fi
 
 echo "==> Embedding hostd XPC service"

@@ -165,12 +165,12 @@ Muxy/
       OpenInIDEControl.swift  Split button for opening the active project or editor file in the remembered or selected IDE
     Terminal/
       GhosttyTerminalNSView.swift       AppKit view wrapping ghostty_surface_t + NSTextInputClient
-      TerminalPane.swift      SwiftUI wrapper for terminal, search, and quick-select overlays
+      TerminalPane.swift      `TerminalBridge` (NSViewRepresentable, mounted by ContentHostLayer) + `TerminalPaneChrome` (placeholders / search bar shown by TabAreaView)
       TerminalSearchBar.swift Find-in-terminal UI
       TerminalViewRegistry.swift  Terminal view lifecycle management
     Editor/
-      CodeEditorRepresentable.swift  NSViewRepresentable bridge for code editor (viewport rendering path); coordinator dispatches render and incremental events to a list of EditorExtensions
-      EditorPane.swift        SwiftUI wrapper for editor tab (breadcrumb + editor)
+      CodeEditorRepresentable.swift  NSViewRepresentable bridge for code editor (viewport rendering path); coordinator dispatches render and incremental events to a list of EditorExtensions; `CodeEditorTextView.onBecomeFirstResponder` dispatches focus area when user clicks the layer-mounted NSTextView
+      EditorPane.swift        SwiftUI chrome (breadcrumb + state overlays + search bar); the actual editor — `CodeEditorView` for code files, `MarkdownPaneContent` (CodeEditor + MarkdownWebView co-mounted) for markdown — lives in ContentHostLayer. Chrome's content area is transparent so clicks fall through. The same module also defines `MarkdownPaneContent` and the `EditorBreadcrumb` / `EditorMarkdownModePicker` chrome subviews
       Extensions/
         EditorExtension.swift            Protocol with lifecycle hooks (didMount, willUnmount, renderViewport, applyIncremental, textDidChange) and default no-op implementations
         EditorRenderContext.swift        Bundle of render-time dependencies (textView, storage, layoutManager, viewport, backingStore, line offsets, settings, state) handed to extensions
@@ -196,11 +196,13 @@ Muxy/
       CreatePRSheet.swift     Sheet for opening a pull request on the current branch
       CommitHistoryView.swift Commit history list with context menu actions
     Workspace/
-      Workspace.swift         Workspace container (split tree root)
-      PaneNode.swift          Recursive split pane rendering
-      SplitContainer.swift    Split pane with resize handle
-      TabAreaView.swift       Tab area wrapper (tabs + content)
+      Workspace.swift         Workspace container (split tree root); mounts ZStack(ContentHostLayer + chrome PaneNode)
+      ContentHostLayer.swift  Stable NSView host layer; renders TerminalBridge / CodeEditorView / MarkdownPaneContent / DiffViewerPane at pixel frames computed from SplitNode, anchored by tab.id so split / drag / tab switch never dismantle NSViews
+      PaneNode.swift          Recursive split pane rendering (chrome only after host layer migration)
+      SplitContainer.swift    Split pane with resize handle (chrome only after host layer migration)
+      TabAreaView.swift       Tab area chrome (tab strip + chrome content placeholders); terminal/editor NSView lives in ContentHostLayer instead
       TabStrip.swift          Tab bar with drag reordering
+      MountedTerminalWorktreePolicy.swift  Selects which worktrees keep their TerminalArea mounted across project switches
       DropZoneOverlay.swift   Tab split-mode drop targets
     Settings/
       SettingsView.swift      Settings window layout
@@ -232,6 +234,38 @@ preserves the jj workspace identifier when needed.
 Workspace state is keyed by `WorktreeKey(projectID, worktreeID)` in `AppState` so
 every per-project map is actually per-workspace. `AppState.activeWorktreeID[projectID]`
 tracks which workspace is currently visible for each project.
+
+## Pane Host Layer
+
+Roost renders every workspace as two siblings inside `TerminalArea` (`Muxy/Views/Workspace/Workspace.swift`):
+
+```
+TerminalArea
+└─ ZStack {
+     ContentHostLayer(root: SplitNode)   // bottom: long-lived NSViews
+     PaneNode(root: SplitNode)           // top: chrome (tab strips, dividers, placeholders, drop zones)
+   }
+```
+
+`ContentHostLayer` is the stable host for every pane that owns expensive AppKit state — terminal panes (`GhosttyTerminalNSView`), code editor panes (`NSScrollView` + `NSTextView`), markdown editor panes (`NSScrollView` + `NSTextView` co-mounted with the `WKWebView` preview), and diff viewer panes (the breadcrumb-rooted `DiffViewerPane` tree, including its inline `DiffTextBridge` NSViews). It computes per-area pixel frames once via `SplitNode.pixelFrames(in:dividerThickness:)` (which mirrors `SplitContainer`'s 1pt divider math), then renders each pane in a single `ZStack { ForEach(entries, id: \.id) }`. Each entry is keyed by `tab.id`, positioned with `.frame()` + `.offset()`, and toggled visible per area's `activeTabID` via opacity / hit-testing instead of being mounted or unmounted. This is what keeps NSViews alive across split, area drag, and tab switch — the three SwiftUI tree restructurings that previously triggered `dismantleNSView` and freed the surface.
+
+For markdown editor panes the layer renders `MarkdownPaneContent`, a single SwiftUI view that always mounts both the `CodeEditorView` and the `MarkdownWebView` inside a `ZStack` and assigns frames per `EditorTabState.markdownViewMode` (code = 100% / 0%, preview = 0% / 100%, split = 50% / 50%). Because both NSViews stay in the tree, switching modes — and splitting the workspace while in any mode — preserves cursor position, undo stack, scroll, JS state, and the WebView's image cache. Diff panes render the entire `DiffViewerPane` (breadcrumb + scroll view + per-chunk `DiffGutterBridge` / `DiffContentBridge`) under the layer, wrapped with `InactiveWindowClickView` to keep inactive-window click activation working without going through chrome.
+
+`PaneNode`, `SplitContainer`, and `TabAreaView` form the chrome path on top: they own the recursive split layout, tab strip, focus border, search overlay, drop-zone preference reporting, and any pane-state placeholders (e.g. `HostdAttachPlaceholder` while hostd starts a tmux session, `RemoteControlledPlaceholder` when a remote client owns the pane, large-file confirmation, editor loading / error views). Chrome is rebuilt on every structural change; that rebuild is now safe because no NSView lives inside it.
+
+Hit testing is split intentionally:
+
+- Chrome backgrounds are opaque only on the tab strip and on the editor breadcrumb. The pane content area is rendered as `Color.clear.allowsHitTesting(false)` so clicks fall through to the layer's NSView underneath.
+- The layer's NSView claims focus via its native first-responder path. For terminals this is the existing ghostty surface focus chain. For editors, `CodeEditorTextView.becomeFirstResponder` calls `onBecomeFirstResponder`, which the layer wires to `appState.dispatch(.focusArea)` so clicking the editor focuses its area without requiring a chrome `TapGesture`.
+
+The two layers compute the same per-area rect from `SplitNode` so they overlay pixel-aligned. Chrome `TabAreaView` keeps reporting its rect via `AreaFramePreferenceKey` for the cross-pane drag coordinator; that path is unchanged.
+
+Out of scope for the current host layer:
+
+- `VCSTabView` (Source Control panel) is pure SwiftUI with no embedded `NSViewRepresentable`; it stays on the chrome path.
+- Markdown split mode no longer uses `HSplitView`, so the user-resizable divider is gone for the moment. The layout is fixed at 50% / 50% in split mode; `EditorTabState` may grow a persisted `markdownSplitRatio` plus a custom drag handle if users want the resize behavior back.
+
+CLAUDE.md "NSViewRepresentable Pitfalls" still applies — the layer is the documented "keep mounted in the view tree" implementation; it does not rely on a registry cache to revive dismantled views.
 
 ## Data Flow
 

@@ -24,50 +24,55 @@ struct TerminalArea: View {
 
     var body: some View {
         if let root {
-            PaneNode(
-                node: root,
-                focusedAreaID: focusedAreaID,
-                isActiveProject: isActiveProject,
-                showTabStrip: !rootIsTabArea,
-                showVCSButton: false,
-                projectID: project.id,
-                onFocusArea: { areaID in
-                    appState.dispatch(.focusArea(projectID: project.id, areaID: areaID))
-                },
-                onSelectTab: { areaID, tabID in
-                    appState.dispatch(.selectTab(projectID: project.id, areaID: areaID, tabID: tabID))
-                },
-                onCreateTab: { areaID in
-                    appState.dispatch(.createTab(projectID: project.id, areaID: areaID))
-                },
-                onCreateVCSTab: { areaID in
-                    VCSDisplayMode.current.route(
-                        tab: { appState.dispatch(.createVCSTab(projectID: project.id, areaID: areaID)) },
-                        window: { openWindow(id: "vcs") },
-                        attached: { NotificationCenter.default.post(name: .toggleAttachedVCS, object: nil) }
-                    )
-                },
-                onCloseTab: { areaID, tabID in
-                    appState.closeTab(tabID, areaID: areaID, projectID: project.id)
-                },
-                onForceCloseTab: { areaID, tabID in
-                    appState.forceCloseTab(tabID, areaID: areaID, projectID: project.id)
-                },
-                onSplit: { areaID, dir in
-                    appState.dispatch(.splitArea(.init(
-                        projectID: project.id,
-                        areaID: areaID,
-                        direction: dir,
-                        position: .second
-                    )))
-                },
-                onCloseArea: { areaID in
-                    appState.dispatch(.closeArea(projectID: project.id, areaID: areaID))
-                },
-                onDropAction: { result in
-                    appState.dispatch(result.action(projectID: project.id))
-                }
-            )
+            ZStack {
+                ContentHostLayer(
+                    root: root,
+                    focusedAreaID: focusedAreaID,
+                    isActiveProject: isActiveProject,
+                    projectID: project.id
+                )
+                PaneNode(
+                    node: root,
+                    focusedAreaID: focusedAreaID,
+                    isActiveProject: isActiveProject,
+                    showTabStrip: !rootIsTabArea,
+                    showVCSButton: false,
+                    projectID: project.id,
+                    onFocusArea: { areaID in
+                        appState.dispatch(.focusArea(projectID: project.id, areaID: areaID))
+                    },
+                    onSelectTab: { areaID, tabID in
+                        appState.dispatch(.selectTab(projectID: project.id, areaID: areaID, tabID: tabID))
+                    },
+                    onCreateTab: { areaID in
+                        appState.dispatch(.createTab(projectID: project.id, areaID: areaID))
+                    },
+                    onCreateVCSTab: { areaID in
+                        VCSDisplayMode.current.route(
+                            tab: { appState.dispatch(.createVCSTab(projectID: project.id, areaID: areaID)) },
+                            window: { openWindow(id: "vcs") },
+                            attached: { NotificationCenter.default.post(name: .toggleAttachedVCS, object: nil) }
+                        )
+                    },
+                    onCloseTab: { areaID, tabID in
+                        appState.closeTab(tabID, areaID: areaID, projectID: project.id)
+                    },
+                    onSplit: { areaID, dir in
+                        appState.dispatch(.splitArea(.init(
+                            projectID: project.id,
+                            areaID: areaID,
+                            direction: dir,
+                            position: .second
+                        )))
+                    },
+                    onCloseArea: { areaID in
+                        appState.dispatch(.closeArea(projectID: project.id, areaID: areaID))
+                    },
+                    onDropAction: { result in
+                        appState.dispatch(result.action(projectID: project.id))
+                    }
+                )
+            }
             .environment(\.activeWorktreeKey, worktreeKey)
             .onPreferenceChange(AreaFramePreferenceKey.self) { frames in
                 guard isActiveProject, dragCoordinator.activeDrag != nil else { return }

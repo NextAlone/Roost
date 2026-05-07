@@ -2,14 +2,10 @@ import AppKit
 import RoostHostdCore
 import SwiftUI
 
-struct TerminalPane: View {
+struct TerminalPaneChrome: View {
     let state: TerminalPaneState
     let focused: Bool
     let visible: Bool
-    let areaID: UUID
-    let onFocus: () -> Void
-    let onProcessExit: () -> Void
-    let onSplitRequest: (SplitDirection, SplitPosition) -> Void
 
     @Bindable private var ownership = PaneOwnershipStore.shared
 
@@ -19,21 +15,9 @@ struct TerminalPane: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            if shouldMountTerminalBridge {
-                TerminalBridge(
-                    state: state,
-                    focused: focused,
-                    areaID: areaID,
-                    onFocus: onFocus,
-                    onProcessExit: onProcessExit,
-                    onSplitRequest: onSplitRequest
-                )
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Terminal")
-                .accessibilityAddTraits(.allowsDirectInteraction)
-                .opacity(remoteOwnerName == nil ? 1 : 0)
-                .allowsHitTesting(remoteOwnerName == nil)
-            } else {
+            Color.clear.allowsHitTesting(false)
+
+            if !shouldShowTerminalBridge {
                 HostdAttachPlaceholder(
                     agentName: state.title,
                     state: state.hostdAttachState
@@ -51,12 +35,10 @@ struct TerminalPane: View {
                 TerminalSearchBar(
                     searchState: state.searchState,
                     onNavigateNext: {
-                        let view = TerminalViewRegistry.shared.existingView(for: state.id)
-                        view?.navigateSearch(direction: .next)
+                        TerminalViewRegistry.shared.existingView(for: state.id)?.navigateSearch(direction: .next)
                     },
                     onNavigatePrevious: {
-                        let view = TerminalViewRegistry.shared.existingView(for: state.id)
-                        view?.navigateSearch(direction: .previous)
+                        TerminalViewRegistry.shared.existingView(for: state.id)?.navigateSearch(direction: .previous)
                     },
                     onClose: {
                         let view = TerminalViewRegistry.shared.existingView(for: state.id)
@@ -78,7 +60,7 @@ struct TerminalPane: View {
         }
     }
 
-    private var shouldMountTerminalBridge: Bool {
+    private var shouldShowTerminalBridge: Bool {
         state.hostdRuntimeOwnership != .hostdOwnedProcess || state.hostdAttachState == .ready
     }
 }

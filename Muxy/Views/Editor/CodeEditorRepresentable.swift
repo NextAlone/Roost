@@ -10,6 +10,15 @@ private final class CodeEditorTextView: NSTextView {
     var onRedoRequest: (() -> Bool)?
     var canUndoRequest: (() -> Bool)?
     var canRedoRequest: (() -> Bool)?
+    var onBecomeFirstResponder: (() -> Void)?
+
+    override func becomeFirstResponder() -> Bool {
+        let result = super.becomeFirstResponder()
+        if result {
+            onBecomeFirstResponder?()
+        }
+        return result
+    }
 
     override func paste(_ sender: Any?) {
         pasteAsPlainText(sender)
@@ -251,6 +260,7 @@ struct CodeEditorView: NSViewRepresentable {
         textView.delegate = coordinator
         coordinator.textView = textView
         coordinator.scrollView = scrollView
+        textView.onBecomeFirstResponder = onFocus
         textView.onUndoRequest = { [weak coordinator] in
             coordinator?.performUndoRequest() ?? false
         }
@@ -282,6 +292,7 @@ struct CodeEditorView: NSViewRepresentable {
                 codeTextView.onRedoRequest = nil
                 codeTextView.canUndoRequest = nil
                 codeTextView.canRedoRequest = nil
+                codeTextView.onBecomeFirstResponder = nil
             }
         }
         coordinator.textView?.delegate = nil
@@ -302,6 +313,10 @@ struct CodeEditorView: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = context.coordinator.textView else { return }
         let coordinator = context.coordinator
+
+        if let codeTextView = textView as? CodeEditorTextView {
+            codeTextView.onBecomeFirstResponder = onFocus
+        }
 
         if scrollView.hasVerticalScroller != showsVerticalScroller {
             scrollView.hasVerticalScroller = showsVerticalScroller

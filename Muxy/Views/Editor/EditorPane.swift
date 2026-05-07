@@ -4,27 +4,21 @@ struct EditorPane: View {
     @Bindable var state: EditorTabState
     let focused: Bool
     let onFocus: () -> Void
-    @Environment(GhosttyService.self) private var ghostty
-    @State private var editorSettings = EditorSettings.shared
-    @FocusState private var markdownPreviewFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             EditorBreadcrumb(state: state)
             Rectangle().fill(MuxyTheme.border).frame(height: 1)
             if state.awaitingLargeFileConfirmation {
-                largeFileConfirmation
+                largeFileConfirmation.background(MuxyTheme.bg)
             } else if state.isLoading {
-                loadingView
+                loadingView.background(MuxyTheme.bg)
             } else if let error = state.errorMessage {
-                errorView(error)
+                errorView(error).background(MuxyTheme.bg)
             } else {
                 editorContentLayer
             }
         }
-        .background(MuxyTheme.bg)
-        .contentShape(Rectangle())
-        .simultaneousGesture(TapGesture().onEnded { onFocus() })
         .onReceive(NotificationCenter.default.publisher(for: .findInTerminal)) { _ in
             guard focused else { return }
             if state.isMarkdownFile, state.markdownViewMode == .preview {
@@ -40,7 +34,7 @@ struct EditorPane: View {
 
     private var editorContentLayer: some View {
         ZStack(alignment: .topTrailing) {
-            editorMainContent
+            Color.clear.allowsHitTesting(false)
 
             if state.isIncrementalLoading {
                 HStack(spacing: 6) {
@@ -83,145 +77,6 @@ struct EditorPane: View {
                 )
             }
         }
-    }
-
-    @ViewBuilder
-    private var editorMainContent: some View {
-        if state.isMarkdownFile {
-            switch state.markdownViewMode {
-            case .code:
-                codeEditorContainer
-            case .preview:
-                markdownPreviewContainer
-            case .split:
-                HSplitView {
-                    codeEditorContainer
-                    markdownPreviewContainer
-                }
-            }
-        } else {
-            codeEditorContainer
-        }
-    }
-
-    private var codeEditorContainer: some View {
-        HStack(spacing: 0) {
-            CodeEditorView(
-                state: state,
-                editorSettings: editorSettings,
-                showLineNumbers: editorSettings.showLineNumbers,
-                lineWrapping: editorSettings.lineWrapping,
-                themeVersion: ghostty.configVersion,
-                showsVerticalScroller: true,
-                focused: focused,
-                searchNeedle: state.searchNeedle,
-                searchNavigationVersion: state.searchNavigationVersion,
-                searchNavigationDirection: state.searchNavigationDirection,
-                searchCaseSensitive: state.searchCaseSensitive,
-                searchUseRegex: state.searchUseRegex,
-                replaceText: state.replaceText,
-                replaceVersion: state.replaceVersion,
-                replaceAllVersion: state.replaceAllVersion,
-                editorFocusVersion: state.editorFocusVersion,
-                onFocus: onFocus
-            )
-        }
-    }
-
-    private var markdownPreviewContainer: some View {
-        Group {
-            if shouldDelayMarkdownPreview {
-                markdownPreviewLoadingView
-            } else {
-                MarkdownWebView(
-                    html: renderedMarkdownHTML,
-                    content: renderedMarkdownContent,
-                    filePath: state.filePath,
-                    palette: markdownPalette,
-                    syncScrollRequest: $state.markdownPreviewScrollRequest,
-                    syncScrollRequestVersion: state.markdownPreviewScrollRequestVersion,
-                    scrollSyncEnabled: usesMarkdownAnchorSync,
-                    onScrollReport: { report in
-                        state.markdownPreviewMaxScrollTop = report.maxScrollTop
-                        state.markdownPreviewViewportHeight = report.clientHeight
-                        let map = state.currentMarkdownSyncMap()
-                        let output = state.markdownSyncCoordinator.previewDidScroll(scrollTop: report.scrollTop, map: map)
-                        state.applyMarkdownSyncOutput(output)
-                    },
-                    onLayoutChanged: {
-                        let map = state.currentMarkdownSyncMap()
-                        let output = state.markdownSyncCoordinator.reissueAfterRelayout(map: map)
-                        state.applyMarkdownSyncOutput(output)
-                    },
-                    onAnchorGeometryChanged: { geometries in
-                        state.markdownPreviewGeometries = geometries
-                    }
-                )
-            }
-        }
-        .background(Color(nsColor: markdownPalette.background))
-        .focusable(focused)
-        .focusEffectDisabled()
-        .focused($markdownPreviewFocused)
-        .onKeyPress(keys: ["e"]) { press in
-            guard state.markdownViewMode == .preview else { return .ignored }
-            let disallowed: EventModifiers = [.command, .control, .option]
-            guard press.modifiers.isDisjoint(with: disallowed) else { return .ignored }
-            state.markdownViewMode = press.modifiers.contains(.shift) ? .split : .code
-            return .handled
-        }
-        .onAppear { acquireMarkdownPreviewFocusIfNeeded() }
-        .onChange(of: focused) { _, _ in acquireMarkdownPreviewFocusIfNeeded() }
-        .onChange(of: state.markdownViewMode) { _, _ in acquireMarkdownPreviewFocusIfNeeded() }
-    }
-
-    private func acquireMarkdownPreviewFocusIfNeeded() {
-        guard focused, state.isMarkdownFile, state.markdownViewMode == .preview else { return }
-        if state.suppressInitialFocus {
-            state.suppressInitialFocus = false
-            return
-        }
-        markdownPreviewFocused = true
-    }
-
-    private var renderedMarkdownContent: String {
-        _ = state.previewRefreshVersion
-        return state.backingStore?.fullText() ?? ""
-    }
-
-    private var renderedMarkdownHTML: String {
-        MarkdownRenderer.html(filePath: state.filePath)
-    }
-
-    private var markdownPalette: MarkdownRenderer.Palette {
-        let palette = EditorThemePalette.active
-        return MarkdownRenderer.Palette(
-            background: palette.background,
-            foreground: palette.foreground,
-            accent: palette.accent,
-            fontFamilyCSS: editorSettings.resolvedMarkdownPreviewFontFamilyCSS,
-            fontScale: editorSettings.markdownPreviewFontScale
-        )
-    }
-
-    private var usesMarkdownAnchorSync: Bool {
-        state.markdownViewMode == .split && state.markdownScrollSyncEnabled && !shouldDelayMarkdownPreview
-    }
-
-    private var shouldDelayMarkdownPreview: Bool {
-        state.isMarkdownFile && state.isIncrementalLoading
-    }
-
-    private var markdownPreviewLoadingView: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-                .controlSize(.small)
-            Text("Loading full markdown preview...")
-                .font(.system(size: 12))
-                .foregroundStyle(MuxyTheme.fgMuted)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(MuxyTheme.bg)
     }
 
     private var showsCodeEditor: Bool {
@@ -280,6 +135,163 @@ struct EditorPane: View {
                 .foregroundStyle(MuxyTheme.diffRemoveFg)
             Spacer()
         }
+    }
+}
+
+struct MarkdownPaneContent: View {
+    @Bindable var state: EditorTabState
+    let focused: Bool
+    let onFocus: () -> Void
+    @Environment(GhosttyService.self) private var ghostty
+    @State private var editorSettings = EditorSettings.shared
+    @FocusState private var markdownPreviewFocused: Bool
+
+    var body: some View {
+        GeometryReader { geo in
+            let codeWidth = max(0, codeFraction * geo.size.width)
+            let previewWidth = max(0, geo.size.width - codeWidth)
+            ZStack(alignment: .topLeading) {
+                CodeEditorView(
+                    state: state,
+                    editorSettings: editorSettings,
+                    showLineNumbers: editorSettings.showLineNumbers,
+                    lineWrapping: editorSettings.lineWrapping,
+                    themeVersion: ghostty.configVersion,
+                    showsVerticalScroller: true,
+                    focused: focused && state.markdownViewMode != .preview,
+                    searchNeedle: state.searchNeedle,
+                    searchNavigationVersion: state.searchNavigationVersion,
+                    searchNavigationDirection: state.searchNavigationDirection,
+                    searchCaseSensitive: state.searchCaseSensitive,
+                    searchUseRegex: state.searchUseRegex,
+                    replaceText: state.replaceText,
+                    replaceVersion: state.replaceVersion,
+                    replaceAllVersion: state.replaceAllVersion,
+                    editorFocusVersion: state.editorFocusVersion,
+                    onFocus: onFocus
+                )
+                .frame(width: codeWidth, height: geo.size.height)
+                .opacity(showsCode ? 1 : 0)
+                .allowsHitTesting(showsCode)
+
+                markdownPreview
+                    .frame(width: previewWidth, height: geo.size.height)
+                    .offset(x: codeWidth, y: 0)
+                    .opacity(showsPreview ? 1 : 0)
+                    .allowsHitTesting(showsPreview)
+            }
+        }
+    }
+
+    private var codeFraction: CGFloat {
+        switch state.markdownViewMode {
+        case .code: return 1
+        case .preview: return 0
+        case .split: return 0.5
+        }
+    }
+
+    private var showsCode: Bool {
+        state.markdownViewMode != .preview
+    }
+
+    private var showsPreview: Bool {
+        state.markdownViewMode != .code
+    }
+
+    @ViewBuilder
+    private var markdownPreview: some View {
+        if shouldDelayMarkdownPreview {
+            markdownPreviewLoadingView
+        } else {
+            MarkdownWebView(
+                html: renderedMarkdownHTML,
+                content: renderedMarkdownContent,
+                filePath: state.filePath,
+                palette: markdownPalette,
+                syncScrollRequest: $state.markdownPreviewScrollRequest,
+                syncScrollRequestVersion: state.markdownPreviewScrollRequestVersion,
+                scrollSyncEnabled: usesMarkdownAnchorSync,
+                onScrollReport: { report in
+                    state.markdownPreviewMaxScrollTop = report.maxScrollTop
+                    state.markdownPreviewViewportHeight = report.clientHeight
+                    let map = state.currentMarkdownSyncMap()
+                    let output = state.markdownSyncCoordinator.previewDidScroll(scrollTop: report.scrollTop, map: map)
+                    state.applyMarkdownSyncOutput(output)
+                },
+                onLayoutChanged: {
+                    let map = state.currentMarkdownSyncMap()
+                    let output = state.markdownSyncCoordinator.reissueAfterRelayout(map: map)
+                    state.applyMarkdownSyncOutput(output)
+                },
+                onAnchorGeometryChanged: { geometries in
+                    state.markdownPreviewGeometries = geometries
+                }
+            )
+            .background(Color(nsColor: markdownPalette.background))
+            .focusable(focused)
+            .focusEffectDisabled()
+            .focused($markdownPreviewFocused)
+            .onKeyPress(keys: ["e"]) { press in
+                guard state.markdownViewMode == .preview else { return .ignored }
+                let disallowed: EventModifiers = [.command, .control, .option]
+                guard press.modifiers.isDisjoint(with: disallowed) else { return .ignored }
+                state.markdownViewMode = press.modifiers.contains(.shift) ? .split : .code
+                return .handled
+            }
+            .onAppear { acquireMarkdownPreviewFocusIfNeeded() }
+            .onChange(of: focused) { _, _ in acquireMarkdownPreviewFocusIfNeeded() }
+            .onChange(of: state.markdownViewMode) { _, _ in acquireMarkdownPreviewFocusIfNeeded() }
+        }
+    }
+
+    private func acquireMarkdownPreviewFocusIfNeeded() {
+        guard focused, state.isMarkdownFile, state.markdownViewMode == .preview else { return }
+        if state.suppressInitialFocus {
+            state.suppressInitialFocus = false
+            return
+        }
+        markdownPreviewFocused = true
+    }
+
+    private var renderedMarkdownContent: String {
+        _ = state.previewRefreshVersion
+        return state.backingStore?.fullText() ?? ""
+    }
+
+    private var renderedMarkdownHTML: String {
+        MarkdownRenderer.html(filePath: state.filePath)
+    }
+
+    private var markdownPalette: MarkdownRenderer.Palette {
+        let palette = EditorThemePalette.active
+        return MarkdownRenderer.Palette(
+            background: palette.background,
+            foreground: palette.foreground,
+            accent: palette.accent,
+            fontFamilyCSS: editorSettings.resolvedMarkdownPreviewFontFamilyCSS,
+            fontScale: editorSettings.markdownPreviewFontScale
+        )
+    }
+
+    private var usesMarkdownAnchorSync: Bool {
+        state.markdownViewMode == .split && state.markdownScrollSyncEnabled && !shouldDelayMarkdownPreview
+    }
+
+    private var shouldDelayMarkdownPreview: Bool {
+        state.isMarkdownFile && state.isIncrementalLoading
+    }
+
+    private var markdownPreviewLoadingView: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Loading full markdown preview...")
+                .font(.system(size: 12))
+                .foregroundStyle(MuxyTheme.fgMuted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(MuxyTheme.bg)
     }
 }
 

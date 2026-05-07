@@ -164,6 +164,53 @@ extension SplitNode {
         }
     }
 
+    func pixelFrames(in size: CGSize, dividerThickness: CGFloat = 1) -> [UUID: CGRect] {
+        pixelFramesRecursive(
+            in: CGRect(origin: .zero, size: size),
+            dividerThickness: dividerThickness
+        )
+    }
+
+    private func pixelFramesRecursive(in rect: CGRect, dividerThickness: CGFloat) -> [UUID: CGRect] {
+        switch self {
+        case let .tabArea(area):
+            return [area.id: rect]
+        case let .split(branch):
+            let half = dividerThickness / 2
+            let ratio = min(max(branch.ratio, 0), 1)
+            if branch.direction == .horizontal {
+                let firstWidth = max(0, rect.width * ratio - half)
+                let secondWidth = max(0, rect.width * (1 - ratio) - half)
+                let firstRect = CGRect(x: rect.minX, y: rect.minY, width: firstWidth, height: rect.height)
+                let secondRect = CGRect(
+                    x: rect.minX + firstWidth + dividerThickness,
+                    y: rect.minY,
+                    width: secondWidth,
+                    height: rect.height
+                )
+                return branch.first
+                    .pixelFramesRecursive(in: firstRect, dividerThickness: dividerThickness)
+                    .merging(
+                        branch.second.pixelFramesRecursive(in: secondRect, dividerThickness: dividerThickness)
+                    ) { current, _ in current }
+            }
+            let firstHeight = max(0, rect.height * ratio - half)
+            let secondHeight = max(0, rect.height * (1 - ratio) - half)
+            let firstRect = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: firstHeight)
+            let secondRect = CGRect(
+                x: rect.minX,
+                y: rect.minY + firstHeight + dividerThickness,
+                width: rect.width,
+                height: secondHeight
+            )
+            return branch.first
+                .pixelFramesRecursive(in: firstRect, dividerThickness: dividerThickness)
+                .merging(
+                    branch.second.pixelFramesRecursive(in: secondRect, dividerThickness: dividerThickness)
+                ) { current, _ in current }
+        }
+    }
+
     func areaFrames(in rect: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1)) -> [UUID: CGRect] {
         switch self {
         case let .tabArea(area):

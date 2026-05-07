@@ -13,7 +13,6 @@ struct TabAreaView: View {
     let onCreateTab: () -> Void
     let onCreateVCSTab: () -> Void
     let onCloseTab: (UUID) -> Void
-    let onForceCloseTab: (UUID) -> Void
     let onSplit: (SplitDirection) -> Void
     let onDropAction: (TabDragCoordinator.DropResult) -> Void
     @Environment(TabDragCoordinator.self) private var dragCoordinator
@@ -95,34 +94,7 @@ struct TabAreaView: View {
                         tab: tab,
                         focused: isActive && isFocused && isActiveProject,
                         visible: isActive,
-                        areaID: area.id,
-                        onFocus: onFocus,
-                        onProcessExit: {
-                            if let pane = tab.content.pane {
-                                if TabProcessExitPolicy.representsPaneSessionExit(pane) {
-                                    let paneID = pane.id
-                                    appState.markPaneSessionExited(paneID: paneID)
-                                    if let hostdClient {
-                                        Task { [hostdClient] in
-                                            try? await hostdClient.markExited(sessionID: paneID)
-                                        }
-                                    }
-                                }
-                                if TabProcessExitPolicy.shouldForceCloseTabAfterPaneSessionExit(pane) {
-                                    onForceCloseTab(tab.id)
-                                }
-                            } else {
-                                onForceCloseTab(tab.id)
-                            }
-                        },
-                        onSplitRequest: { direction, position in
-                            appState.dispatch(.splitArea(.init(
-                                projectID: projectID,
-                                areaID: area.id,
-                                direction: direction,
-                                position: position
-                            )))
-                        }
+                        onFocus: onFocus
                     )
                     .zIndex(isActive ? 1 : 0)
                     .opacity(isActive ? 1 : 0)
@@ -249,22 +221,15 @@ private struct TabContentView: View {
     let tab: TerminalTab
     let focused: Bool
     let visible: Bool
-    let areaID: UUID
     let onFocus: () -> Void
-    let onProcessExit: () -> Void
-    let onSplitRequest: (SplitDirection, SplitPosition) -> Void
 
     var body: some View {
         switch tab.content {
         case let .terminal(pane):
-            TerminalPane(
+            TerminalPaneChrome(
                 state: pane,
                 focused: focused,
-                visible: visible,
-                areaID: areaID,
-                onFocus: onFocus,
-                onProcessExit: onProcessExit,
-                onSplitRequest: onSplitRequest
+                visible: visible
             )
         case let .vcs(vcsState):
             VCSTabView(state: vcsState, focused: focused, onFocus: onFocus)
@@ -278,12 +243,8 @@ private struct TabContentView: View {
                     InactiveWindowClickView(action: onFocus)
                         .accessibilityHidden(true)
                 }
-        case let .diffViewer(diffState):
-            DiffViewerPane(state: diffState, focused: focused, onFocus: onFocus)
-                .overlay {
-                    InactiveWindowClickView(action: onFocus)
-                        .accessibilityHidden(true)
-                }
+        case .diffViewer:
+            Color.clear.allowsHitTesting(false)
         }
     }
 }

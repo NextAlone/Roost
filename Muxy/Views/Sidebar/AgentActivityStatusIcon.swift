@@ -99,7 +99,7 @@ private struct AgentActivityPulsingStatusIcon: View {
     private var color: Color {
         switch style.state {
         case .running: MuxyTheme.accent
-        case .awaiting: MuxyTheme.diffRemoveFg
+        case .awaiting: MuxyTheme.warning
         case .completed: MuxyTheme.diffAddFg
         case .idle: MuxyTheme.fgDim.opacity(0.45)
         case .exited: MuxyTheme.fgDim

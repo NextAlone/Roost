@@ -52,7 +52,7 @@ struct AgentActivityBadge: View {
     private var foreground: Color {
         switch state {
         case .running: MuxyTheme.accent
-        case .awaiting: MuxyTheme.diffRemoveFg
+        case .awaiting: MuxyTheme.warning
         case .idle: MuxyTheme.fgMuted
         case .completed: MuxyTheme.diffAddFg
         case .exited: MuxyTheme.fgDim
@@ -64,8 +64,8 @@ struct AgentActivityBadge: View {
         case .awaiting:
             AnyShapeStyle(LinearGradient(
                 colors: [
-                    MuxyTheme.diffRemoveFg.opacity(0.28),
-                    MuxyTheme.diffRemoveFg.opacity(0.12),
+                    MuxyTheme.warning.opacity(0.28),
+                    MuxyTheme.warning.opacity(0.12),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -83,7 +83,7 @@ struct AgentActivityBadge: View {
 
     private var border: Color {
         switch state {
-        case .awaiting: MuxyTheme.diffRemoveFg.opacity(0.22)
+        case .awaiting: MuxyTheme.warning.opacity(0.22)
         case .completed: MuxyTheme.diffAddFg.opacity(0.2)
         case .running: MuxyTheme.accent.opacity(0.18)
         case .idle,

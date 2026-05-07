@@ -799,8 +799,8 @@ private struct ExpandedWorktreeRow: View {
         case .awaiting:
             return AnyShapeStyle(LinearGradient(
                 colors: [
-                    MuxyTheme.diffRemoveFg.opacity(0.16),
-                    MuxyTheme.diffRemoveFg.opacity(0.06),
+                    MuxyTheme.warning.opacity(0.16),
+                    MuxyTheme.warning.opacity(0.06),
                 ],
                 startPoint: .leading,
                 endPoint: .trailing

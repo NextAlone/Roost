@@ -29,7 +29,8 @@ struct MuxyApp: App {
             terminalViews: environment.terminalViews,
             workspacePersistence: environment.workspacePersistence,
             hostdRuntimeOwnership: hostdRuntimeOwnership,
-            appConfigProvider: { try? RoostAppConfigStore.load() }
+            appConfigProvider: { try? RoostAppConfigStore.load() },
+            activityLog: ActivityLogStore()
         )
         let statusStore = WorkspaceStatusStore()
         initialHostdRuntimeOwnership = hostdRuntimeOwnership

@@ -77,7 +77,8 @@ struct AppStatePersistencePolicyTests {
         AppState(
             selectionStore: PersistencePolicySelectionStore(),
             terminalViews: PersistencePolicyTerminalViewRemoving(),
-            workspacePersistence: persistence
+            workspacePersistence: persistence,
+            activityLog: PersistencePolicyActivityLogStub()
         )
     }
 }
@@ -104,4 +105,9 @@ private final class CountingWorkspacePersistence: WorkspacePersisting {
     func saveWorkspaces(_ workspaces: [WorkspaceSnapshot]) throws {
         saveCount += 1
     }
+}
+
+@MainActor
+private final class PersistencePolicyActivityLogStub: ActivityLogStoring {
+    func append(_: AgentActivityEvent) {}
 }

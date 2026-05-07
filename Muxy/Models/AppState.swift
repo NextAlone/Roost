@@ -83,6 +83,7 @@ final class AppState {
     private let projectConfigProvider: (String) -> RoostConfig?
     private var hostdRuntimeOwnership: HostdRuntimeOwnership
     private var hostdClient: (any RoostHostdClient)?
+    private let activityLog: any ActivityLogStoring
     var onProjectsEmptied: (([UUID]) -> Void)?
 
     var activeProjectID: UUID?
@@ -119,7 +120,8 @@ final class AppState {
         workspacePersistence: any WorkspacePersisting,
         hostdRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly,
         appConfigProvider: @escaping () -> RoostConfig? = { nil },
-        projectConfigProvider: @escaping (String) -> RoostConfig? = RoostConfigLoader.load(fromProjectPath:)
+        projectConfigProvider: @escaping (String) -> RoostConfig? = RoostConfigLoader.load(fromProjectPath:),
+        activityLog: any ActivityLogStoring
     ) {
         self.selectionStore = selectionStore
         self.terminalViews = terminalViews
@@ -127,6 +129,7 @@ final class AppState {
         self.hostdRuntimeOwnership = hostdRuntimeOwnership
         self.appConfigProvider = appConfigProvider
         self.projectConfigProvider = projectConfigProvider
+        self.activityLog = activityLog
     }
 
     func restoreSelection(projects: [Project], worktrees: [UUID: [Worktree]]) {
@@ -257,8 +260,8 @@ final class AppState {
     }
 
     @discardableResult
-    func updateAgentActivity(paneID: UUID, state: AgentActivityState) -> Bool {
-        for root in workspaceRoots.values {
+    func updateAgentActivity(paneID: UUID, state: AgentActivityState, sourceType: String? = nil) -> Bool {
+        for (key, root) in workspaceRoots {
             for area in root.allAreas() {
                 for tab in area.tabs {
                     guard let pane = tab.content.pane, pane.id == paneID else { continue }
@@ -273,11 +276,20 @@ final class AppState {
                     {
                         return true
                     }
+                    let previous = pane.activityState
                     if state == .awaiting {
                         pane.previousActivityState = pane.activityState
                     }
                     pane.activityState = state
                     advanceAgentActivityRevision()
+                    activityLog.append(AgentActivityEvent(
+                        paneID: pane.id,
+                        projectID: key.projectID,
+                        worktreeID: key.worktreeID,
+                        from: previous,
+                        to: state,
+                        sourceType: sourceType
+                    ))
                     return true
                 }
             }

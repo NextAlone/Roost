@@ -1,4 +1,5 @@
 import Foundation
+import MuxyShared
 import Testing
 
 @testable import Roost
@@ -59,7 +60,8 @@ struct AppStateLayoutApplyTests {
         let appState = AppState(
             selectionStore: LayoutApplySelectionStoreStub(),
             terminalViews: terminalViews,
-            workspacePersistence: LayoutApplyWorkspacePersistenceStub()
+            workspacePersistence: LayoutApplyWorkspacePersistenceStub(),
+            activityLog: LayoutApplyActivityLogStub()
         )
         appState.activeProjectID = projectID
         appState.activeWorktreeID[projectID] = worktreeID
@@ -87,4 +89,9 @@ private final class LayoutApplyTerminalViewRemovingStub: TerminalViewRemoving {
 private final class LayoutApplyWorkspacePersistenceStub: WorkspacePersisting {
     func loadWorkspaces() throws -> [WorkspaceSnapshot] { [] }
     func saveWorkspaces(_: [WorkspaceSnapshot]) throws {}
+}
+
+@MainActor
+private final class LayoutApplyActivityLogStub: ActivityLogStoring {
+    func append(_: AgentActivityEvent) {}
 }

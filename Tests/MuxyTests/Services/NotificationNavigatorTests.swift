@@ -46,7 +46,8 @@ struct NotificationNavigatorTests {
         AppState(
             selectionStore: NotificationNavigatorSelectionStoreStub(),
             terminalViews: NotificationNavigatorTerminalViewRemovingStub(),
-            workspacePersistence: NotificationNavigatorWorkspacePersistenceStub()
+            workspacePersistence: NotificationNavigatorWorkspacePersistenceStub(),
+            activityLog: NotificationNavigatorActivityLogStub()
         )
     }
 }
@@ -68,4 +69,9 @@ private final class NotificationNavigatorTerminalViewRemovingStub: TerminalViewR
 private final class NotificationNavigatorWorkspacePersistenceStub: WorkspacePersisting {
     func loadWorkspaces() throws -> [WorkspaceSnapshot] { [] }
     func saveWorkspaces(_ workspaces: [WorkspaceSnapshot]) throws {}
+}
+
+@MainActor
+private final class NotificationNavigatorActivityLogStub: ActivityLogStoring {
+    func append(_: AgentActivityEvent) {}
 }

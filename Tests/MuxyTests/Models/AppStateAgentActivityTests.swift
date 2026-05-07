@@ -121,7 +121,8 @@ struct AppStateAgentActivityTests {
 
     @Test("awaiting transitions completed to awaiting (idle ping after stop)")
     func awaitingTransitionsCompleted() {
-        let appState = makeAppState()
+        let log = FakeActivityLogStore()
+        let appState = makeAppState(activityLog: log)
         let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
         let area = TabArea(projectPath: "/tmp/wt")
         area.createAgentTab(kind: .codex)
@@ -136,6 +137,11 @@ struct AppStateAgentActivityTests {
         #expect(pane.activityState == .awaiting)
         #expect(pane.previousActivityState == .completed)
         #expect(appState.agentActivityRevision == revisionBefore + 1)
+        #expect(log.appended.count == 1)
+        #expect(log.appended.first?.from == .completed)
+        #expect(log.appended.first?.to == .awaiting)
+        #expect(log.appended.first?.projectID == key.projectID)
+        #expect(log.appended.first?.worktreeID == key.worktreeID)
     }
 
     @Test("awaiting preserves exited")
@@ -279,12 +285,92 @@ struct AppStateAgentActivityTests {
         #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
-    private func makeAppState() -> AppState {
+    @Test("logs an event when transitioning running to awaiting")
+    func logsRunningToAwaiting() {
+        let log = FakeActivityLogStore()
+        let appState = makeAppState(activityLog: log)
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .running
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .awaiting)
+
+        #expect(updated == true)
+        #expect(log.appended.count == 1)
+        #expect(log.appended.first?.paneID == pane.id)
+        #expect(log.appended.first?.from == .running)
+        #expect(log.appended.first?.to == .awaiting)
+        #expect(log.appended.first?.projectID == key.projectID)
+        #expect(log.appended.first?.worktreeID == key.worktreeID)
+    }
+
+    @Test("propagates sourceType into the appended event")
+    func propagatesSourceType() {
+        let log = FakeActivityLogStore()
+        let appState = makeAppState(activityLog: log)
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .running
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        appState.updateAgentActivity(paneID: pane.id, state: .awaiting, sourceType: "claude_hook")
+
+        #expect(log.appended.first?.sourceType == "claude_hook")
+    }
+
+    @Test("does not log when activity state is unchanged")
+    func doesNotLogWhenUnchanged() {
+        let log = FakeActivityLogStore()
+        let appState = makeAppState(activityLog: log)
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .running
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        appState.updateAgentActivity(paneID: pane.id, state: .running)
+
+        #expect(log.appended.isEmpty)
+    }
+
+    @Test("does not log when transition is suppressed by the state machine")
+    func doesNotLogSuppressedTransition() {
+        let log = FakeActivityLogStore()
+        let appState = makeAppState(activityLog: log)
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .exited
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        appState.updateAgentActivity(paneID: pane.id, state: .awaiting)
+
+        #expect(pane.activityState == .exited)
+        #expect(log.appended.isEmpty)
+    }
+
+    private func makeAppState(activityLog: ActivityLogStoring = FakeActivityLogStore()) -> AppState {
         AppState(
             selectionStore: AgentActivitySelectionStoreStub(),
             terminalViews: AgentActivityTerminalViewRemovingStub(),
-            workspacePersistence: AgentActivityWorkspacePersistenceStub()
+            workspacePersistence: AgentActivityWorkspacePersistenceStub(),
+            activityLog: activityLog
         )
+    }
+}
+
+@MainActor
+private final class FakeActivityLogStore: ActivityLogStoring {
+    var appended: [AgentActivityEvent] = []
+    func append(_ event: AgentActivityEvent) {
+        appended.append(event)
     }
 }
 

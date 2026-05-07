@@ -167,7 +167,7 @@ final class NotificationSocketServer: @unchecked Sendable {
 
         if let paneIDString, let paneID = UUID(uuidString: paneIDString) {
             if let state = activityEvent.activityState {
-                appState.updateAgentActivity(paneID: paneID, state: state)
+                appState.updateAgentActivity(paneID: paneID, state: state, sourceType: activityEvent.sourceType)
             }
             NotificationStore.shared.add(
                 paneID: paneID,
@@ -185,7 +185,7 @@ final class NotificationSocketServer: @unchecked Sendable {
         else { return }
 
         if let state = activityEvent.activityState {
-            appState.updateAgentActivity(paneID: fallback.paneID, state: state)
+            appState.updateAgentActivity(paneID: fallback.paneID, state: state, sourceType: activityEvent.sourceType)
         }
 
         NotificationStore.shared.addWithContext(

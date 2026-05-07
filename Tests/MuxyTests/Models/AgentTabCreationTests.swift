@@ -85,7 +85,8 @@ struct AgentTabCreationTests {
         let appState = AppState(
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
-            workspacePersistence: AgentTabWorkspacePersistenceStub()
+            workspacePersistence: AgentTabWorkspacePersistenceStub(),
+            activityLog: AgentTabActivityLogStub()
         )
         appState.activeProjectID = projectID
         appState.activeWorktreeID[projectID] = worktreeID
@@ -127,7 +128,8 @@ struct AgentTabCreationTests {
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
             workspacePersistence: AgentTabWorkspacePersistenceStub(),
-            appConfigProvider: { appConfig }
+            appConfigProvider: { appConfig },
+            activityLog: AgentTabActivityLogStub()
         )
         appState.activeProjectID = projectID
         appState.activeWorktreeID[projectID] = worktreeID
@@ -166,7 +168,8 @@ struct AgentTabCreationTests {
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
             workspacePersistence: AgentTabWorkspacePersistenceStub(),
-            hostdRuntimeOwnership: .hostdOwnedProcess
+            hostdRuntimeOwnership: .hostdOwnedProcess,
+            activityLog: AgentTabActivityLogStub()
         )
         appState.activeProjectID = projectID
         appState.activeWorktreeID[projectID] = worktreeID
@@ -192,7 +195,8 @@ struct AgentTabCreationTests {
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
             workspacePersistence: AgentTabWorkspacePersistenceStub(),
-            hostdRuntimeOwnership: .hostdOwnedProcess
+            hostdRuntimeOwnership: .hostdOwnedProcess,
+            activityLog: AgentTabActivityLogStub()
         )
         appState.activeProjectID = projectID
         appState.activeWorktreeID[projectID] = worktreeID
@@ -218,7 +222,8 @@ struct AgentTabCreationTests {
         let appState = AppState(
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
-            workspacePersistence: AgentTabWorkspacePersistenceStub()
+            workspacePersistence: AgentTabWorkspacePersistenceStub(),
+            activityLog: AgentTabActivityLogStub()
         )
         appState.activeProjectID = projectID
         appState.activeWorktreeID[projectID] = worktreeID
@@ -245,7 +250,8 @@ struct AgentTabCreationTests {
         let appState = AppState(
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
-            workspacePersistence: AgentTabWorkspacePersistenceStub()
+            workspacePersistence: AgentTabWorkspacePersistenceStub(),
+            activityLog: AgentTabActivityLogStub()
         )
         appState.activeProjectID = projectID
         appState.activeWorktreeID[projectID] = worktreeID
@@ -274,7 +280,8 @@ struct AgentTabCreationTests {
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
             workspacePersistence: AgentTabWorkspacePersistenceStub(),
-            hostdRuntimeOwnership: .hostdOwnedProcess
+            hostdRuntimeOwnership: .hostdOwnedProcess,
+            activityLog: AgentTabActivityLogStub()
         )
         appState.activeProjectID = projectID
         appState.activeWorktreeID[projectID] = worktreeID
@@ -308,7 +315,8 @@ struct AgentTabCreationTests {
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
             workspacePersistence: AgentTabWorkspacePersistenceStub(),
-            hostdRuntimeOwnership: .hostdOwnedProcess
+            hostdRuntimeOwnership: .hostdOwnedProcess,
+            activityLog: AgentTabActivityLogStub()
         )
         appState.workspaceRoots[key] = .tabArea(area)
         let client = RecordingHostdClient(
@@ -370,7 +378,8 @@ struct AgentTabCreationTests {
             selectionStore: AgentTabSelectionStoreStub(activeProjectID: project.id),
             terminalViews: AgentTabTerminalViewRemovingStub(),
             workspacePersistence: persistence,
-            hostdRuntimeOwnership: .hostdOwnedProcess
+            hostdRuntimeOwnership: .hostdOwnedProcess,
+            activityLog: AgentTabActivityLogStub()
         )
         appState.restoreSelection(projects: [project], worktrees: [project.id: [worktree]])
         let client = RecordingHostdClient(ownership: .hostdOwnedProcess)
@@ -397,7 +406,8 @@ struct AgentTabCreationTests {
         let appState = AppState(
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
-            workspacePersistence: AgentTabWorkspacePersistenceStub()
+            workspacePersistence: AgentTabWorkspacePersistenceStub(),
+            activityLog: AgentTabActivityLogStub()
         )
         appState.workspaceRoots[key] = .tabArea(area)
         let client = RecordingHostdClient()
@@ -422,7 +432,8 @@ struct AgentTabCreationTests {
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
             workspacePersistence: AgentTabWorkspacePersistenceStub(),
-            hostdRuntimeOwnership: .hostdOwnedProcess
+            hostdRuntimeOwnership: .hostdOwnedProcess,
+            activityLog: AgentTabActivityLogStub()
         )
         appState.workspaceRoots[key] = .tabArea(area)
         let client = RecordingHostdClient(ownership: .hostdOwnedProcess)
@@ -457,7 +468,8 @@ struct AgentTabCreationTests {
             selectionStore: AgentTabSelectionStoreStub(),
             terminalViews: AgentTabTerminalViewRemovingStub(),
             workspacePersistence: AgentTabWorkspacePersistenceStub(),
-            hostdRuntimeOwnership: .hostdOwnedProcess
+            hostdRuntimeOwnership: .hostdOwnedProcess,
+            activityLog: AgentTabActivityLogStub()
         )
         appState.workspaceRoots[key] = .tabArea(area)
         let client = RecordingHostdClient(
@@ -517,7 +529,8 @@ struct AgentTabCreationTests {
             selectionStore: AgentTabSelectionStoreStub(activeProjectID: project.id),
             terminalViews: AgentTabTerminalViewRemovingStub(),
             workspacePersistence: AgentTabWorkspacePersistenceStub(snapshots: [snapshot]),
-            hostdRuntimeOwnership: .hostdOwnedProcess
+            hostdRuntimeOwnership: .hostdOwnedProcess,
+            activityLog: AgentTabActivityLogStub()
         )
 
         appState.restoreSelection(projects: [project], worktrees: [project.id: [worktree]])
@@ -667,4 +680,9 @@ private final class AgentTabWorkspacePersistenceStub: WorkspacePersisting {
 
     func loadWorkspaces() throws -> [WorkspaceSnapshot] { snapshots }
     func saveWorkspaces(_ workspaces: [WorkspaceSnapshot]) throws { snapshots = workspaces }
+}
+
+@MainActor
+private final class AgentTabActivityLogStub: ActivityLogStoring {
+    func append(_: AgentActivityEvent) {}
 }

@@ -33,7 +33,8 @@ struct RemoteServerDelegateWorktreeTests {
             appState: AppState(
                 selectionStore: RemoteSelectionStoreStub(),
                 terminalViews: RemoteTerminalViewRemovingStub(),
-                workspacePersistence: RemoteWorkspacePersistenceStub()
+                workspacePersistence: RemoteWorkspacePersistenceStub(),
+                activityLog: RemoteActivityLogStub()
             ),
             projectStore: projectStore,
             worktreeStore: worktreeStore,
@@ -112,4 +113,9 @@ private final class RemoteSelectionStoreStub: ActiveProjectSelectionStoring {
 private final class RemoteTerminalViewRemovingStub: TerminalViewRemoving {
     func removeView(for _: UUID) {}
     func needsConfirmQuit(for _: UUID) -> Bool { false }
+}
+
+@MainActor
+private final class RemoteActivityLogStub: ActivityLogStoring {
+    func append(_: AgentActivityEvent) {}
 }

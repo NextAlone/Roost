@@ -12,7 +12,8 @@ struct AppStateAllTabsTests {
         let appState = AppState(
             selectionStore: AllTabsSelectionStoreStub(),
             terminalViews: AllTabsTerminalViewRemovingStub(),
-            workspacePersistence: AllTabsWorkspacePersistenceStub()
+            workspacePersistence: AllTabsWorkspacePersistenceStub(),
+            activityLog: AllTabsActivityLogStub()
         )
         let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
         #expect(appState.allTabs(forKey: key).isEmpty)
@@ -26,7 +27,8 @@ struct AppStateAllTabsTests {
         let appState = AppState(
             selectionStore: AllTabsSelectionStoreStub(),
             terminalViews: AllTabsTerminalViewRemovingStub(),
-            workspacePersistence: AllTabsWorkspacePersistenceStub()
+            workspacePersistence: AllTabsWorkspacePersistenceStub(),
+            activityLog: AllTabsActivityLogStub()
         )
         let area = TabArea(projectPath: "/tmp/wt")
         area.createAgentTab(kind: .claudeCode)
@@ -59,4 +61,9 @@ private final class AllTabsWorkspacePersistenceStub: WorkspacePersisting {
     private var snapshots: [WorkspaceSnapshot] = []
     func loadWorkspaces() throws -> [WorkspaceSnapshot] { snapshots }
     func saveWorkspaces(_ workspaces: [WorkspaceSnapshot]) throws { snapshots = workspaces }
+}
+
+@MainActor
+private final class AllTabsActivityLogStub: ActivityLogStoring {
+    func append(_: AgentActivityEvent) {}
 }

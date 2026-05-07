@@ -91,7 +91,7 @@ final class TerminalPaneState: Identifiable {
             activityState = .idle
             previousActivityState = nil
             return true
-        case .needsInput:
+        case .awaiting:
             activityState = previousActivityState ?? .idle
             previousActivityState = nil
             return true

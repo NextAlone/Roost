@@ -78,7 +78,7 @@ struct SessionRow: View {
     private var rowBackground: some View {
         if isActive {
             MuxyTheme.accentSoft
-        } else if showsActivityBadge, activityState == .needsInput {
+        } else if showsActivityBadge, activityState == .awaiting {
             if hovered {
                 MuxyTheme.diffRemoveBg.opacity(0.72)
             } else {

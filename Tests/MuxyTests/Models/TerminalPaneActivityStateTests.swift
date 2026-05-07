@@ -42,12 +42,12 @@ struct TerminalPaneActivityStateTests {
         #expect(pane.activityState == .running)
     }
 
-    @Test("needsInput restores previous state")
-    func needsInputRestoresPreviousState() {
+    @Test("awaiting restores previous state")
+    func awaitingRestoresPreviousState() {
         let pane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .codex)
         pane.activityState = .running
         pane.previousActivityState = .running
-        pane.activityState = .needsInput
+        pane.activityState = .awaiting
 
         let acknowledged = pane.acknowledgeUserInteraction()
 
@@ -56,10 +56,10 @@ struct TerminalPaneActivityStateTests {
         #expect(pane.previousActivityState == nil)
     }
 
-    @Test("needsInput without previous state defaults to idle")
-    func needsInputWithoutPreviousDefaultsToIdle() {
+    @Test("awaiting without previous state defaults to idle")
+    func awaitingWithoutPreviousDefaultsToIdle() {
         let pane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .codex)
-        pane.activityState = .needsInput
+        pane.activityState = .awaiting
 
         let acknowledged = pane.acknowledgeUserInteraction()
 

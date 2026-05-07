@@ -264,16 +264,16 @@ final class AppState {
                     guard let pane = tab.content.pane, pane.id == paneID else { continue }
                     guard pane.activityState != state else { return true }
                     if state == .completed,
-                       pane.activityState == .needsInput || pane.activityState == .exited
+                       pane.activityState == .awaiting || pane.activityState == .exited
                     {
                         return true
                     }
-                    if state == .needsInput,
-                       pane.activityState == .completed || pane.activityState == .exited
+                    if state == .awaiting,
+                       pane.activityState == .exited
                     {
                         return true
                     }
-                    if state == .needsInput {
+                    if state == .awaiting {
                         pane.previousActivityState = pane.activityState
                     }
                     pane.activityState = state

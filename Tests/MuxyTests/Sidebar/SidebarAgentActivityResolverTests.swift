@@ -21,19 +21,19 @@ struct SidebarAgentActivityResolverTests {
         #expect(state == .running)
     }
 
-    @Test("prioritizes needs input across inactive agent tabs")
-    func prioritizesNeedsInput() {
+    @Test("prioritizes awaiting across inactive agent tabs")
+    func prioritizesAwaiting() {
         let runningPane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .codex)
         runningPane.activityState = .running
         let waitingPane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .claudeCode)
-        waitingPane.activityState = .needsInput
+        waitingPane.activityState = .awaiting
 
         let state = SidebarAgentActivityResolver.activityState(
             tabs: [TerminalTab(pane: runningPane), TerminalTab(pane: waitingPane)],
             activeTabID: nil
         )
 
-        #expect(state == .needsInput)
+        #expect(state == .awaiting)
     }
 
     @Test("summary preserves dominant state and agent counts")
@@ -41,7 +41,7 @@ struct SidebarAgentActivityResolverTests {
         let runningPane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .codex)
         runningPane.activityState = .running
         let waitingPane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .claudeCode)
-        waitingPane.activityState = .needsInput
+        waitingPane.activityState = .awaiting
         let idlePane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .geminiCli)
         idlePane.activityState = .idle
 
@@ -54,9 +54,9 @@ struct SidebarAgentActivityResolverTests {
             activeTabID: nil
         )
 
-        #expect(summary?.dominantState == .needsInput)
+        #expect(summary?.dominantState == .awaiting)
         #expect(summary?.agentCount == 3)
-        #expect(summary?.count(for: .needsInput) == 1)
+        #expect(summary?.count(for: .awaiting) == 1)
         #expect(summary?.count(for: .running) == 1)
         #expect(summary?.count(for: .idle) == 1)
     }
@@ -67,7 +67,7 @@ struct SidebarAgentActivityResolverTests {
         runningPane.activityState = .running
         let runningTab = TerminalTab(pane: runningPane)
         let waitingPane = TerminalPaneState(projectPath: "/tmp/wt", agentKind: .claudeCode)
-        waitingPane.activityState = .needsInput
+        waitingPane.activityState = .awaiting
 
         let summary = SidebarAgentActivityResolver.summary(
             tabs: [
@@ -77,8 +77,8 @@ struct SidebarAgentActivityResolverTests {
             activeTabID: runningTab.id
         )
 
-        #expect(summary?.dominantState == .needsInput)
-        #expect(summary?.agentStates == [.running, .needsInput])
+        #expect(summary?.dominantState == .awaiting)
+        #expect(summary?.agentStates == [.running, .awaiting])
     }
 
     @Test("summary surfaces completed before idle")
@@ -156,7 +156,7 @@ struct SidebarAgentActivityResolverTests {
     @Test("completed acknowledges to idle")
     func completedAcknowledgesToIdle() {
         #expect(AgentActivityState.completed.acknowledgedSidebarState == .idle)
-        #expect(AgentActivityState.needsInput.acknowledgedSidebarState == .needsInput)
+        #expect(AgentActivityState.awaiting.acknowledgedSidebarState == .awaiting)
         #expect(AgentActivityState.running.acknowledgedSidebarState == .running)
     }
 }

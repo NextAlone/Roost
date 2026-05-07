@@ -41,7 +41,7 @@ struct AgentActivityStatusPulseStyle: Equatable {
     var breathes: Bool {
         switch state {
         case .running,
-             .needsInput,
+             .awaiting,
              .completed:
             true
         case .idle,
@@ -57,7 +57,7 @@ struct AgentActivityStatusPulseStyle: Equatable {
     var restingDiameter: CGFloat {
         switch state {
         case .running: 7
-        case .needsInput: 6
+        case .awaiting: 6
         case .completed: 8
         case .idle: 6
         case .exited: 9
@@ -67,7 +67,7 @@ struct AgentActivityStatusPulseStyle: Equatable {
     var expandedDiameter: CGFloat {
         switch state {
         case .running,
-             .needsInput,
+             .awaiting,
              .completed:
             AgentActivityStatusBadgeLayout.diameter * 0.94
         case .idle: restingDiameter
@@ -99,7 +99,7 @@ private struct AgentActivityPulsingStatusIcon: View {
     private var color: Color {
         switch style.state {
         case .running: MuxyTheme.accent
-        case .needsInput: MuxyTheme.diffRemoveFg
+        case .awaiting: MuxyTheme.diffRemoveFg
         case .completed: MuxyTheme.diffAddFg
         case .idle: MuxyTheme.fgDim.opacity(0.45)
         case .exited: MuxyTheme.fgDim

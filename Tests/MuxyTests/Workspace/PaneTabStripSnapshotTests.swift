@@ -9,13 +9,13 @@ struct PaneTabStripSnapshotTests {
     @Test("agent tabs expose activity state for their icon")
     func agentTabsExposeActivityStateForIcon() {
         let pane = TerminalPaneState(projectPath: "/tmp/repo", agentKind: .codex)
-        pane.activityState = .needsInput
+        pane.activityState = .awaiting
         let tab = TerminalTab(pane: pane)
 
         let snapshot = PaneTabStrip.snapshots(from: [tab])[0]
 
         #expect(snapshot.agentKind == .codex)
-        #expect(snapshot.agentActivityStateForIcon == .needsInput)
+        #expect(snapshot.agentActivityStateForIcon == .awaiting)
     }
 
     @Test("terminal tabs keep the terminal icon")

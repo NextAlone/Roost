@@ -16,10 +16,10 @@ struct AppStateAgentActivityTests {
         let paneID = area.activeTab!.content.pane!.id
         appState.workspaceRoots[key] = .tabArea(area)
 
-        let updated = appState.updateAgentActivity(paneID: paneID, state: .needsInput)
+        let updated = appState.updateAgentActivity(paneID: paneID, state: .awaiting)
 
         #expect(updated == true)
-        #expect(area.activeTab?.content.pane?.activityState == .needsInput)
+        #expect(area.activeTab?.content.pane?.activityState == .awaiting)
     }
 
     @Test("agent activity updates advance an app-level revision for inactive workspaces")
@@ -38,10 +38,10 @@ struct AppStateAgentActivityTests {
         appState.workspaceRoots[inactiveKey] = .tabArea(inactiveArea)
 
         let revisionBefore = appState.agentActivityRevision
-        let updated = appState.updateAgentActivity(paneID: paneID, state: .needsInput)
+        let updated = appState.updateAgentActivity(paneID: paneID, state: .awaiting)
 
         #expect(updated == true)
-        #expect(inactiveArea.activeTab?.content.pane?.activityState == .needsInput)
+        #expect(inactiveArea.activeTab?.content.pane?.activityState == .awaiting)
         #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
@@ -81,14 +81,14 @@ struct AppStateAgentActivityTests {
         #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
-    @Test("done preserves needsInput")
-    func donePreservesNeedsInput() {
+    @Test("done preserves awaiting")
+    func donePreservesAwaiting() {
         let appState = makeAppState()
         let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
         let area = TabArea(projectPath: "/tmp/wt")
         area.createAgentTab(kind: .codex)
         let pane = area.activeTab!.content.pane!
-        pane.activityState = .needsInput
+        pane.activityState = .awaiting
         pane.previousActivityState = .running
         appState.workspaceRoots[key] = .tabArea(area)
 
@@ -96,7 +96,7 @@ struct AppStateAgentActivityTests {
         let updated = appState.updateAgentActivity(paneID: pane.id, state: .completed)
 
         #expect(updated == true)
-        #expect(pane.activityState == .needsInput)
+        #expect(pane.activityState == .awaiting)
         #expect(pane.previousActivityState == .running)
         #expect(appState.agentActivityRevision == revisionBefore)
     }
@@ -119,8 +119,8 @@ struct AppStateAgentActivityTests {
         #expect(appState.agentActivityRevision == revisionBefore)
     }
 
-    @Test("needsInput preserves completed")
-    func needsInputPreservesCompleted() {
+    @Test("awaiting transitions completed to awaiting (idle ping after stop)")
+    func awaitingTransitionsCompleted() {
         let appState = makeAppState()
         let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
         let area = TabArea(projectPath: "/tmp/wt")
@@ -130,16 +130,16 @@ struct AppStateAgentActivityTests {
         appState.workspaceRoots[key] = .tabArea(area)
 
         let revisionBefore = appState.agentActivityRevision
-        let updated = appState.updateAgentActivity(paneID: pane.id, state: .needsInput)
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .awaiting)
 
         #expect(updated == true)
-        #expect(pane.activityState == .completed)
-        #expect(pane.previousActivityState == nil)
-        #expect(appState.agentActivityRevision == revisionBefore)
+        #expect(pane.activityState == .awaiting)
+        #expect(pane.previousActivityState == .completed)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
-    @Test("needsInput preserves exited")
-    func needsInputPreservesExited() {
+    @Test("awaiting preserves exited")
+    func awaitingPreservesExited() {
         let appState = makeAppState()
         let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
         let area = TabArea(projectPath: "/tmp/wt")
@@ -149,15 +149,15 @@ struct AppStateAgentActivityTests {
         appState.workspaceRoots[key] = .tabArea(area)
 
         let revisionBefore = appState.agentActivityRevision
-        let updated = appState.updateAgentActivity(paneID: pane.id, state: .needsInput)
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .awaiting)
 
         #expect(updated == true)
         #expect(pane.activityState == .exited)
         #expect(appState.agentActivityRevision == revisionBefore)
     }
 
-    @Test("needsInput transitions running normally")
-    func needsInputTransitionsRunning() {
+    @Test("awaiting transitions running normally")
+    func awaitingTransitionsRunning() {
         let appState = makeAppState()
         let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
         let area = TabArea(projectPath: "/tmp/wt")
@@ -167,10 +167,10 @@ struct AppStateAgentActivityTests {
         appState.workspaceRoots[key] = .tabArea(area)
 
         let revisionBefore = appState.agentActivityRevision
-        let updated = appState.updateAgentActivity(paneID: pane.id, state: .needsInput)
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .awaiting)
 
         #expect(updated == true)
-        #expect(pane.activityState == .needsInput)
+        #expect(pane.activityState == .awaiting)
         #expect(pane.previousActivityState == .running)
         #expect(appState.agentActivityRevision == revisionBefore + 1)
     }

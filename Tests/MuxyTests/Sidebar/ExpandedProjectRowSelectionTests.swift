@@ -66,7 +66,7 @@ struct ExpandedProjectRowSelectionTests {
         #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .idle, hovered: false) == .neutral)
         #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .running, hovered: false) == .neutral)
         #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .exited, hovered: false) == .neutral)
-        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .needsInput, hovered: false) == .needsInput)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .awaiting, hovered: false) == .awaiting)
         #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .completed, hovered: false) == .completed)
         #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .running, hovered: true) == .hover)
     }

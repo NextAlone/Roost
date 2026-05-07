@@ -26,7 +26,7 @@ struct AgentActivitySocketEvent: Equatable {
         case "needs_input",
              "needsInput",
              "permission":
-            .needsInput
+            .awaiting
         case "notification":
             nil
         case "idle":

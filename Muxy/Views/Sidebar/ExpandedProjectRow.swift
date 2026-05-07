@@ -632,13 +632,13 @@ enum ExpandedWorktreeRowClickPolicy {
 enum ExpandedWorktreeRowBackgroundKind: Equatable {
     case neutral
     case hover
-    case needsInput
+    case awaiting
     case completed
 
     static func resolve(dominantState: AgentActivityState?, hovered: Bool) -> ExpandedWorktreeRowBackgroundKind {
         switch dominantState {
-        case .needsInput:
-            .needsInput
+        case .awaiting:
+            .awaiting
         case .completed:
             .completed
         case .running,
@@ -796,7 +796,7 @@ private struct ExpandedWorktreeRow: View {
             dominantState: agentActivitySummary?.dominantState,
             hovered: hovered
         ) {
-        case .needsInput:
+        case .awaiting:
             return AnyShapeStyle(LinearGradient(
                 colors: [
                     MuxyTheme.diffRemoveFg.opacity(0.16),

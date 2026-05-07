@@ -2,7 +2,7 @@ import Foundation
 
 public enum AgentActivityState: String, Sendable, Codable, Hashable, CaseIterable {
     case running
-    case needsInput
+    case awaiting = "needsInput"
     case idle
     case completed
     case exited
@@ -10,7 +10,7 @@ public enum AgentActivityState: String, Sendable, Codable, Hashable, CaseIterabl
     public var sidebarLabel: String {
         switch self {
         case .running: "RUN"
-        case .needsInput: "WAIT"
+        case .awaiting: "WAIT"
         case .idle: "IDLE"
         case .completed: "DONE"
         case .exited: "EXIT"
@@ -20,7 +20,7 @@ public enum AgentActivityState: String, Sendable, Codable, Hashable, CaseIterabl
     public var accessibilityLabel: String {
         switch self {
         case .running: "Running"
-        case .needsInput: "Needs input"
+        case .awaiting: "Awaiting input"
         case .idle: "Idle"
         case .completed: "Completed"
         case .exited: "Exited"

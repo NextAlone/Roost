@@ -38,7 +38,7 @@ struct AgentActivityBadge: View {
     private var symbolName: String {
         switch state {
         case .running: "arrow.triangle.2.circlepath"
-        case .needsInput: "exclamationmark"
+        case .awaiting: "exclamationmark"
         case .idle: "pause.fill"
         case .completed: "checkmark"
         case .exited: "xmark"
@@ -52,7 +52,7 @@ struct AgentActivityBadge: View {
     private var foreground: Color {
         switch state {
         case .running: MuxyTheme.accent
-        case .needsInput: MuxyTheme.diffRemoveFg
+        case .awaiting: MuxyTheme.diffRemoveFg
         case .idle: MuxyTheme.fgMuted
         case .completed: MuxyTheme.diffAddFg
         case .exited: MuxyTheme.fgDim
@@ -61,7 +61,7 @@ struct AgentActivityBadge: View {
 
     private var background: AnyShapeStyle {
         switch state {
-        case .needsInput:
+        case .awaiting:
             AnyShapeStyle(LinearGradient(
                 colors: [
                     MuxyTheme.diffRemoveFg.opacity(0.28),
@@ -83,7 +83,7 @@ struct AgentActivityBadge: View {
 
     private var border: Color {
         switch state {
-        case .needsInput: MuxyTheme.diffRemoveFg.opacity(0.22)
+        case .awaiting: MuxyTheme.diffRemoveFg.opacity(0.22)
         case .completed: MuxyTheme.diffAddFg.opacity(0.2)
         case .running: MuxyTheme.accent.opacity(0.18)
         case .idle,

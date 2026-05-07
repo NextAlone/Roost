@@ -7,10 +7,10 @@ import Testing
 @Suite("AgentActivitySocketEvent")
 struct AgentActivitySocketEventTests {
     @Test("parses needs input suffix")
-    func needsInput() {
+    func awaiting() {
         let event = AgentActivitySocketEvent.parse(type: "codex_hook:needs_input")
         #expect(event.sourceType == "codex_hook")
-        #expect(event.activityState == .needsInput)
+        #expect(event.activityState == .awaiting)
     }
 
     @Test("parses completed suffix")

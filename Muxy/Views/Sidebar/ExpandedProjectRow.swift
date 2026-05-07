@@ -120,9 +120,9 @@ struct ExpandedProjectRow: View {
             }
             Divider()
             Button("Rename Project") { startRename() }
+            Divider()
+            Button("Reload Project") { Task { await reloadProject() } }
             if isVcsRepo {
-                Divider()
-                Button("Refresh Workspaces") { Task { await refreshWorktrees() } }
                 Button("New Workspace…") { presentCreateWorktreeSheet() }
             }
             Divider()
@@ -517,7 +517,17 @@ struct ExpandedProjectRow: View {
         isRenaming = false
     }
 
-    private func refreshWorktrees() async {
+    private func reloadProject() async {
+        isVcsRepo = VcsKindDetector.isVcsRepository(at: project.path)
+        if Self.shouldExpandProjectWorktrees(
+            isActive: isActive,
+            isVcsRepo: isVcsRepo,
+            hasAgentTabs: hasAgentTabs
+        ) {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                worktreesExpanded = true
+            }
+        }
         await WorktreeRefreshHelper.refresh(
             project: project,
             appState: appState,

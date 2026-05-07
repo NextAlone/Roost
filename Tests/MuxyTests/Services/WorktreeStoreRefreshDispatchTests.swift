@@ -78,6 +78,76 @@ struct WorktreeStoreRefreshDispatchTests {
         #expect(untracked == ["feat-x", "feat-y"])
     }
 
+    @Test("refresh re-detects vcsKind after .jj is created post-init")
+    func reDetectsAfterJjInit() async throws {
+        let dir = makeTempDir()
+        defer { try? fm.removeItem(at: dir) }
+
+        let gitCalls = RefreshDispatchCallCounter()
+        let jjCalls = RefreshDispatchCallCounter()
+
+        let persistence = RefreshDispatchTestPersistence()
+        let store = WorktreeStore(
+            persistence: persistence,
+            listGitWorktrees: { _ in
+                await gitCalls.bump()
+                return []
+            },
+            listJjWorkspaces: { _ in
+                await jjCalls.bump()
+                return [
+                    JjWorkspaceEntry(
+                        name: "default",
+                        workingCopy: JjChangeId(prefix: "abcdef", full: "abcdef0123")
+                    )
+                ]
+            }
+        )
+
+        let project = Project(name: "P", path: dir.path, sortOrder: 0)
+        store.ensurePrimary(for: project)
+        #expect(store.primary(for: project.id)?.vcsKind == .git)
+
+        try fm.createDirectory(at: dir.appendingPathComponent(".jj"), withIntermediateDirectories: true)
+        let refreshed = try await store.refresh(project: project)
+
+        #expect(store.primary(for: project.id)?.vcsKind == .jj)
+        #expect(await jjCalls.value == 1)
+        #expect(await gitCalls.value == 0)
+        #expect(refreshed.first(where: \.isPrimary)?.vcsKind == .jj)
+    }
+
+    @Test("refresh on plain directory is a no-op without errors")
+    func noopOnNonVcs() async throws {
+        let dir = makeTempDir()
+        defer { try? fm.removeItem(at: dir) }
+
+        let gitCalls = RefreshDispatchCallCounter()
+        let jjCalls = RefreshDispatchCallCounter()
+
+        let persistence = RefreshDispatchTestPersistence()
+        let store = WorktreeStore(
+            persistence: persistence,
+            listGitWorktrees: { _ in
+                await gitCalls.bump()
+                return []
+            },
+            listJjWorkspaces: { _ in
+                await jjCalls.bump()
+                return []
+            }
+        )
+
+        let project = Project(name: "P", path: dir.path, sortOrder: 0)
+        store.ensurePrimary(for: project)
+        let refreshed = try await store.refresh(project: project)
+
+        #expect(refreshed.count == 1)
+        #expect(refreshed.first?.isPrimary == true)
+        #expect(await gitCalls.value == 0)
+        #expect(await jjCalls.value == 0)
+    }
+
     @Test("primary .git routes through git listing")
     func dispatchesGit() async throws {
         let dir = makeTempDir()

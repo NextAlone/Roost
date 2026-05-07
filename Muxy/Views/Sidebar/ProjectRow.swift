@@ -73,9 +73,9 @@ struct ProjectRow: View {
                 }
                 Divider()
                 Button("Rename Project") { startRename() }
+                Divider()
+                Button("Reload Project") { Task { await reloadProject() } }
                 if isVcsRepo {
-                    Divider()
-                    Button("Refresh Workspaces") { Task { await refreshWorktrees() } }
                     Button("New Workspace…") { showCreateWorktreeSheet = true }
                     if worktrees.count > 1 {
                         Button("Switch Workspace…") { showWorktreePopover = true }
@@ -268,7 +268,8 @@ struct ProjectRow: View {
         isRenaming = false
     }
 
-    private func refreshWorktrees() async {
+    private func reloadProject() async {
+        isVcsRepo = VcsKindDetector.isVcsRepository(at: project.path)
         await WorktreeRefreshHelper.refresh(
             project: project,
             appState: appState,

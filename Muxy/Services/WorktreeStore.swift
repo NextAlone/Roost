@@ -238,6 +238,10 @@ final class WorktreeStore {
 
     func refresh(project: Project) async throws -> [Worktree] {
         ensurePrimary(for: project)
+        reconcilePrimaryVcsKind(for: project)
+        guard VcsKindDetector.isVcsRepository(at: project.path) else {
+            return list(for: project.id)
+        }
         let kind = primary(for: project.id)?.vcsKind ?? .git
         switch kind {
         case .git:
@@ -245,6 +249,13 @@ final class WorktreeStore {
         case .jj:
             return try await refreshJj(project: project)
         }
+    }
+
+    private func reconcilePrimaryVcsKind(for project: Project) {
+        var list = worktrees[project.id] ?? []
+        guard normalizePrimaryVcsKind(&list, for: project) else { return }
+        setWorktrees(sortPrimaryFirst(list), for: project.id)
+        save(projectID: project.id)
     }
 
     private static func canonicalPath(_ path: String) -> String {

@@ -2,10 +2,6 @@ import Foundation
 
 extension Bundle {
     static let appResources: Bundle = {
-        if Bundle.module.bundleURL.lastPathComponent == "Roost_Roost.bundle" {
-            return Bundle.module
-        }
-
         let bundleNames = [
             "Roost_Roost.bundle",
             "Muxy_Muxy.bundle",

@@ -37,6 +37,7 @@ struct ContentHostLayer: View {
                         dispatchSplit(areaID: t.areaID, direction: direction, position: position)
                     }
                 )
+                .id(t.pane.sessionID)
                 .frame(width: t.contentRect.width, height: t.contentRect.height)
                 .offset(x: t.contentRect.minX, y: t.contentRect.minY)
                 .opacity(t.isVisible ? 1 : 0)

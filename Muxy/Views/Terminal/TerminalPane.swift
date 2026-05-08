@@ -1,4 +1,5 @@
 import AppKit
+import MuxyShared
 import RoostHostdCore
 import SwiftUI
 
@@ -7,6 +8,7 @@ struct TerminalPaneChrome: View {
     let focused: Bool
     let visible: Bool
 
+    @Environment(AppState.self) private var appState
     @Bindable private var ownership = PaneOwnershipStore.shared
 
     private var remoteOwnerName: String? {
@@ -51,6 +53,16 @@ struct TerminalPaneChrome: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
+        .overlay(alignment: .top) {
+            reloadBannerView
+        }
+        .onAppear {
+            appState.refreshBinaryUpdateBanner(paneID: state.id)
+        }
+        .onChange(of: focused) { _, isFocused in
+            guard isFocused else { return }
+            appState.refreshBinaryUpdateBanner(paneID: state.id)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .refocusActiveTerminal)) { _ in
             guard focused, visible else { return }
             let view = TerminalViewRegistry.shared.existingView(for: state.id)
@@ -62,6 +74,47 @@ struct TerminalPaneChrome: View {
 
     private var shouldShowTerminalBridge: Bool {
         state.hostdRuntimeOwnership != .hostdOwnedProcess || state.hostdAttachState == .ready
+    }
+
+    @ViewBuilder
+    private var reloadBannerView: some View {
+        if state.agentKind != .terminal,
+           state.hostdRuntimeOwnership == .hostdOwnedProcess
+        {
+            if state.lastState == .exited, !state.exitBannerDismissed {
+                AgentReloadBanner(model: .exit(
+                    agentName: state.agentKind.displayName,
+                    captured: state.capturedResumeCommand,
+                    onResume: {
+                        let paneID = state.id
+                        Task { await appState.reloadAgent(paneID: paneID, mode: .resume) }
+                    },
+                    onFresh: {
+                        let paneID = state.id
+                        Task { await appState.reloadAgent(paneID: paneID, mode: .fresh) }
+                    },
+                    onDismiss: {
+                        appState.dispatch(.dismissExitBanner(paneID: state.id))
+                    }
+                ))
+                .padding(8)
+            } else if state.lastState == .running,
+                      state.binaryUpdateDetected,
+                      !state.mtimeBannerDismissed
+            {
+                AgentReloadBanner(model: .binaryUpdate(
+                    agentName: state.agentKind.displayName,
+                    onReload: {
+                        let paneID = state.id
+                        Task { await appState.reloadAgent(paneID: paneID, mode: .resume) }
+                    },
+                    onDismiss: {
+                        appState.dispatch(.dismissBinaryUpdateBanner(paneID: state.id))
+                    }
+                ))
+                .padding(8)
+            }
+        }
     }
 }
 

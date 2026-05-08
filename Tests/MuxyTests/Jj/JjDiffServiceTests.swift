@@ -75,3 +75,58 @@ actor DiffCapturedCall {
         self.snapshot = snapshot
     }
 }
+
+@Suite("JjDiffService.patch")
+struct JjDiffServicePatchTests {
+    @Test("invokes jj diff --git with revset and path")
+    func invokesCorrectCommand() async throws {
+        let captured = DiffCapturedCall()
+        let service = JjDiffService { repo, cmd, snapshot, _ in
+            await captured.set(repo: repo, cmd: cmd, snapshot: snapshot)
+            return JjProcessResult(
+                status: 0,
+                stdout: Data("diff --git a/x b/x\n".utf8),
+                stderr: ""
+            )
+        }
+        let raw = try await service.patch(
+            repoPath: "/tmp/repo",
+            revset: "@",
+            filePath: "Sources/Foo.swift",
+            lineLimit: nil
+        )
+        let cmd = await captured.cmd
+        #expect(cmd == ["diff", "--git", "-r", "@", "--", "Sources/Foo.swift"])
+        #expect(raw == "diff --git a/x b/x\n")
+    }
+
+    @Test("propagates non-zero exit as JjProcessError")
+    func propagatesError() async {
+        let service = JjDiffService { _, _, _, _ in
+            JjProcessResult(status: 1, stdout: Data(), stderr: "boom")
+        }
+        await #expect(throws: JjProcessError.self) {
+            _ = try await service.patch(
+                repoPath: "/tmp/repo",
+                revset: "@",
+                filePath: "x",
+                lineLimit: nil
+            )
+        }
+    }
+
+    @Test("truncates stdout to lineLimit lines")
+    func truncatesByLineLimit() async throws {
+        let big = (0 ..< 5).map { "line \($0)" }.joined(separator: "\n") + "\n"
+        let service = JjDiffService { _, _, _, _ in
+            JjProcessResult(status: 0, stdout: Data(big.utf8), stderr: "")
+        }
+        let result = try await service.patch(
+            repoPath: "/tmp/repo",
+            revset: "@",
+            filePath: "x",
+            lineLimit: 2
+        )
+        #expect(result == "line 0\nline 1\n")
+    }
+}

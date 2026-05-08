@@ -146,7 +146,7 @@ struct RoostConfigTests {
         #expect(config.agentPresets.first?.kind == .codex)
     }
 
-    @Test
+    @Test("decodes resumeCommandRegex field")
     func decodesResumeCommandRegex() throws {
         let json = """
         {
@@ -160,7 +160,7 @@ struct RoostConfigTests {
         #expect(preset.resumeCommandRegex == "(?m)^claude --continue$")
     }
 
-    @Test
+    @Test("resumeCommandRegex is optional")
     func resumeCommandRegexIsOptional() throws {
         let json = """
         { "name": "X", "kind": "claudeCode", "command": "claude" }

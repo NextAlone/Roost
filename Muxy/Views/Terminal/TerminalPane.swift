@@ -198,6 +198,7 @@ struct TerminalBridge: NSViewRepresentable {
         }
         configureSearchCallbacks(view)
         configureFileOpenCallback(view)
+        configureReloadMenu(view)
         context.coordinator.wasFocused = focused
         if focused, !overlayActive {
             view.notifySurfaceFocused()
@@ -244,6 +245,7 @@ struct TerminalBridge: NSViewRepresentable {
         }
         configureSearchCallbacks(nsView)
         configureFileOpenCallback(nsView)
+        configureReloadMenu(nsView)
         let wasFocused = context.coordinator.wasFocused
         let wasOverlayActive = context.coordinator.wasOverlayActive
         context.coordinator.wasFocused = focused
@@ -329,6 +331,19 @@ struct TerminalBridge: NSViewRepresentable {
         guard FileManager.default.fileExists(atPath: candidate, isDirectory: &isDirectory) else { return nil }
         guard !isDirectory.boolValue else { return nil }
         return candidate
+    }
+
+    private func configureReloadMenu(_ view: GhosttyTerminalNSView) {
+        let canReload = state.agentKind != .terminal && state.hostdRuntimeOwnership == .hostdOwnedProcess
+        let resumeEnabled = state.agentKind.resumeStrategy != .notSupported
+            && !(state.lastState == .running && state.capturedResumeCommand == nil)
+        view.reloadMenuConfig = ReloadMenuConfig(canReload: canReload, resumeEnabled: resumeEnabled)
+        view.onReloadAgent = { [weak state, appState] mode in
+            guard let paneID = state?.id else { return }
+            Task { @MainActor in
+                await appState.reloadAgent(paneID: paneID, mode: mode)
+            }
+        }
     }
 
     private func configureSearchCallbacks(_ view: GhosttyTerminalNSView) {

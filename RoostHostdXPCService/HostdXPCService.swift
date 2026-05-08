@@ -318,6 +318,18 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
         rejectRuntimeControl("interrupt", request: request, as: HostdInterruptSessionRequest.self, reply: reply)
     }
 
+    func waitForSessionExit(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdWaitForSessionExitRequest.self, from: request)
+                let response = await registry.waitForSessionExit(id: request.id, timeoutMs: request.timeoutMs)
+                return try HostdXPCCodec.success(response)
+            }
+            return
+        }
+        rejectRuntimeControl("wait for exit", request: request, as: HostdWaitForSessionExitRequest.self, reply: reply)
+    }
+
     private func respond(
         _ reply: @escaping @Sendable (Data) -> Void,
         _ work: @escaping @Sendable (RoostHostd) async throws -> Data

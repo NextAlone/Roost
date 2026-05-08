@@ -83,6 +83,14 @@ struct TabAreaView: View {
                     },
                     onReorderTab: { fromOffsets, toOffset in
                         area.reorderTab(fromOffsets: fromOffsets, toOffset: toOffset)
+                    },
+                    onReloadAgent: { tabID, mode in
+                        guard let pane = area.tabs.first(where: { $0.id == tabID })?.content.pane
+                        else { return }
+                        let paneID = pane.id
+                        Task { @MainActor in
+                            await appState.reloadAgent(paneID: paneID, mode: mode)
+                        }
                     }
                 )
                 Rectangle().fill(MuxyTheme.border).frame(height: 1)

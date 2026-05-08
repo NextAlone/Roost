@@ -384,21 +384,52 @@ final class AppState {
     }
 
     func reloadAgent(paneID: UUID, mode: AgentReloadMode) async {
-        guard !inFlightReloadPaneIDs.contains(paneID) else { return }
+        logger.notice("reloadAgent ENTRY paneID=\(paneID, privacy: .public) mode=\(String(describing: mode), privacy: .public)")
+        guard !inFlightReloadPaneIDs.contains(paneID) else {
+            logger.notice("reloadAgent SKIPPED inFlight paneID=\(paneID, privacy: .public)")
+            return
+        }
         inFlightReloadPaneIDs.insert(paneID)
         defer { inFlightReloadPaneIDs.remove(paneID) }
 
-        guard let initialPane = pane(forSessionID: paneID) else { return }
+        guard let initialPane = pane(forSessionID: paneID) else {
+            logger.notice("reloadAgent NO PANE paneID=\(paneID, privacy: .public)")
+            return
+        }
         let preset = agentPresetForRouting(initialPane.agentKind)
 
-        if mode == .resume, initialPane.lastState == .running {
-            await runReloadInterrupt(oldSessionID: initialPane.sessionID)
+        var capturedTail: String? = nil
+        if mode == .resume, let client = hostdClient {
+            do {
+                let probe = try await client.waitForSessionExit(id: initialPane.sessionID, timeoutMs: 1000)
+                if !probe.didTimeout {
+                    capturedTail = probe.lastTail
+                    let preview = (probe.lastTail ?? "").suffix(400)
+                    logger.notice("reloadAgent ALREADY_EXITED tail_len=\(probe.lastTail?.count ?? -1, privacy: .public) tail_preview=\(String(preview), privacy: .public)")
+                } else {
+                    logger.notice("reloadAgent PROBE TIMED_OUT (still running)")
+                }
+            } catch {
+                logger.warning("reloadAgent probe failed: \(error.localizedDescription, privacy: .public)")
+            }
+            if capturedTail == nil {
+                logger.notice("reloadAgent INTERRUPTING paneID=\(paneID, privacy: .public)")
+                capturedTail = await runReloadInterrupt(oldSessionID: initialPane.sessionID)
+            }
         }
 
         guard let livePane = pane(forSessionID: paneID) else { return }
-        let captured = livePane.capturedResumeCommand
         let oldSessionID = livePane.sessionID
-        let newSessionID = UUID()
+        var captured: String? = nil
+        if mode == .resume {
+            if let local = livePane.capturedResumeCommand {
+                captured = local
+            } else if let tail = capturedTail {
+                captured = Self.extractResumeCommand(preset: preset, lastTail: tail)
+            }
+        }
+        logger.notice("reloadAgent CAPTURED captured=\(captured ?? "nil", privacy: .public)")
+        let newSessionID = paneID
         let command = AgentReloadCommandBuilder.build(
             preset: preset,
             captured: captured,
@@ -429,29 +460,85 @@ final class AppState {
             agentBinaryPath: binaryPath,
             agentBinaryMTime: mtime
         ))
+
+        guard let location = paneLocation(paneID: paneID),
+              let reloadedPane = pane(forSessionID: paneID),
+              let client = hostdClient
+        else { return }
+        let environment = TerminalPaneEnvironment.build(
+            paneID: paneID,
+            worktreeKey: location,
+            configured: env
+        )
+        let launchCommand = TerminalPaneEnvironment.hostdLaunchCommand(
+            command,
+            environment: environment,
+            exportTerm: false
+        )
+        let agentKind = reloadedPane.agentKind
+        let workspacePath = reloadedPane.projectPath
+        reloadedPane.markHostdAttachPreparing()
+        Task { @MainActor [client, paneID, newSessionID, location, agentKind, workspacePath, environment, launchCommand] in
+            logger.notice("reloadAgent CREATE_SESSION paneID=\(paneID, privacy: .public) newSessionID=\(newSessionID, privacy: .public) cmd=\(launchCommand ?? "nil", privacy: .public)")
+            do {
+                try await client.createSession(HostdCreateSessionRequest(
+                    id: newSessionID,
+                    projectID: location.projectID,
+                    worktreeID: location.worktreeID,
+                    workspacePath: workspacePath,
+                    agentKind: agentKind,
+                    command: launchCommand,
+                    environment: environment
+                ))
+                logger.notice("reloadAgent CREATE_SESSION OK paneID=\(paneID, privacy: .public)")
+                self.pane(forSessionID: paneID)?.markHostdAttachReady()
+            } catch {
+                logger.error("reloadAgent CREATE_SESSION FAIL paneID=\(paneID, privacy: .public) err=\(error.localizedDescription, privacy: .public)")
+                self.pane(forSessionID: paneID)?.markHostdAttachFailed(Self.hostdErrorMessage(error))
+            }
+        }
     }
 
-    private func runReloadInterrupt(oldSessionID: UUID) async {
-        let coordinator = AgentReloadCoordinator()
-        let exitedStream = sessionExitStream(for: oldSessionID)
-        let client = hostdClient
-        await coordinator.driveExit(
-            interrupt: {
-                do {
-                    try await client?.interruptSession(id: oldSessionID)
-                } catch {
-                    logger.warning("interruptSession failed: \(error.localizedDescription, privacy: .public)")
-                }
-            },
-            forceKill: {
-                do {
-                    try await client?.terminateSession(id: oldSessionID)
-                } catch {
-                    logger.warning("force terminateSession failed: \(error.localizedDescription, privacy: .public)")
-                }
-            },
-            exitedStream: exitedStream
-        )
+    private func runReloadInterrupt(oldSessionID: UUID) async -> String? {
+        guard let client = hostdClient else { return nil }
+
+        if let tail = await waitOrInterrupt(client: client, sessionID: oldSessionID, timeoutMs: 3000) {
+            return tail
+        }
+        if let tail = await waitOrInterrupt(client: client, sessionID: oldSessionID, timeoutMs: 3000) {
+            return tail
+        }
+        do {
+            try await client.terminateSession(id: oldSessionID)
+        } catch {
+            logger.warning("force terminateSession failed: \(error.localizedDescription, privacy: .public)")
+        }
+        do {
+            let response = try await client.waitForSessionExit(id: oldSessionID, timeoutMs: 3000)
+            if !response.didTimeout { return response.lastTail }
+        } catch {
+            logger.warning("waitForSessionExit (post-kill) failed: \(error.localizedDescription, privacy: .public)")
+        }
+        return nil
+    }
+
+    private func waitOrInterrupt(
+        client: any RoostHostdClient,
+        sessionID: UUID,
+        timeoutMs: Int
+    ) async -> String? {
+        do {
+            try await client.interruptSession(id: sessionID)
+        } catch {
+            logger.warning("interruptSession failed: \(error.localizedDescription, privacy: .public)")
+        }
+        do {
+            let response = try await client.waitForSessionExit(id: sessionID, timeoutMs: timeoutMs)
+            if !response.didTimeout { return response.lastTail }
+        } catch {
+            logger.warning("waitForSessionExit failed: \(error.localizedDescription, privacy: .public)")
+        }
+        return nil
     }
 
     func sessionExitStream(for sessionID: UUID) -> AsyncStream<Void> {
@@ -472,6 +559,20 @@ final class AppState {
               let r = Range(match.range, in: lastTail)
         else { return nil }
         return String(lastTail[r]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func fetchCapturedResumeCommand(sessionID: UUID, preset: AgentPreset) async -> String? {
+        guard let client = hostdClient else { return nil }
+        do {
+            let sessions = try await client.listAllSessions()
+            guard let record = sessions.first(where: { $0.id == sessionID }),
+                  let tail = record.lastTail
+            else { return nil }
+            return Self.extractResumeCommand(preset: preset, lastTail: tail)
+        } catch {
+            logger.warning("listAllSessions failed during reload: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     func splitFocusedArea(direction: SplitDirection, projectID: UUID) {
@@ -591,6 +692,17 @@ final class AppState {
             for area in root.allAreas() {
                 if let pane = area.tabs.compactMap(\.content.pane).first(where: { $0.id == sessionID }) {
                     return pane
+                }
+            }
+        }
+        return nil
+    }
+
+    private func paneLocation(paneID: UUID) -> WorktreeKey? {
+        for (key, root) in workspaceRoots {
+            for area in root.allAreas() {
+                if area.tabs.compactMap(\.content.pane).contains(where: { $0.id == paneID }) {
+                    return key
                 }
             }
         }

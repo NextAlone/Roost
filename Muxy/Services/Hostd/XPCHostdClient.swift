@@ -20,6 +20,7 @@ protocol HostdXPCTransport: Sendable {
     func resizeSession(_ request: Data) async throws -> Data
     func sendSessionSignal(_ request: Data) async throws -> Data
     func interruptSession(_ request: Data) async throws -> Data
+    func waitForSessionExit(_ request: Data) async throws -> Data
 }
 
 enum XPCHostdClientError: Error, LocalizedError {
@@ -147,6 +148,12 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
     func interruptSession(_ request: Data) async throws -> Data {
         try await call { proxy, reply in
             proxy.interruptSession(request, reply: reply)
+        }
+    }
+
+    func waitForSessionExit(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.waitForSessionExit(request, reply: reply)
         }
     }
 
@@ -305,6 +312,15 @@ struct XPCHostdClient: RoostHostdClient {
             try await transport.interruptSession(request)
         }
         try HostdXPCCodec.decodeEmptyReply(from: response)
+    }
+
+    func waitForSessionExit(id: UUID, timeoutMs: Int) async throws -> HostdWaitForSessionExitResponse {
+        let request = try HostdXPCCodec.encode(HostdWaitForSessionExitRequest(id: id, timeoutMs: timeoutMs))
+        let waitTimeout = TimeInterval(timeoutMs) / 1000 + 5
+        let response = try await withRequestTimeout("wait for session exit", seconds: waitTimeout) {
+            try await transport.waitForSessionExit(request)
+        }
+        return try HostdXPCCodec.decodeReply(HostdWaitForSessionExitResponse.self, from: response)
     }
 
     func markExited(sessionID: UUID) async throws {

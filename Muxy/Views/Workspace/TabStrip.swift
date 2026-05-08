@@ -17,6 +17,8 @@ struct PaneTabStrip: View {
         let colorID: String?
         let agentKind: AgentKind
         let agentActivityState: AgentActivityState?
+        let canReloadAgent: Bool
+        let resumeEnabled: Bool
 
         var agentActivityStateForIcon: AgentActivityState? {
             guard kind == .terminal, agentKind != .terminal else { return nil }
@@ -50,6 +52,7 @@ struct PaneTabStrip: View {
     let onSetCustomTitle: (UUID, String?) -> Void
     let onSetColorID: (UUID, String?) -> Void
     let onReorderTab: (IndexSet, Int) -> Void
+    let onReloadAgent: (UUID, AgentReloadMode) -> Void
     @Environment(TabDragCoordinator.self) private var dragCoordinator
     @AppStorage(AgentToolbarSettings.visibleAgentsKey)
     private var visibleAgentsRaw = AgentToolbarSettings.defaultVisibleAgentsRaw
@@ -59,6 +62,9 @@ struct PaneTabStrip: View {
         tabs.map { tab in
             let pane = tab.content.pane
             let agentKind = pane?.agentKind ?? .terminal
+            let canReload = agentKind != .terminal
+                && pane?.hostdRuntimeOwnership == .hostdOwnedProcess
+            let resumeEnabled = canReload && agentKind.resumeStrategy != .notSupported
             return TabSnapshot(
                 id: tab.id,
                 title: tab.title,
@@ -67,7 +73,9 @@ struct PaneTabStrip: View {
                 hasCustomTitle: tab.customTitle != nil,
                 colorID: tab.colorID,
                 agentKind: agentKind,
-                agentActivityState: agentKind == .terminal ? nil : pane?.activityState
+                agentActivityState: agentKind == .terminal ? nil : pane?.activityState,
+                canReloadAgent: canReload,
+                resumeEnabled: resumeEnabled
             )
         }
     }
@@ -170,7 +178,8 @@ struct PaneTabStrip: View {
                     onCreateRight: { onCreateTabAdjacent(tab.id, .right) },
                     onTogglePin: { onTogglePin(tab.id) },
                     onSetCustomTitle: { onSetCustomTitle(tab.id, $0) },
-                    onSetColorID: { onSetColorID(tab.id, $0) }
+                    onSetColorID: { onSetColorID(tab.id, $0) },
+                    onReloadAgent: { mode in onReloadAgent(tab.id, mode) }
                 )
                 .frame(width: perTabWidth)
                 .background {
@@ -396,6 +405,7 @@ private struct TabCell: View {
     let onTogglePin: () -> Void
     let onSetCustomTitle: (String?) -> Void
     let onSetColorID: (String?) -> Void
+    let onReloadAgent: (AgentReloadMode) -> Void
     @State private var hovered = false
     @State private var isRenaming = false
     @State private var renameText = ""
@@ -543,6 +553,12 @@ private struct TabCell: View {
             .accessibilityAddTraits(active ? .isSelected : [])
             .accessibilityAddTraits(.isButton)
             .contextMenu {
+                if tab.canReloadAgent {
+                    Button("Reload Agent (Resume)") { onReloadAgent(.resume) }
+                        .disabled(!tab.resumeEnabled)
+                    Button("Reload Agent (Fresh)") { onReloadAgent(.fresh) }
+                    Divider()
+                }
                 Button("New Tab to the Left") { onCreateLeft() }
                 Button("New Tab to the Right") { onCreateRight() }
                 Divider()

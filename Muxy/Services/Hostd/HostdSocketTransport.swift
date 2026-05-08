@@ -82,6 +82,10 @@ final class HostdSocketTransport: HostdXPCTransport, @unchecked Sendable {
         try await call(.interruptSession, payload: request)
     }
 
+    func waitForSessionExit(_ request: Data) async throws -> Data {
+        try await call(.waitForSessionExit, payload: request)
+    }
+
     private func call(_ operation: HostdAttachSocketOperation, payload: Data = Data()) async throws -> Data {
         try await Task.detached { [socketPath] in
             let fd = try HostdSocketIO.connect(path: socketPath)

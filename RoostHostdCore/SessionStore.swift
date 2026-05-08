@@ -96,6 +96,12 @@ actor SessionStore {
             PRAGMA user_version = 1;
             """)
         }
+        if version < 2 {
+            try exec("""
+            ALTER TABLE sessions ADD COLUMN last_tail TEXT;
+            PRAGMA user_version = 2;
+            """)
+        }
     }
 
     private func exec(_ sql: String) throws {
@@ -111,8 +117,8 @@ actor SessionStore {
     func record(_ record: SessionRecord) throws {
         let sql = """
         INSERT OR REPLACE INTO sessions
-        (id, project_id, worktree_id, workspace_path, agent_kind, command, created_at, last_state)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+        (id, project_id, worktree_id, workspace_path, agent_kind, command, created_at, last_state, last_tail)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         try withStatement(sql) { stmt in
             sqlite3_bind_text(stmt, 1, record.id.uuidString, -1, sqliteTransient)
@@ -127,6 +133,11 @@ actor SessionStore {
             }
             sqlite3_bind_double(stmt, 7, record.createdAt.timeIntervalSince1970)
             sqlite3_bind_text(stmt, 8, record.lastState.rawValue, -1, sqliteTransient)
+            if let lastTail = record.lastTail {
+                sqlite3_bind_text(stmt, 9, lastTail, -1, sqliteTransient)
+            } else {
+                sqlite3_bind_null(stmt, 9)
+            }
             try step(stmt)
         }
     }
@@ -162,7 +173,7 @@ actor SessionStore {
 
     private func query(where clause: String?) throws -> [SessionRecord] {
         var sql = """
-        SELECT id, project_id, worktree_id, workspace_path, agent_kind, command, created_at, last_state
+        SELECT id, project_id, worktree_id, workspace_path, agent_kind, command, created_at, last_state, last_tail
         FROM sessions
         """
         if let clause { sql += " WHERE \(clause)" }
@@ -194,6 +205,7 @@ actor SessionStore {
         else { return nil }
         let command = sqlite3_column_text(stmt, 5).map { String(cString: $0) }
         let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 6))
+        let lastTail = sqlite3_column_text(stmt, 8).map { String(cString: $0) }
         return SessionRecord(
             id: id,
             projectID: projectID,
@@ -202,7 +214,8 @@ actor SessionStore {
             agentKind: agentKind,
             command: command,
             createdAt: createdAt,
-            lastState: lastState
+            lastState: lastState,
+            lastTail: lastTail
         )
     }
 

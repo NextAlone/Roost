@@ -9,6 +9,7 @@ public struct SessionRecord: Sendable, Codable, Hashable {
     public let command: String?
     public let createdAt: Date
     public let lastState: SessionLifecycleState
+    public let lastTail: String?
 
     public init(
         id: UUID,
@@ -18,7 +19,8 @@ public struct SessionRecord: Sendable, Codable, Hashable {
         agentKind: AgentKind,
         command: String?,
         createdAt: Date,
-        lastState: SessionLifecycleState
+        lastState: SessionLifecycleState,
+        lastTail: String? = nil
     ) {
         self.id = id
         self.projectID = projectID
@@ -28,5 +30,6 @@ public struct SessionRecord: Sendable, Codable, Hashable {
         self.command = command
         self.createdAt = createdAt
         self.lastState = lastState
+        self.lastTail = lastTail
     }
 }

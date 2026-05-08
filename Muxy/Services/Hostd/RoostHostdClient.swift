@@ -14,6 +14,7 @@ protocol RoostHostdClient: Sendable {
     func terminateSession(id: UUID) async throws
     func interruptSession(id: UUID) async throws
     func waitForSessionExit(id: UUID, timeoutMs: Int) async throws -> HostdWaitForSessionExitResponse
+    func sendTmuxKeys(id: UUID, keys: [String]) async throws
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data
     func readSessionOutputStream(
         id: UUID,
@@ -90,6 +91,11 @@ extension RoostHostdClient {
 
     func waitForSessionExit(id: UUID, timeoutMs: Int) async throws -> HostdWaitForSessionExitResponse {
         let error = await unsupportedRuntimeControl("wait for exit")
+        throw error
+    }
+
+    func sendTmuxKeys(id: UUID, keys: [String]) async throws {
+        let error = await unsupportedRuntimeControl("send tmux keys")
         throw error
     }
 

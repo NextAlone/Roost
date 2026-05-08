@@ -21,6 +21,7 @@ protocol HostdXPCTransport: Sendable {
     func sendSessionSignal(_ request: Data) async throws -> Data
     func interruptSession(_ request: Data) async throws -> Data
     func waitForSessionExit(_ request: Data) async throws -> Data
+    func sendTmuxKeys(_ request: Data) async throws -> Data
 }
 
 enum XPCHostdClientError: Error, LocalizedError {
@@ -154,6 +155,12 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
     func waitForSessionExit(_ request: Data) async throws -> Data {
         try await call { proxy, reply in
             proxy.waitForSessionExit(request, reply: reply)
+        }
+    }
+
+    func sendTmuxKeys(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.sendTmuxKeys(request, reply: reply)
         }
     }
 
@@ -321,6 +328,14 @@ struct XPCHostdClient: RoostHostdClient {
             try await transport.waitForSessionExit(request)
         }
         return try HostdXPCCodec.decodeReply(HostdWaitForSessionExitResponse.self, from: response)
+    }
+
+    func sendTmuxKeys(id: UUID, keys: [String]) async throws {
+        let request = try HostdXPCCodec.encode(HostdSendTmuxKeysRequest(id: id, keys: keys))
+        let response = try await withRequestTimeout("send tmux keys") {
+            try await transport.sendTmuxKeys(request)
+        }
+        try HostdXPCCodec.decodeEmptyReply(from: response)
     }
 
     func markExited(sessionID: UUID) async throws {

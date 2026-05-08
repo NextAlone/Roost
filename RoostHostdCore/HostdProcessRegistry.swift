@@ -295,6 +295,16 @@ public actor HostdProcessRegistry {
         try await tmux.sendKeys(sessionName: HostdTmuxSessionName.name(for: id), keys: "C-c")
     }
 
+    public func sendTmuxKeys(id: UUID, keys: [String]) async throws {
+        guard let record = try await storedRecord(id: id), record.agentKind != .terminal else {
+            throw HostdProcessRegistryError.sessionNotFound(id)
+        }
+        let sessionName = HostdTmuxSessionName.name(for: id)
+        for key in keys {
+            try await tmux.sendKeys(sessionName: sessionName, keys: key)
+        }
+    }
+
     public func waitForSessionExit(
         id: UUID,
         timeoutMs: Int

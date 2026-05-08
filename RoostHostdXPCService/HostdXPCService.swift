@@ -330,6 +330,18 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
         rejectRuntimeControl("wait for exit", request: request, as: HostdWaitForSessionExitRequest.self, reply: reply)
     }
 
+    func sendTmuxKeys(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdSendTmuxKeysRequest.self, from: request)
+                try await registry.sendTmuxKeys(id: request.id, keys: request.keys)
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
+        rejectRuntimeControl("send tmux keys", request: request, as: HostdSendTmuxKeysRequest.self, reply: reply)
+    }
+
     private func respond(
         _ reply: @escaping @Sendable (Data) -> Void,
         _ work: @escaping @Sendable (RoostHostd) async throws -> Data

@@ -86,6 +86,10 @@ final class HostdSocketTransport: HostdXPCTransport, @unchecked Sendable {
         try await call(.waitForSessionExit, payload: request)
     }
 
+    func sendTmuxKeys(_ request: Data) async throws -> Data {
+        try await call(.sendTmuxKeys, payload: request)
+    }
+
     private func call(_ operation: HostdAttachSocketOperation, payload: Data = Data()) async throws -> Data {
         try await Task.detached { [socketPath] in
             let fd = try HostdSocketIO.connect(path: socketPath)

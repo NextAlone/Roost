@@ -170,6 +170,12 @@ struct XPCHostdClientTests {
             return try HostdXPCCodec.success(HostdWaitForSessionExitResponse(lastTail: nil, didTimeout: true))
         }
 
+        func sendTmuxKeys(_ data: Data) async throws -> Data {
+            let request = try HostdXPCCodec.decode(HostdSendTmuxKeysRequest.self, from: data)
+            controlIDs["sendTmuxKeys"] = request.id
+            return try HostdXPCCodec.success()
+        }
+
         func recordedControlIDs() -> [String: UUID] {
             controlIDs
         }
@@ -212,6 +218,7 @@ struct XPCHostdClientTests {
         func sendSessionSignal(_ request: Data) async throws -> Data { throw Failure() }
         func interruptSession(_ request: Data) async throws -> Data { throw Failure() }
         func waitForSessionExit(_ request: Data) async throws -> Data { throw Failure() }
+        func sendTmuxKeys(_ request: Data) async throws -> Data { throw Failure() }
     }
 
     private struct HangingTransport: HostdXPCTransport {
@@ -233,6 +240,7 @@ struct XPCHostdClientTests {
         func sendSessionSignal(_ request: Data) async throws -> Data { try await never() }
         func interruptSession(_ request: Data) async throws -> Data { try await never() }
         func waitForSessionExit(_ request: Data) async throws -> Data { try await never() }
+        func sendTmuxKeys(_ request: Data) async throws -> Data { try await never() }
 
         private func never() async throws -> Data {
             try await Task.sleep(nanoseconds: 10_000_000_000)

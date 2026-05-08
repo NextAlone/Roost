@@ -70,4 +70,11 @@ public extension AgentKind {
         case .geminiCli, .openCode, .terminal: .notSupported
         }
     }
+
+    var gracefulExitInput: [String]? {
+        switch self {
+        case .claudeCode: ["/exit", "Enter"]
+        case .codex, .geminiCli, .openCode, .terminal: nil
+        }
+    }
 }

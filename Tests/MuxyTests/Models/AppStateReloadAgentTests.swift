@@ -46,6 +46,17 @@ struct AppStateReloadAgentTests {
         #expect(pane.startupCommand?.contains("--resume abc-123") == true)
     }
 
+    @Test("resume reload sends graceful exit keys for claude")
+    func resumeReloadSendsGracefulExitKeys() async throws {
+        let rig = AppStateTestRig()
+        rig.ownership = .hostdOwnedProcess
+        let app = rig.makeAppState()
+        let pane = await rig.makeAgentPane(kind: .claudeCode, app: app)
+        await app.reloadAgent(paneID: pane.id, mode: .resume)
+        let claudeExitCalls = rig.sendTmuxKeysCalls.filter { $0.0 == pane.id && $0.1 == ["/exit", "Enter"] }
+        #expect(claudeExitCalls.count == 1)
+    }
+
     @Test("concurrent reload is dropped")
     func concurrentReloadIsDropped() async throws {
         let rig = AppStateTestRig()

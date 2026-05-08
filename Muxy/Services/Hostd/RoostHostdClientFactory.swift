@@ -78,6 +78,10 @@ private struct RuntimeHintHostdClient: RoostHostdClient {
         try await client.waitForSessionExit(id: id, timeoutMs: timeoutMs)
     }
 
+    func sendTmuxKeys(id: UUID, keys: [String]) async throws {
+        try await client.sendTmuxKeys(id: id, keys: keys)
+    }
+
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data {
         try await client.readSessionOutput(id: id, timeout: timeout)
     }

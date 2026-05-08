@@ -421,7 +421,10 @@ final class AppState {
             }
             if capturedTail == nil {
                 logger.notice("reloadAgent INTERRUPTING paneID=\(paneID, privacy: .public)")
-                capturedTail = await runReloadInterrupt(sessionID: paneID)
+                capturedTail = await runReloadInterrupt(
+                    sessionID: paneID,
+                    gracefulExitInput: initialPane.agentKind.gracefulExitInput
+                )
             }
         }
 
@@ -505,9 +508,14 @@ final class AppState {
         }
     }
 
-    private func runReloadInterrupt(sessionID: UUID) async -> String? {
+    private func runReloadInterrupt(sessionID: UUID, gracefulExitInput: [String]?) async -> String? {
         guard let client = hostdClient else { return nil }
 
+        if let keys = gracefulExitInput {
+            if let tail = await waitOrSendKeys(client: client, sessionID: sessionID, keys: keys, timeoutMs: 5000) {
+                return tail
+            }
+        }
         if let tail = await waitOrInterrupt(client: client, sessionID: sessionID, timeoutMs: 3000) {
             return tail
         }
@@ -524,6 +532,27 @@ final class AppState {
             if !response.didTimeout { return response.lastTail }
         } catch {
             logger.warning("waitForSessionExit (post-kill) failed: \(error.localizedDescription, privacy: .public)")
+        }
+        return nil
+    }
+
+    private func waitOrSendKeys(
+        client: any RoostHostdClient,
+        sessionID: UUID,
+        keys: [String],
+        timeoutMs: Int
+    ) async -> String? {
+        do {
+            try await client.sendTmuxKeys(id: sessionID, keys: keys)
+        } catch {
+            logger.warning("sendTmuxKeys failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        do {
+            let response = try await client.waitForSessionExit(id: sessionID, timeoutMs: timeoutMs)
+            if !response.didTimeout { return response.lastTail }
+        } catch {
+            logger.warning("waitForSessionExit after sendTmuxKeys failed: \(error.localizedDescription, privacy: .public)")
         }
         return nil
     }

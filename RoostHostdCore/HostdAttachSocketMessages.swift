@@ -21,6 +21,7 @@ public enum HostdAttachSocketOperation: String, Sendable, Codable, Equatable {
     case sendSessionSignal
     case interruptSession
     case waitForSessionExit
+    case sendTmuxKeys
 }
 
 public struct HostdInterruptSessionRequest: Sendable, Codable, Equatable {
@@ -28,6 +29,16 @@ public struct HostdInterruptSessionRequest: Sendable, Codable, Equatable {
 
     public init(id: UUID) {
         self.id = id
+    }
+}
+
+public struct HostdSendTmuxKeysRequest: Sendable, Codable, Equatable {
+    public let id: UUID
+    public let keys: [String]
+
+    public init(id: UUID, keys: [String]) {
+        self.id = id
+        self.keys = keys
     }
 }
 
@@ -70,7 +81,7 @@ public struct HostdAttachSocketResponse: Sendable, Codable, Equatable {
 }
 
 public struct HostdDaemonRuntimeIdentity: Sendable, Codable, Equatable {
-    public static let currentProtocolVersion = 9
+    public static let currentProtocolVersion = 10
 
     public let protocolVersion: Int
 

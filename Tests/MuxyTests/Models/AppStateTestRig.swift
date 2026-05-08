@@ -8,6 +8,7 @@ import RoostHostdCore
 final class AppStateTestRig {
     var terminateCalls: [UUID] = []
     var interruptCalls: [UUID] = []
+    var sendTmuxKeysCalls: [(UUID, [String])] = []
     var removeViewCalls: [UUID] = []
     var createCalls: [(sessionID: UUID, projectID: UUID, worktreeID: UUID, command: String?, agentKind: AgentKind)] = []
     var markExitedCalls: [UUID] = []
@@ -137,6 +138,10 @@ final class AppStateTestRigHostdClient: RoostHostdClient, @unchecked Sendable {
             try? await Task.sleep(nanoseconds: delay)
         }
         await MainActor.run { rig?.interruptCalls.append(id) }
+    }
+
+    func sendTmuxKeys(id: UUID, keys: [String]) async throws {
+        await MainActor.run { rig?.sendTmuxKeysCalls.append((id, keys)) }
     }
 
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data {

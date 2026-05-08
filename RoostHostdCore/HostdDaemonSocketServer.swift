@@ -114,6 +114,10 @@ public final class HostdDaemonSocketServer: @unchecked Sendable {
             let request = try HostdXPCCodec.decode(HostdWaitForSessionExitRequest.self, from: request.payload)
             let response = await registry.waitForSessionExit(id: request.id, timeoutMs: request.timeoutMs)
             payload = try HostdXPCCodec.success(response)
+        case .sendTmuxKeys:
+            let request = try HostdXPCCodec.decode(HostdSendTmuxKeysRequest.self, from: request.payload)
+            try await registry.sendTmuxKeys(id: request.id, keys: request.keys)
+            payload = try HostdXPCCodec.success()
         }
         return HostdAttachSocketResponse(payload: payload)
     }

@@ -12,6 +12,7 @@ protocol RoostHostdClient: Sendable {
     func attachSession(id: UUID) async throws -> HostdAttachSessionResponse
     func releaseSession(id: UUID) async throws
     func terminateSession(id: UUID) async throws
+    func interruptSession(id: UUID) async throws
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data
     func readSessionOutputStream(
         id: UUID,
@@ -78,6 +79,11 @@ extension RoostHostdClient {
 
     func terminateSession(id: UUID) async throws {
         let error = await unsupportedRuntimeControl("terminate")
+        throw error
+    }
+
+    func interruptSession(id: UUID) async throws {
+        let error = await unsupportedRuntimeControl("interrupt")
         throw error
     }
 

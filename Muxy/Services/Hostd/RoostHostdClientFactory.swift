@@ -70,6 +70,10 @@ private struct RuntimeHintHostdClient: RoostHostdClient {
         try await client.terminateSession(id: id)
     }
 
+    func interruptSession(id: UUID) async throws {
+        try await client.interruptSession(id: id)
+    }
+
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data {
         try await client.readSessionOutput(id: id, timeout: timeout)
     }

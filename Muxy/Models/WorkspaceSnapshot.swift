@@ -114,6 +114,7 @@ struct TerminalTabSnapshot: Codable {
     let hostdRuntimeOwnership: HostdRuntimeOwnership
     let createdAt: Date
     let activityState: AgentActivityState?
+    let sessionID: UUID?
 
     init(
         paneID: UUID? = nil,
@@ -129,7 +130,8 @@ struct TerminalTabSnapshot: Codable {
         startupCommand: String? = nil,
         hostdRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly,
         createdAt: Date = Date(),
-        activityState: AgentActivityState? = nil
+        activityState: AgentActivityState? = nil,
+        sessionID: UUID? = nil
     ) {
         self.paneID = paneID
         self.kind = kind
@@ -145,6 +147,7 @@ struct TerminalTabSnapshot: Codable {
         self.hostdRuntimeOwnership = hostdRuntimeOwnership
         self.createdAt = createdAt
         self.activityState = activityState
+        self.sessionID = sessionID
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -162,6 +165,7 @@ struct TerminalTabSnapshot: Codable {
         case hostdRuntimeOwnership
         case createdAt
         case activityState
+        case sessionID
     }
 
     init(from decoder: Decoder) throws {
@@ -181,6 +185,7 @@ struct TerminalTabSnapshot: Codable {
             .decodeIfPresent(HostdRuntimeOwnership.self, forKey: .hostdRuntimeOwnership) ?? .appOwnedMetadataOnly
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         activityState = try container.decodeIfPresent(AgentActivityState.self, forKey: .activityState)
+        sessionID = try container.decodeIfPresent(UUID.self, forKey: .sessionID)
     }
 }
 

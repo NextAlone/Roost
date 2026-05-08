@@ -411,4 +411,53 @@ struct WorkspaceSnapshotTests {
         #expect(decoded.hostdRuntimeOwnership == .hostdOwnedProcess)
         #expect(decoded.createdAt == original.createdAt)
     }
+
+    @Test("tab sessionID survives encode/decode")
+    func tabSessionIDSurvivesEncodeDecode() throws {
+        let id = UUID()
+        let snapshot = TerminalTabSnapshot(
+            kind: .terminal,
+            customTitle: nil,
+            colorID: nil,
+            isPinned: false,
+            projectPath: testPath,
+            paneTitle: "Shell",
+            sessionID: id
+        )
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(TerminalTabSnapshot.self, from: data)
+        #expect(decoded.sessionID == id)
+    }
+
+    @Test("missing sessionID decodes as nil")
+    func missingSessionIDDecodesAsNil() throws {
+        let json = """
+        {
+            "kind": "terminal",
+            "isPinned": false,
+            "projectPath": "\(testPath)",
+            "paneTitle": "Shell"
+        }
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(TerminalTabSnapshot.self, from: json)
+        #expect(decoded.sessionID == nil)
+    }
+
+    @Test("restored terminal tab preserves sessionID")
+    func restoredTerminalTabPreservesSessionID() throws {
+        let sessionID = UUID()
+        let snapshot = TerminalTabSnapshot(
+            kind: .terminal,
+            customTitle: nil,
+            colorID: nil,
+            isPinned: false,
+            projectPath: testPath,
+            paneTitle: "Codex",
+            agentKind: .codex,
+            startupCommand: "codex",
+            sessionID: sessionID
+        )
+        let tab = TerminalTab(restoring: snapshot)
+        #expect(tab.content.pane?.sessionID == sessionID)
+    }
 }

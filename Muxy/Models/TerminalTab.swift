@@ -108,6 +108,7 @@ final class TerminalTab: Identifiable {
         case .terminal:
             let pane = TerminalPaneState(
                 id: snapshot.paneID ?? UUID(),
+                sessionID: snapshot.sessionID ?? UUID(),
                 projectPath: snapshot.projectPath,
                 title: snapshot.paneTitle,
                 initialWorkingDirectory: snapshot.currentWorkingDirectory,
@@ -159,7 +160,8 @@ final class TerminalTab: Identifiable {
             startupCommand: content.pane?.startupCommand,
             hostdRuntimeOwnership: content.pane?.hostdRuntimeOwnership ?? .appOwnedMetadataOnly,
             createdAt: content.pane?.createdAt ?? Date(),
-            activityState: content.pane?.activityState
+            activityState: content.pane?.activityState,
+            sessionID: content.pane?.sessionID
         )
     }
 }

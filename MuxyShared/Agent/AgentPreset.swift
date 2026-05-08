@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 public struct AgentPreset: Sendable, Hashable {
     public let kind: AgentKind
@@ -67,6 +68,28 @@ public enum AgentPresetCatalog {
                 defaultCommand: "opencode",
                 env: ["OPENCODE_PERMISSION": "{\"*\":\"allow\"}"]
             )
+        }
+    }
+}
+
+public extension AgentPreset {
+    private nonisolated(unsafe) static let regexCache = NSCache<NSString, NSRegularExpression>()
+    private static let logger = Logger(subsystem: "Roost", category: "AgentPreset")
+
+    func compiledResumeRegex() -> NSRegularExpression? {
+        let pattern = resumeCommandRegex ?? kind.defaultResumeRegex
+        guard let pattern else { return nil }
+        let key = pattern as NSString
+        if let cached = Self.regexCache.object(forKey: key) {
+            return cached
+        }
+        do {
+            let regex = try NSRegularExpression(pattern: pattern)
+            Self.regexCache.setObject(regex, forKey: key)
+            return regex
+        } catch {
+            Self.logger.error("Invalid resumeCommandRegex \(pattern, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
         }
     }
 }

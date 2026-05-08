@@ -5,17 +5,20 @@ public struct AgentPreset: Sendable, Hashable {
     public let defaultCommand: String?
     public let env: [String: String]
     public let requiresDedicatedWorkspace: Bool
+    public let resumeCommandRegex: String?
 
     public init(
         kind: AgentKind,
         defaultCommand: String?,
         env: [String: String] = [:],
-        requiresDedicatedWorkspace: Bool = false
+        requiresDedicatedWorkspace: Bool = false,
+        resumeCommandRegex: String? = nil
     ) {
         self.kind = kind
         self.defaultCommand = defaultCommand
         self.env = env
         self.requiresDedicatedWorkspace = requiresDedicatedWorkspace
+        self.resumeCommandRegex = resumeCommandRegex
     }
 }
 
@@ -34,7 +37,8 @@ public enum AgentPresetCatalog {
                 kind: kind,
                 defaultCommand: override.command,
                 env: env.merging(override.env) { _, override in override },
-                requiresDedicatedWorkspace: override.cardinality == .dedicated
+                requiresDedicatedWorkspace: override.cardinality == .dedicated,
+                resumeCommandRegex: override.resumeCommandRegex
             )
         }
         let preset = builtIn(for: kind)
@@ -42,7 +46,8 @@ public enum AgentPresetCatalog {
             kind: preset.kind,
             defaultCommand: preset.defaultCommand,
             env: preset.env.merging(env) { _, override in override },
-            requiresDedicatedWorkspace: preset.requiresDedicatedWorkspace
+            requiresDedicatedWorkspace: preset.requiresDedicatedWorkspace,
+            resumeCommandRegex: preset.resumeCommandRegex
         )
     }
 

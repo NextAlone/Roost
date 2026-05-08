@@ -43,7 +43,7 @@ final class TabArea: Identifiable {
     }
 
     func snapshot() -> TabAreaSnapshot {
-        let persistedTabs = tabs.filter { $0.kind != .diffViewer }
+        let persistedTabs = tabs.filter { $0.kind != .diffViewer && $0.kind != .jjDiffViewer }
         let activeIndex = persistedTabs.firstIndex(where: { $0.id == activeTabID })
         return TabAreaSnapshot(
             id: id,

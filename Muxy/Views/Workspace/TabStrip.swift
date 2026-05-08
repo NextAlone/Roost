@@ -658,7 +658,7 @@ private struct TabCell: View {
         } else if tab.kind == .editor {
             Image(systemName: "pencil.line")
                 .font(.system(size: 12, weight: .semibold))
-        } else if tab.kind == .diffViewer {
+        } else if tab.kind == .diffViewer || tab.kind == .jjDiffViewer {
             Image(systemName: "rectangle.split.2x1")
                 .font(.system(size: 11, weight: .semibold))
         } else if let state = tab.agentActivityStateForIcon {

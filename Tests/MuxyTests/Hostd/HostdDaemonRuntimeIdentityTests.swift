@@ -5,6 +5,6 @@ import Testing
 struct HostdDaemonRuntimeIdentityTests {
     @Test("protocol version advances for tmux-backed agent sessions")
     func protocolVersionAdvancesForTmuxBackedAgentSessions() {
-        #expect(HostdDaemonRuntimeIdentity.currentProtocolVersion == 7)
+        #expect(HostdDaemonRuntimeIdentity.currentProtocolVersion == 8)
     }
 }

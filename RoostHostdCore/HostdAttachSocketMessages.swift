@@ -40,7 +40,7 @@ public struct HostdAttachSocketResponse: Sendable, Codable, Equatable {
 }
 
 public struct HostdDaemonRuntimeIdentity: Sendable, Codable, Equatable {
-    public static let currentProtocolVersion = 7
+    public static let currentProtocolVersion = 8
 
     public let protocolVersion: Int
 
@@ -50,6 +50,27 @@ public struct HostdDaemonRuntimeIdentity: Sendable, Codable, Equatable {
 
     public var isCompatible: Bool {
         protocolVersion == Self.currentProtocolVersion
+    }
+}
+
+public struct HostdSessionExitNotice: Sendable, Codable, Equatable {
+    public let id: UUID
+    public let lastTail: String?
+
+    public init(id: UUID, lastTail: String? = nil) {
+        self.id = id
+        self.lastTail = lastTail
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case lastTail
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        lastTail = try container.decodeIfPresent(String.self, forKey: .lastTail)
     }
 }
 

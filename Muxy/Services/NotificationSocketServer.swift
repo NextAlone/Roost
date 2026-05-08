@@ -184,10 +184,6 @@ final class NotificationSocketServer: @unchecked Sendable {
               let fallback = findFirstPaneContext(key: key, appState: appState)
         else { return }
 
-        if let state = activityEvent.activityState {
-            appState.updateAgentActivity(paneID: fallback.paneID, state: state, sourceType: activityEvent.sourceType)
-        }
-
         NotificationStore.shared.addWithContext(
             context: fallback.context,
             source: source,

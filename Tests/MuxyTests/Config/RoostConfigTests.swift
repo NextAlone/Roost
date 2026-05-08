@@ -146,6 +146,29 @@ struct RoostConfigTests {
         #expect(config.agentPresets.first?.kind == .codex)
     }
 
+    @Test
+    func decodesResumeCommandRegex() throws {
+        let json = """
+        {
+            "name": "Custom Claude",
+            "kind": "claudeCode",
+            "command": "claude --foo",
+            "resumeCommandRegex": "(?m)^claude --continue$"
+        }
+        """.data(using: .utf8)!
+        let preset = try JSONDecoder().decode(RoostConfigAgentPreset.self, from: json)
+        #expect(preset.resumeCommandRegex == "(?m)^claude --continue$")
+    }
+
+    @Test
+    func resumeCommandRegexIsOptional() throws {
+        let json = """
+        { "name": "X", "kind": "claudeCode", "command": "claude" }
+        """.data(using: .utf8)!
+        let preset = try JSONDecoder().decode(RoostConfigAgentPreset.self, from: json)
+        #expect(preset.resumeCommandRegex == nil)
+    }
+
     @Test("legacy fields don't break decode")
     func legacyFieldsTolerated() throws {
         let json = """

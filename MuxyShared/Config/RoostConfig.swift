@@ -178,6 +178,7 @@ public struct RoostConfigAgentPreset: Sendable, Codable, Hashable {
     public let env: [String: String]
     public let keychainEnv: [String: RoostConfigKeychainEnv]
     public let cardinality: RoostConfigCardinality
+    public let resumeCommandRegex: String?
 
     public init(
         name: String,
@@ -185,7 +186,8 @@ public struct RoostConfigAgentPreset: Sendable, Codable, Hashable {
         command: String?,
         env: [String: String] = [:],
         keychainEnv: [String: RoostConfigKeychainEnv] = [:],
-        cardinality: RoostConfigCardinality = .shared
+        cardinality: RoostConfigCardinality = .shared,
+        resumeCommandRegex: String? = nil
     ) {
         self.name = name
         self.kind = kind
@@ -193,6 +195,7 @@ public struct RoostConfigAgentPreset: Sendable, Codable, Hashable {
         self.env = env
         self.keychainEnv = keychainEnv
         self.cardinality = cardinality
+        self.resumeCommandRegex = resumeCommandRegex
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -201,6 +204,7 @@ public struct RoostConfigAgentPreset: Sendable, Codable, Hashable {
         case command
         case env
         case cardinality
+        case resumeCommandRegex
     }
 
     public init(from decoder: Decoder) throws {
@@ -212,6 +216,7 @@ public struct RoostConfigAgentPreset: Sendable, Codable, Hashable {
         env = decodedEnv.plain
         keychainEnv = decodedEnv.keychain
         cardinality = (try? container.decodeIfPresent(RoostConfigCardinality.self, forKey: .cardinality)) ?? .shared
+        resumeCommandRegex = try container.decodeIfPresent(String.self, forKey: .resumeCommandRegex)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -221,6 +226,7 @@ public struct RoostConfigAgentPreset: Sendable, Codable, Hashable {
         try container.encodeIfPresent(command, forKey: .command)
         try container.encode(EncodedEnv(plain: env, keychain: keychainEnv), forKey: .env)
         try container.encode(cardinality, forKey: .cardinality)
+        try container.encodeIfPresent(resumeCommandRegex, forKey: .resumeCommandRegex)
     }
 }
 
@@ -233,6 +239,7 @@ private struct RoostConfigAgentPresetTolerant: Decodable {
         case command
         case env
         case cardinality
+        case resumeCommandRegex
     }
 
     init(from decoder: Decoder) throws {
@@ -247,13 +254,15 @@ private struct RoostConfigAgentPresetTolerant: Decodable {
         let command = try container.decodeIfPresent(String.self, forKey: .command)
         let decodedEnv = RoostConfigEnv.decode(container, forKey: .env)
         let cardinality = (try? container.decodeIfPresent(RoostConfigCardinality.self, forKey: .cardinality)) ?? .shared
+        let resumeCommandRegex = try container.decodeIfPresent(String.self, forKey: .resumeCommandRegex)
         preset = RoostConfigAgentPreset(
             name: name,
             kind: kind,
             command: command,
             env: decodedEnv.plain,
             keychainEnv: decodedEnv.keychain,
-            cardinality: cardinality
+            cardinality: cardinality,
+            resumeCommandRegex: resumeCommandRegex
         )
     }
 }

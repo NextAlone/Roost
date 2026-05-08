@@ -68,6 +68,22 @@ struct ContentHostLayer: View {
             .allowsHitTesting(d.isVisible)
             .zIndex(d.isVisible ? 1 : 0)
             .id(d.tabID)
+        case let .jjDiff(d):
+            JjDiffViewerPane(
+                state: d.state,
+                focused: d.isFocused,
+                onFocus: { dispatchFocus(areaID: d.areaID) }
+            )
+            .overlay {
+                InactiveWindowClickView(action: { dispatchFocus(areaID: d.areaID) })
+                    .accessibilityHidden(true)
+            }
+            .frame(width: d.contentRect.width, height: d.contentRect.height)
+            .offset(x: d.contentRect.minX, y: d.contentRect.minY)
+            .opacity(d.isVisible ? 1 : 0)
+            .allowsHitTesting(d.isVisible)
+            .zIndex(d.isVisible ? 1 : 0)
+            .id(d.tabID)
         }
     }
 
@@ -75,12 +91,14 @@ struct ContentHostLayer: View {
         case terminal(TerminalEntry)
         case editor(EditorEntry)
         case diff(DiffEntry)
+        case jjDiff(JjDiffEntry)
 
         var id: UUID {
             switch self {
             case let .terminal(t): t.tabID
             case let .editor(e): e.tabID
             case let .diff(d): d.tabID
+            case let .jjDiff(d): d.tabID
             }
         }
     }
@@ -109,6 +127,15 @@ struct ContentHostLayer: View {
         let tabID: UUID
         let areaID: UUID
         let state: DiffViewerTabState
+        let contentRect: CGRect
+        let isVisible: Bool
+        let isFocused: Bool
+    }
+
+    private struct JjDiffEntry {
+        let tabID: UUID
+        let areaID: UUID
+        let state: JjDiffViewerTabState
         let contentRect: CGRect
         let isVisible: Bool
         let isFocused: Bool
@@ -151,6 +178,15 @@ struct ContentHostLayer: View {
                     ))]
                 case let .diffViewer(state):
                     return [.diff(DiffEntry(
+                        tabID: tab.id,
+                        areaID: area.id,
+                        state: state,
+                        contentRect: tabContentRect,
+                        isVisible: isActiveTab,
+                        isFocused: isFocused
+                    ))]
+                case let .jjDiffViewer(state):
+                    return [.jjDiff(JjDiffEntry(
                         tabID: tab.id,
                         areaID: area.id,
                         state: state,

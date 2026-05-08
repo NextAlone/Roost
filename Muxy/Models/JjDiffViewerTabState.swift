@@ -7,10 +7,10 @@ final class JjDiffViewerTabState: Identifiable {
     let repoPath: String
     let revset: String
     let filePath: String
+    let projectPath: String
     let diffCache = DiffCache()
     var mode: VCSTabState.ViewMode = .unified
 
-    var projectPath: String { repoPath }
     var displayTitle: String { (filePath as NSString).lastPathComponent }
 
     private let diffService: JjDiffService
@@ -24,6 +24,7 @@ final class JjDiffViewerTabState: Identifiable {
         self.repoPath = repoPath
         self.revset = revset
         self.filePath = filePath
+        projectPath = repoPath
         self.diffService = diffService
         load(forceFull: false)
     }

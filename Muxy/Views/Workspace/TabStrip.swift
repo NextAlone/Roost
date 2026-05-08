@@ -639,6 +639,7 @@ private struct TabCell: View {
         case .vcs: label += ", Source Control"
         case .editor: label += ", Editor"
         case .diffViewer: label += ", Diff Viewer"
+        case .jjDiffViewer: label += ", Diff Viewer"
         }
         if tab.isPinned { label += ", Pinned" }
         if hasUnread { label += ", Unread" }

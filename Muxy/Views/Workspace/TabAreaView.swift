@@ -245,6 +245,8 @@ private struct TabContentView: View {
                 }
         case .diffViewer:
             Color.clear.allowsHitTesting(false)
+        case .jjDiffViewer:
+            Color.clear.allowsHitTesting(false)
         }
     }
 }

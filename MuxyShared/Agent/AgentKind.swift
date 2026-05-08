@@ -41,22 +41,19 @@ public enum AgentKind: String, Sendable, Codable, Hashable, CaseIterable {
 public extension AgentKind {
     var defaultResumeRegex: String? {
         switch self {
-        case .claudeCode:
-            return #"(?m)^\s*claude\s+--resume\s+\S+.*$"#
-        case .codex:
-            return #"(?m)^\s*codex\s+resume\s+\S+.*$"#
-        case .geminiCli, .openCode, .terminal:
-            return nil
+        case .claudeCode: #"(?m)^\s*claude\s+--resume\s+\S+.*$"#
+        case .codex: #"(?m)^\s*codex\s+resume\s+\S+.*$"#
+        case .geminiCli, .openCode, .terminal: nil
         }
     }
 
     var expectedBinaryName: String? {
         switch self {
-        case .claudeCode: return "claude"
-        case .codex:      return "codex"
-        case .geminiCli:  return "gemini"
-        case .openCode:   return "opencode"
-        case .terminal:   return nil
+        case .claudeCode: "claude"
+        case .codex: "codex"
+        case .geminiCli: "gemini"
+        case .openCode: "opencode"
+        case .terminal: nil
         }
     }
 }

@@ -23,7 +23,7 @@ struct AgentKindResumeTests {
     }
 
     @Test
-    func geminiAndOpenCodeReturnNil() {
+    func agentsWithoutResumeReturnNil() {
         #expect(AgentKind.geminiCli.defaultResumeRegex == nil)
         #expect(AgentKind.openCode.defaultResumeRegex == nil)
         #expect(AgentKind.terminal.defaultResumeRegex == nil)

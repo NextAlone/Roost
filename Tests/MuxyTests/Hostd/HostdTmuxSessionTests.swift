@@ -173,6 +173,9 @@ struct HostdTmuxSessionTests {
             ";", "set-option",
             "-t", "roost-00000000-0000-0000-0000-000000000123",
             "prefix2", "None",
+            ";", "set-option",
+            "-t", "roost-00000000-0000-0000-0000-000000000123",
+            "remain-on-exit", "on",
             ";", "bind-key",
             "-T", "root",
             "WheelUpPane",
@@ -206,6 +209,32 @@ struct HostdTmuxSessionTests {
             "WheelDownPane",
             "send-keys", "-X", "-N", "1", "scroll-down",
         ])
+    }
+
+    @Test("launch arguments include remain-on-exit on")
+    func launchArgumentsIncludeRemainOnExit() {
+        let args = HostdTmuxController.launchArguments(
+            sessionName: "roost-X",
+            workspacePath: "/tmp",
+            command: "/bin/true",
+            environment: [:]
+        )
+        var found = false
+        var index = 0
+        while index + 5 < args.count {
+            if args[index] == ";"
+                && args[index + 1] == "set-option"
+                && args[index + 2] == "-t"
+                && args[index + 3] == "roost-X"
+                && args[index + 4] == "remain-on-exit"
+                && args[index + 5] == "on"
+            {
+                found = true
+                break
+            }
+            index += 1
+        }
+        #expect(found)
     }
 
     private func makeTempStoreURL() -> URL {

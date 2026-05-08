@@ -187,6 +187,7 @@ public struct HostdTmuxController: HostdTmuxControlling {
             ";", "set-option", "-t", sessionName, "status", "off",
             ";", "set-option", "-t", sessionName, "prefix", "None",
             ";", "set-option", "-t", sessionName, "prefix2", "None",
+            ";", "set-option", "-t", sessionName, "remain-on-exit", "on",
             ";", "bind-key", "-T", "root", "WheelUpPane", rootWheelUpBinding,
             ";", "bind-key", "-T", "copy-mode", "Enter",
             "if-shell", "-F", "#{selection_present}",

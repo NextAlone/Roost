@@ -7,7 +7,7 @@ import Testing
 @MainActor
 @Suite("AppState.reloadAgent")
 struct AppStateReloadAgentTests {
-    @Test("fresh reload calls terminate then dispatches reload action")
+    @Test("fresh reload terminates by paneID and rotates view sessionID")
     func freshReloadCallsTerminateThenDispatches() async throws {
         let rig = AppStateTestRig()
         rig.ownership = .hostdOwnedProcess
@@ -15,9 +15,23 @@ struct AppStateReloadAgentTests {
         let pane = await rig.makeAgentPane(kind: .claudeCode, app: app)
         let oldSessionID = pane.sessionID
         await app.reloadAgent(paneID: pane.id, mode: .fresh)
-        #expect(rig.terminateCalls.contains(oldSessionID))
+        #expect(rig.terminateCalls.contains(pane.id))
         #expect(pane.sessionID != oldSessionID)
+        #expect(pane.sessionID != pane.id)
         #expect(pane.startupCommand == "claude --dangerously-skip-permissions")
+    }
+
+    @Test("second reload still rotates view sessionID")
+    func secondReloadRotatesViewSessionID() async throws {
+        let rig = AppStateTestRig()
+        rig.ownership = .hostdOwnedProcess
+        let app = rig.makeAppState()
+        let pane = await rig.makeAgentPane(kind: .claudeCode, app: app)
+        await app.reloadAgent(paneID: pane.id, mode: .fresh)
+        let firstSessionID = pane.sessionID
+        await app.reloadAgent(paneID: pane.id, mode: .fresh)
+        #expect(pane.sessionID != firstSessionID)
+        #expect(rig.terminateCalls.filter { $0 == pane.id }.count == 2)
     }
 
     @Test("resume reload appends resume args")

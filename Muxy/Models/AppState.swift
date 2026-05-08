@@ -408,7 +408,7 @@ final class AppState {
         var capturedTail: String? = nil
         if mode == .resume, let client = hostdClient {
             do {
-                let probe = try await client.waitForSessionExit(id: initialPane.sessionID, timeoutMs: 1000)
+                let probe = try await client.waitForSessionExit(id: paneID, timeoutMs: 1000)
                 if !probe.didTimeout {
                     capturedTail = probe.lastTail
                     let preview = (probe.lastTail ?? "").suffix(400)
@@ -421,12 +421,11 @@ final class AppState {
             }
             if capturedTail == nil {
                 logger.notice("reloadAgent INTERRUPTING paneID=\(paneID, privacy: .public)")
-                capturedTail = await runReloadInterrupt(oldSessionID: initialPane.sessionID)
+                capturedTail = await runReloadInterrupt(sessionID: paneID)
             }
         }
 
         guard let livePane = pane(forSessionID: paneID) else { return }
-        let oldSessionID = livePane.sessionID
         var captured: String? = nil
         if mode == .resume {
             if let local = livePane.capturedResumeCommand {
@@ -436,7 +435,7 @@ final class AppState {
             }
         }
         logger.notice("reloadAgent CAPTURED captured=\(captured ?? "nil", privacy: .public)")
-        let newSessionID = paneID
+        let newSessionID = UUID()
         let command = AgentReloadCommandBuilder.build(
             preset: preset,
             captured: captured,
@@ -451,7 +450,7 @@ final class AppState {
         }
 
         do {
-            try await hostdClient?.terminateSession(id: oldSessionID)
+            try await hostdClient?.terminateSession(id: paneID)
         } catch {
             logger.warning("terminateSession failed during reload: \(error.localizedDescription, privacy: .public)")
         }
@@ -489,7 +488,7 @@ final class AppState {
             logger.notice("reloadAgent CREATE_SESSION paneID=\(paneID, privacy: .public) newSessionID=\(newSessionID, privacy: .public) cmd=\(launchCommand ?? "nil", privacy: .public)")
             do {
                 try await client.createSession(HostdCreateSessionRequest(
-                    id: newSessionID,
+                    id: paneID,
                     projectID: location.projectID,
                     worktreeID: location.worktreeID,
                     workspacePath: workspacePath,
@@ -506,22 +505,22 @@ final class AppState {
         }
     }
 
-    private func runReloadInterrupt(oldSessionID: UUID) async -> String? {
+    private func runReloadInterrupt(sessionID: UUID) async -> String? {
         guard let client = hostdClient else { return nil }
 
-        if let tail = await waitOrInterrupt(client: client, sessionID: oldSessionID, timeoutMs: 3000) {
+        if let tail = await waitOrInterrupt(client: client, sessionID: sessionID, timeoutMs: 3000) {
             return tail
         }
-        if let tail = await waitOrInterrupt(client: client, sessionID: oldSessionID, timeoutMs: 3000) {
+        if let tail = await waitOrInterrupt(client: client, sessionID: sessionID, timeoutMs: 3000) {
             return tail
         }
         do {
-            try await client.terminateSession(id: oldSessionID)
+            try await client.terminateSession(id: sessionID)
         } catch {
             logger.warning("force terminateSession failed: \(error.localizedDescription, privacy: .public)")
         }
         do {
-            let response = try await client.waitForSessionExit(id: oldSessionID, timeoutMs: 3000)
+            let response = try await client.waitForSessionExit(id: sessionID, timeoutMs: 3000)
             if !response.didTimeout { return response.lastTail }
         } catch {
             logger.warning("waitForSessionExit (post-kill) failed: \(error.localizedDescription, privacy: .public)")
@@ -562,7 +561,7 @@ final class AppState {
     private static func extractResumeCommand(preset: AgentPreset, lastTail: String?) -> String? {
         guard let lastTail, let regex = preset.compiledResumeRegex() else { return nil }
         let range = NSRange(lastTail.startIndex..., in: lastTail)
-        guard let match = regex.firstMatch(in: lastTail, range: range),
+        guard let match = regex.matches(in: lastTail, range: range).last,
               let r = Range(match.range, in: lastTail)
         else { return nil }
         return String(lastTail[r]).trimmingCharacters(in: .whitespacesAndNewlines)

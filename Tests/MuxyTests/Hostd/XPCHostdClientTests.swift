@@ -164,6 +164,12 @@ struct XPCHostdClientTests {
             return try HostdXPCCodec.success()
         }
 
+        func waitForSessionExit(_ data: Data) async throws -> Data {
+            let request = try HostdXPCCodec.decode(HostdWaitForSessionExitRequest.self, from: data)
+            controlIDs["waitForExit"] = request.id
+            return try HostdXPCCodec.success(HostdWaitForSessionExitResponse(lastTail: nil, didTimeout: true))
+        }
+
         func recordedControlIDs() -> [String: UUID] {
             controlIDs
         }
@@ -205,6 +211,7 @@ struct XPCHostdClientTests {
         func resizeSession(_ request: Data) async throws -> Data { throw Failure() }
         func sendSessionSignal(_ request: Data) async throws -> Data { throw Failure() }
         func interruptSession(_ request: Data) async throws -> Data { throw Failure() }
+        func waitForSessionExit(_ request: Data) async throws -> Data { throw Failure() }
     }
 
     private struct HangingTransport: HostdXPCTransport {
@@ -225,6 +232,7 @@ struct XPCHostdClientTests {
         func resizeSession(_ request: Data) async throws -> Data { try await never() }
         func sendSessionSignal(_ request: Data) async throws -> Data { try await never() }
         func interruptSession(_ request: Data) async throws -> Data { try await never() }
+        func waitForSessionExit(_ request: Data) async throws -> Data { try await never() }
 
         private func never() async throws -> Data {
             try await Task.sleep(nanoseconds: 10_000_000_000)

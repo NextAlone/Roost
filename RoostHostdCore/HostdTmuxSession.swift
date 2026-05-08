@@ -90,14 +90,42 @@ public struct HostdTmuxController: HostdTmuxControlling {
     }
 
     public func isPaneDead(sessionName: String) async -> Bool {
-        false
+        let result = try? await run(
+            arguments: ["list-panes", "-t", sessionName, "-F", "#{pane_dead}"],
+            environment: [:]
+        )
+        return result?.output.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
     }
 
     public func captureLastTail(sessionName: String, lines: Int) async -> String? {
-        nil
+        let target = "\(sessionName):0.0"
+        let result = try? await run(
+            arguments: ["capture-pane", "-t", target, "-p", "-S", "-\(lines)", "-N", "-J"],
+            environment: [:]
+        )
+        guard let result, result.status == 0 else { return nil }
+        return Self.stripPaneDeadMarker(result.output)
     }
 
-    public func sendKeys(sessionName: String, keys: String) async throws {}
+    public func sendKeys(sessionName: String, keys: String) async throws {
+        let result = try await run(
+            arguments: ["send-keys", "-t", sessionName, keys],
+            environment: [:]
+        )
+        guard result.status == 0 else {
+            throw HostdProcessRegistryError.tmuxCommandFailed(
+                operation: "send-keys",
+                status: result.status,
+                message: result.errorMessage
+            )
+        }
+    }
+
+    static func stripPaneDeadMarker(_ output: String) -> String {
+        output.split(whereSeparator: \.isNewline)
+            .filter { !$0.contains("Pane is dead") }
+            .joined(separator: "\n")
+    }
 
     private func run(arguments: [String], environment: [String: String]) async throws -> HostdTmuxCommandResult {
         let executableName = executableName

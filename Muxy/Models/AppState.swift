@@ -74,6 +74,20 @@ final class AppState {
         case selectPreviousProject(projects: [Project], worktrees: [UUID: [Worktree]])
         case navigate(projectID: UUID, worktreeID: UUID, areaID: UUID, tabID: UUID?)
         case applyLayout(projectID: UUID, worktreePath: String, config: LayoutConfig)
+        case markPaneSessionExited(paneID: UUID, capturedResumeCommand: String?)
+        case reloadAgent(
+            paneID: UUID,
+            mode: AgentReloadMode,
+            newSessionID: UUID,
+            command: String,
+            env: [String: String],
+            cwd: URL,
+            agentBinaryPath: URL?,
+            agentBinaryMTime: Date?
+        )
+        case setBinaryUpdateDetected(paneID: UUID, value: Bool)
+        case dismissExitBanner(paneID: UUID)
+        case dismissBinaryUpdateBanner(paneID: UUID)
     }
 
     private let selectionStore: any ActiveProjectSelectionStoring
@@ -337,6 +351,26 @@ final class AppState {
             advanceAgentActivityRevision()
         }
         return true
+    }
+
+    func handleSessionExit(paneID: UUID, sessionID: UUID, lastTail: String?) {
+        guard let pane = pane(forSessionID: paneID) else { return }
+        guard pane.sessionID == sessionID else { return }
+        let preset = agentPresetForRouting(pane.agentKind)
+        let captured = Self.extractResumeCommand(preset: preset, lastTail: lastTail)
+        dispatch(.markPaneSessionExited(
+            paneID: paneID,
+            capturedResumeCommand: captured
+        ))
+    }
+
+    private static func extractResumeCommand(preset: AgentPreset, lastTail: String?) -> String? {
+        guard let lastTail, let regex = preset.compiledResumeRegex() else { return nil }
+        let range = NSRange(lastTail.startIndex..., in: lastTail)
+        guard let match = regex.firstMatch(in: lastTail, range: range),
+              let r = Range(match.range, in: lastTail)
+        else { return nil }
+        return String(lastTail[r]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func splitFocusedArea(direction: SplitDirection, projectID: UUID) {
@@ -1070,7 +1104,12 @@ final class AppState {
              .moveTab,
              .selectNextProject,
              .selectPreviousProject,
-             .applyLayout:
+             .applyLayout,
+             .markPaneSessionExited,
+             .reloadAgent,
+             .setBinaryUpdateDetected,
+             .dismissExitBanner,
+             .dismissBinaryUpdateBanner:
             return true
         }
     }

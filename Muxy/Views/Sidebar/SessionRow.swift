@@ -23,7 +23,8 @@ struct SessionRow: View {
     @ViewBuilder
     private var lifecycleDot: some View {
         switch tab.content.pane?.lastState ?? .running {
-        case .running:
+        case .preparing,
+             .running:
             EmptyView()
         case .exited:
             Circle()

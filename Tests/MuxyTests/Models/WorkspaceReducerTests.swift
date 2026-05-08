@@ -887,4 +887,105 @@ struct WorkspaceReducerTests {
         #expect(pane?.startupCommand == "claude --dangerously-skip-permissions")
         #expect(pane?.projectPath == "/tmp/demo")
     }
+
+    private func makeStateWithAgentPane(kind: AgentKind = .claudeCode) -> (state: WorkspaceState, paneID: UUID) {
+        let projectID = UUID()
+        let worktreeID = UUID()
+        var state = makeState(projectID: projectID, worktreeID: worktreeID)
+        let area = focusedArea(in: state, projectID: projectID)!
+        area.createAgentTab(kind: kind)
+        let paneID = area.activeTab!.content.pane!.id
+        return (state, paneID)
+    }
+
+    @Test("markPaneSessionExited transitions pane to exited and stores captured")
+    func markPaneSessionExitedClearsToExited() {
+        let (initialState, paneID) = makeStateWithAgentPane()
+        var state = initialState
+        _ = WorkspaceReducer.reduce(
+            action: .markPaneSessionExited(paneID: paneID, capturedResumeCommand: "claude --resume abc"),
+            state: &state
+        )
+        let pane = WorkspaceReducerShared.findPane(id: paneID, state: state)
+        #expect(pane?.lastState == .exited)
+        #expect(pane?.capturedResumeCommand == "claude --resume abc")
+    }
+
+    @Test("reloadAgent refreshes session and clears banners")
+    func reloadAgentRefreshesSessionAndClearsBanners() {
+        let (initialState, paneID) = makeStateWithAgentPane()
+        var state = initialState
+        let pane = WorkspaceReducerShared.findPane(id: paneID, state: state)!
+        pane.capturedResumeCommand = "claude --resume abc"
+        pane.binaryUpdateDetected = true
+        pane.exitBannerDismissed = true
+        pane.mtimeBannerDismissed = true
+        pane.lastState = .exited
+        let oldSession = pane.sessionID
+        let newCwd = URL(fileURLWithPath: "/Volumes/Roost/projectA")
+        let newPath = URL(fileURLWithPath: "/usr/local/bin/claude")
+        let newMtime = Date()
+
+        _ = WorkspaceReducer.reduce(
+            action: .reloadAgent(
+                paneID: paneID,
+                mode: .resume,
+                newSessionID: UUID(),
+                command: "claude --x --resume abc",
+                env: ["PATH": "/usr/bin"],
+                cwd: newCwd,
+                agentBinaryPath: newPath,
+                agentBinaryMTime: newMtime
+            ),
+            state: &state
+        )
+
+        #expect(pane.sessionID != oldSession)
+        #expect(pane.capturedResumeCommand == nil)
+        #expect(pane.binaryUpdateDetected == false)
+        #expect(pane.exitBannerDismissed == false)
+        #expect(pane.mtimeBannerDismissed == false)
+        #expect(pane.lastState == .preparing)
+        #expect(pane.cwd == newCwd)
+        #expect(pane.startupCommand == "claude --x --resume abc")
+        #expect(pane.env == ["PATH": "/usr/bin"])
+        #expect(pane.agentBinaryPath == newPath)
+        #expect(pane.agentBinaryMTime == newMtime)
+    }
+
+    @Test("setBinaryUpdateDetected toggles flag")
+    func setBinaryUpdateDetectedTogglesFlag() {
+        let (initialState, paneID) = makeStateWithAgentPane()
+        var state = initialState
+        _ = WorkspaceReducer.reduce(
+            action: .setBinaryUpdateDetected(paneID: paneID, value: true),
+            state: &state
+        )
+        let pane = WorkspaceReducerShared.findPane(id: paneID, state: state)
+        #expect(pane?.binaryUpdateDetected == true)
+    }
+
+    @Test("dismissExitBanner sets flag")
+    func dismissExitBannerSetsFlag() {
+        let (initialState, paneID) = makeStateWithAgentPane()
+        var state = initialState
+        _ = WorkspaceReducer.reduce(
+            action: .dismissExitBanner(paneID: paneID),
+            state: &state
+        )
+        let pane = WorkspaceReducerShared.findPane(id: paneID, state: state)
+        #expect(pane?.exitBannerDismissed == true)
+    }
+
+    @Test("dismissBinaryUpdateBanner sets flag")
+    func dismissBinaryUpdateBannerSetsFlag() {
+        let (initialState, paneID) = makeStateWithAgentPane()
+        var state = initialState
+        _ = WorkspaceReducer.reduce(
+            action: .dismissBinaryUpdateBanner(paneID: paneID),
+            state: &state
+        )
+        let pane = WorkspaceReducerShared.findPane(id: paneID, state: state)
+        #expect(pane?.mtimeBannerDismissed == true)
+    }
 }

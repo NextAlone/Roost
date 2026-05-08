@@ -16,11 +16,12 @@ final class TerminalPaneState: Identifiable {
     let projectPath: String
     var title: String
     var currentWorkingDirectory: String?
-    let startupCommand: String?
+    var startupCommand: String?
     let startupCommandInteractive: Bool
-    let env: [String: String]
+    var env: [String: String]
     let externalEditorFilePath: String?
     let agentKind: AgentKind
+    var cwd: URL?
     var hostdRuntimeOwnership: HostdRuntimeOwnership {
         didSet {
             guard hostdRuntimeOwnership != oldValue else { return }
@@ -58,6 +59,7 @@ final class TerminalPaneState: Identifiable {
         externalEditorFilePath: String? = nil,
         agentKind: AgentKind = .terminal,
         hostdRuntimeOwnership: HostdRuntimeOwnership = .appOwnedMetadataOnly,
+        cwd: URL? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -71,6 +73,7 @@ final class TerminalPaneState: Identifiable {
         self.externalEditorFilePath = externalEditorFilePath
         self.agentKind = agentKind
         self.hostdRuntimeOwnership = hostdRuntimeOwnership
+        self.cwd = cwd
         self.hostdAttachState = Self.initialHostdAttachState(
             agentKind: agentKind,
             ownership: hostdRuntimeOwnership

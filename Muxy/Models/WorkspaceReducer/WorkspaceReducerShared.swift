@@ -44,6 +44,19 @@ enum WorkspaceReducerShared {
         state.focusHistory.removeValue(forKey: key)
     }
 
+    static func findPane(id paneID: UUID, state: WorkspaceState) -> TerminalPaneState? {
+        for root in state.workspaceRoots.values {
+            for area in root.allAreas() {
+                for tab in area.tabs {
+                    if let pane = tab.content.pane, pane.id == paneID {
+                        return pane
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
     static func handleProjectEmptiedIfNeeded(
         projectID: UUID,
         state: inout WorkspaceState,

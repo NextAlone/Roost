@@ -191,6 +191,42 @@ enum WorkspaceReducer {
             } else {
                 FocusReducer.focusArea(projectID: projectID, areaID: areaID, state: &state)
             }
+
+        case let .markPaneSessionExited(paneID, captured):
+            if let pane = WorkspaceReducerShared.findPane(id: paneID, state: state) {
+                pane.capturedResumeCommand = captured
+                pane.lastState = .exited
+            }
+
+        case let .reloadAgent(paneID, _, newSessionID, command, env, cwd, agentBinaryPath, agentBinaryMTime):
+            if let pane = WorkspaceReducerShared.findPane(id: paneID, state: state) {
+                pane.sessionID = newSessionID
+                pane.startupCommand = command
+                pane.env = env
+                pane.cwd = cwd
+                pane.capturedResumeCommand = nil
+                pane.binaryUpdateDetected = false
+                pane.exitBannerDismissed = false
+                pane.mtimeBannerDismissed = false
+                pane.agentBinaryPath = agentBinaryPath
+                pane.agentBinaryMTime = agentBinaryMTime
+                pane.lastState = .preparing
+            }
+
+        case let .setBinaryUpdateDetected(paneID, value):
+            if let pane = WorkspaceReducerShared.findPane(id: paneID, state: state) {
+                pane.binaryUpdateDetected = value
+            }
+
+        case let .dismissExitBanner(paneID):
+            if let pane = WorkspaceReducerShared.findPane(id: paneID, state: state) {
+                pane.exitBannerDismissed = true
+            }
+
+        case let .dismissBinaryUpdateBanner(paneID):
+            if let pane = WorkspaceReducerShared.findPane(id: paneID, state: state) {
+                pane.mtimeBannerDismissed = true
+            }
         }
 
         return effects

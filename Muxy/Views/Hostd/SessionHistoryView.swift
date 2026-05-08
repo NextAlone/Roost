@@ -100,6 +100,7 @@ struct SessionHistoryView: View {
 
     private func stateLabel(_ state: SessionLifecycleState) -> String {
         switch state {
+        case .preparing: "preparing"
         case .running: "running"
         case .exited: "exited"
         }
@@ -107,6 +108,7 @@ struct SessionHistoryView: View {
 
     private func stateColor(_ state: SessionLifecycleState) -> Color {
         switch state {
+        case .preparing: MuxyTheme.warning
         case .running: MuxyTheme.diffAddFg
         case .exited: MuxyTheme.fgDim
         }

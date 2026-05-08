@@ -34,6 +34,20 @@ final class AppStateTestRig {
             activityLog: activityLog
         )
     }
+
+    func makeAgentPane(kind: AgentKind, app: AppState) async -> TerminalPaneState {
+        await app.recordRestoredAgentSessions(hostdClient: fakeClient)
+        let projectID = UUID()
+        let worktreeID = UUID()
+        let key = WorktreeKey(projectID: projectID, worktreeID: worktreeID)
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: kind, hostdRuntimeOwnership: ownership)
+        app.activeProjectID = projectID
+        app.activeWorktreeID[projectID] = worktreeID
+        app.workspaceRoots[key] = .tabArea(area)
+        app.focusedAreaID[key] = area.id
+        return area.activeTab!.content.pane!
+    }
 }
 
 @MainActor

@@ -127,6 +127,8 @@ final class AppState {
     var pendingSaveErrorMessage: String?
     let navigation = NavigationHistory()
     private var focusHistory: [WorktreeKey: [UUID]] = [:]
+    private var inFlightReloadPaneIDs: Set<UUID> = []
+    private var pendingExitContinuations: [UUID: AsyncStream<Void>.Continuation] = [:]
 
     init(
         selectionStore: any ActiveProjectSelectionStoring,
@@ -362,6 +364,10 @@ final class AppState {
             paneID: paneID,
             capturedResumeCommand: captured
         ))
+        if let continuation = pendingExitContinuations.removeValue(forKey: sessionID) {
+            continuation.yield(())
+            continuation.finish()
+        }
     }
 
     func refreshBinaryUpdateBanner(paneID: UUID) {
@@ -375,6 +381,88 @@ final class AppState {
         if updated != pane.binaryUpdateDetected {
             dispatch(.setBinaryUpdateDetected(paneID: paneID, value: updated))
         }
+    }
+
+    func reloadAgent(paneID: UUID, mode: AgentReloadMode) async {
+        guard !inFlightReloadPaneIDs.contains(paneID) else { return }
+        inFlightReloadPaneIDs.insert(paneID)
+        defer { inFlightReloadPaneIDs.remove(paneID) }
+
+        guard let initialPane = pane(forSessionID: paneID) else { return }
+        let preset = agentPresetForRouting(initialPane.agentKind)
+
+        if mode == .resume, initialPane.lastState == .running {
+            await runReloadInterrupt(oldSessionID: initialPane.sessionID)
+        }
+
+        guard let livePane = pane(forSessionID: paneID) else { return }
+        let captured = livePane.capturedResumeCommand
+        let oldSessionID = livePane.sessionID
+        let newSessionID = UUID()
+        let command = AgentReloadCommandBuilder.build(
+            preset: preset,
+            captured: captured,
+            mode: mode
+        )
+        let env = livePane.env
+        let cwd = livePane.cwd ?? URL(fileURLWithPath: livePane.currentWorkingDirectory ?? "/tmp")
+        let binaryPath = AgentBinary.resolvePath(command: command, env: env)
+        let mtime = binaryPath.flatMap { url -> Date? in
+            let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+            return attrs?[.modificationDate] as? Date
+        }
+
+        do {
+            try await hostdClient?.terminateSession(id: oldSessionID)
+        } catch {
+            logger.warning("terminateSession failed during reload: \(error.localizedDescription, privacy: .public)")
+        }
+        terminalViews.removeView(for: paneID)
+
+        dispatch(.reloadAgent(
+            paneID: paneID,
+            mode: mode,
+            newSessionID: newSessionID,
+            command: command,
+            env: env,
+            cwd: cwd,
+            agentBinaryPath: binaryPath,
+            agentBinaryMTime: mtime
+        ))
+    }
+
+    private func runReloadInterrupt(oldSessionID: UUID) async {
+        let coordinator = AgentReloadCoordinator()
+        let exitedStream = sessionExitStream(for: oldSessionID)
+        let client = hostdClient
+        await coordinator.driveExit(
+            interrupt: {
+                do {
+                    try await client?.interruptSession(id: oldSessionID)
+                } catch {
+                    logger.warning("interruptSession failed: \(error.localizedDescription, privacy: .public)")
+                }
+            },
+            forceKill: {
+                do {
+                    try await client?.terminateSession(id: oldSessionID)
+                } catch {
+                    logger.warning("force terminateSession failed: \(error.localizedDescription, privacy: .public)")
+                }
+            },
+            exitedStream: exitedStream
+        )
+    }
+
+    func sessionExitStream(for sessionID: UUID) -> AsyncStream<Void> {
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        pendingExitContinuations[sessionID] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { @MainActor in
+                self?.pendingExitContinuations.removeValue(forKey: sessionID)
+            }
+        }
+        return stream
     }
 
     private static func extractResumeCommand(preset: AgentPreset, lastTail: String?) -> String? {

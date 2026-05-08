@@ -34,8 +34,22 @@ struct AppStateReloadAgentTests {
         #expect(rig.terminateCalls.filter { $0 == pane.id }.count == 2)
     }
 
-    @Test("resume reload appends resume args")
-    func resumeReloadAppendsResumeArgs() async throws {
+    @Test("resume reload preserves preset startupCommand on persist")
+    func resumeReloadPreservesPresetCommand() async throws {
+        let rig = AppStateTestRig()
+        rig.ownership = .hostdOwnedProcess
+        let app = rig.makeAppState()
+        let pane = await rig.makeAgentPane(kind: .claudeCode, app: app)
+        let originalCommand = pane.startupCommand
+        pane.lastState = .exited
+        pane.capturedResumeCommand = "claude --resume abc-123"
+        await app.reloadAgent(paneID: pane.id, mode: .resume)
+        #expect(pane.startupCommand == originalCommand)
+        #expect(pane.startupCommand?.contains("--resume") == false)
+    }
+
+    @Test("resume reload runtime command appends --resume id")
+    func resumeReloadRuntimeCommandAppendsResume() async throws {
         let rig = AppStateTestRig()
         rig.ownership = .hostdOwnedProcess
         let app = rig.makeAppState()
@@ -43,7 +57,9 @@ struct AppStateReloadAgentTests {
         pane.lastState = .exited
         pane.capturedResumeCommand = "claude --resume abc-123"
         await app.reloadAgent(paneID: pane.id, mode: .resume)
-        #expect(pane.startupCommand?.contains("--resume abc-123") == true)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let resumeCreates = rig.createCalls.filter { $0.sessionID == pane.id && ($0.command ?? "").contains("--resume abc-123") }
+        #expect(resumeCreates.count == 1)
     }
 
     @Test("resume reload sends graceful exit keys for claude")

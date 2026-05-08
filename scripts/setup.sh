@@ -35,7 +35,7 @@ fetch_ripgrep() {
     echo "    Installed: $RIPGREP_BINARY"
 }
 
-if [[ -d "$XCFRAMEWORK_DIR" && -d "$RESOURCES_DIR/shell-integration" && -d "$TERMINFO_DIR" && -x "$RIPGREP_BINARY" ]]; then
+if [[ -d "$XCFRAMEWORK_DIR" && -d "$RESOURCES_DIR/shell-integration" && -d "$RESOURCES_DIR/themes" && -d "$TERMINFO_DIR" && -x "$RIPGREP_BINARY" ]]; then
     echo "==> GhosttyKit.xcframework, resources, and ripgrep already present, skipping download"
     echo "    To re-download, remove: rm -rf GhosttyKit.xcframework Muxy/Resources/ghostty Muxy/Resources/terminfo Muxy/Resources/rg"
     exit 0
@@ -43,7 +43,7 @@ fi
 
 fetch_ripgrep
 
-if [[ -d "$XCFRAMEWORK_DIR" && -d "$RESOURCES_DIR/shell-integration" && -d "$TERMINFO_DIR" ]]; then
+if [[ -d "$XCFRAMEWORK_DIR" && -d "$RESOURCES_DIR/shell-integration" && -d "$RESOURCES_DIR/themes" && -d "$TERMINFO_DIR" ]]; then
     echo "==> GhosttyKit.xcframework and resources already present"
     exit 0
 fi
@@ -70,7 +70,7 @@ if [[ ! -d "$XCFRAMEWORK_DIR" ]]; then
     cp "$XCFRAMEWORK_DIR/macos-arm64_x86_64/Headers/ghostty.h" "$PROJECT_ROOT/GhosttyKit/ghostty.h"
 fi
 
-if [[ ! -d "$RESOURCES_DIR/shell-integration" || ! -d "$TERMINFO_DIR" ]]; then
+if [[ ! -d "$RESOURCES_DIR/shell-integration" || ! -d "$RESOURCES_DIR/themes" || ! -d "$TERMINFO_DIR" ]]; then
     echo "==> Downloading GhosttyKit runtime resources"
     gh release download "$LATEST_TAG" \
         --pattern "GhosttyKit-resources.tar.gz" \

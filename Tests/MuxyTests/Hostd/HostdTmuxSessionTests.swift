@@ -246,9 +246,22 @@ private actor RecordingHostdTmuxController: HostdTmuxControlling {
         recordedOperations.append(.kill(sessionName: sessionName))
         liveSessionNames.remove(sessionName)
     }
+
+    func isPaneDead(sessionName: String) async -> Bool {
+        false
+    }
+
+    func captureLastTail(sessionName: String, lines: Int) async -> String? {
+        nil
+    }
+
+    func sendKeys(sessionName: String, keys: String) async throws {
+        recordedOperations.append(.sendKeys(sessionName: sessionName, keys: keys))
+    }
 }
 
 private enum HostdTmuxOperation: Equatable {
     case launch(sessionName: String, workspacePath: String, command: String, environment: [String: String])
     case kill(sessionName: String)
+    case sendKeys(sessionName: String, keys: String)
 }

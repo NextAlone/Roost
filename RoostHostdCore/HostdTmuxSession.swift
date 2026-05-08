@@ -7,9 +7,18 @@ public enum HostdTmuxSessionName {
 }
 
 public protocol HostdTmuxControlling: Sendable {
-    func launch(sessionName: String, workspacePath: String, command: String, environment: [String: String]) async throws
+    func launch(
+        sessionName: String,
+        workspacePath: String,
+        command: String,
+        environment: [String: String]
+    ) async throws
     func hasSession(named sessionName: String) async -> Bool
     func killSession(named sessionName: String) async throws
+
+    func isPaneDead(sessionName: String) async -> Bool
+    func captureLastTail(sessionName: String, lines: Int) async -> String?
+    func sendKeys(sessionName: String, keys: String) async throws
 }
 
 public struct HostdTmuxController: HostdTmuxControlling {
@@ -79,6 +88,16 @@ public struct HostdTmuxController: HostdTmuxControlling {
             )
         }
     }
+
+    public func isPaneDead(sessionName: String) async -> Bool {
+        false
+    }
+
+    public func captureLastTail(sessionName: String, lines: Int) async -> String? {
+        nil
+    }
+
+    public func sendKeys(sessionName: String, keys: String) async throws {}
 
     private func run(arguments: [String], environment: [String: String]) async throws -> HostdTmuxCommandResult {
         let executableName = executableName

@@ -109,6 +109,23 @@ enum TabReducer {
         )
     }
 
+    static func createJjDiffViewerTab(
+        projectID: UUID,
+        areaID: UUID?,
+        request: AppState.JjDiffViewerRequest,
+        state: inout WorkspaceState
+    ) {
+        guard let key = WorkspaceReducerShared.activeKey(projectID: projectID, state: state),
+              let area = WorkspaceReducerShared.resolveArea(key: key, areaID: areaID, state: state)
+        else { return }
+        FocusReducer.focusArea(area.id, key: key, state: &state)
+        area.createJjDiffViewerTab(
+            repoPath: request.repoPath,
+            revset: request.revset,
+            filePath: request.filePath
+        )
+    }
+
     static func selectTab(projectID: UUID, areaID: UUID?, tabID: UUID, state: inout WorkspaceState) {
         guard let key = WorkspaceReducerShared.activeKey(projectID: projectID, state: state),
               let area = WorkspaceReducerShared.resolveArea(key: key, areaID: areaID, state: state)

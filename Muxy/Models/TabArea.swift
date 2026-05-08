@@ -130,6 +130,23 @@ final class TabArea: Identifiable {
         )))
     }
 
+    func createJjDiffViewerTab(repoPath: String, revset: String, filePath: String) {
+        if let existing = tabs.first(where: { tab in
+            guard let diff = tab.content.jjDiffViewerState else { return false }
+            return diff.repoPath == repoPath
+                && diff.revset == revset
+                && diff.filePath == filePath
+        }) {
+            selectTab(existing.id)
+            return
+        }
+        insertTab(TerminalTab(jjDiffViewerState: JjDiffViewerTabState(
+            repoPath: repoPath,
+            revset: revset,
+            filePath: filePath
+        )))
+    }
+
     func createExternalEditorTab(filePath: String, command: String) {
         if let existing = tabs.first(where: { $0.content.pane?.externalEditorFilePath == filePath }) {
             selectTab(existing.id)

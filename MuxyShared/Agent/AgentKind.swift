@@ -57,3 +57,19 @@ public extension AgentKind {
         }
     }
 }
+
+public enum ResumeStrategy: Sendable, Hashable {
+    case appendArgs
+    case replaceWithCaptured
+    case notSupported
+}
+
+public extension AgentKind {
+    var resumeStrategy: ResumeStrategy {
+        switch self {
+        case .claudeCode: .appendArgs
+        case .codex: .replaceWithCaptured
+        case .geminiCli, .openCode, .terminal: .notSupported
+        }
+    }
+}

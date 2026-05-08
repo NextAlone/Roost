@@ -38,3 +38,14 @@ struct AgentKindResumeTests {
         #expect(AgentKind.terminal.expectedBinaryName == nil)
     }
 }
+
+extension AgentKindResumeTests {
+    @Test
+    func resumeStrategyByKind() {
+        #expect(AgentKind.claudeCode.resumeStrategy == .appendArgs)
+        #expect(AgentKind.codex.resumeStrategy == .replaceWithCaptured)
+        #expect(AgentKind.geminiCli.resumeStrategy == .notSupported)
+        #expect(AgentKind.openCode.resumeStrategy == .notSupported)
+        #expect(AgentKind.terminal.resumeStrategy == .notSupported)
+    }
+}

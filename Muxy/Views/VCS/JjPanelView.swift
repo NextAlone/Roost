@@ -6,6 +6,7 @@ import SwiftUI
 struct JjPanelView: View {
     @Bindable var state: JjPanelState
     let onOpenFile: (String) -> Void
+    let onOpenDiff: (String) -> Void
     @State private var showDescribeSheet = false
     @State private var showCommitSheet = false
     @State private var actionError: String?
@@ -37,9 +38,14 @@ struct JjPanelView: View {
     @State private var pendingRenameBookmark: JjBookmark?
     private static let sectionHeaderHeight: CGFloat = 30
 
-    init(state: JjPanelState, onOpenFile: @escaping (String) -> Void = { _ in }) {
+    init(
+        state: JjPanelState,
+        onOpenFile: @escaping (String) -> Void = { _ in },
+        onOpenDiff: @escaping (String) -> Void = { _ in }
+    ) {
         self.state = state
         self.onOpenFile = onOpenFile
+        self.onOpenDiff = onOpenDiff
     }
 
     var body: some View {
@@ -474,20 +480,13 @@ struct JjPanelView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(MuxyTheme.fgDim)
             } else {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(entries, id: \.path) { entry in
-                        HStack(spacing: 6) {
-                            Text(entry.change.rawValue)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(color(for: entry.change))
-                                .frame(width: 12)
-                            Text(entry.path)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(MuxyTheme.fg)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Spacer()
-                        }
+                        JjFileRow(
+                            entry: entry,
+                            onOpenInEditor: { onOpenFile(entry.path) },
+                            onOpenDiff: { onOpenDiff(entry.path) }
+                        )
                     }
                 }
             }

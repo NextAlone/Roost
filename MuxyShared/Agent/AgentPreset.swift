@@ -73,7 +73,7 @@ public enum AgentPresetCatalog {
 }
 
 public extension AgentPreset {
-    private nonisolated(unsafe) static let regexCache = NSCache<NSString, NSRegularExpression>()
+    nonisolated(unsafe) private static let regexCache = NSCache<NSString, NSRegularExpression>()
     private static let logger = Logger(subsystem: "Roost", category: "AgentPreset")
 
     func compiledResumeRegex() -> NSRegularExpression? {

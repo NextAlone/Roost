@@ -162,7 +162,7 @@ struct ContentHostLayer: View {
                         isVisible: isActiveTab,
                         isFocused: isFocused,
                         shouldMountBridge: shouldMount
-                    ))]
+                    )),]
                 case let .editor(state):
                     let editorRect = Self.editorContentRect(in: tabContentRect)
                     let shows = !state.awaitingLargeFileConfirmation
@@ -176,7 +176,7 @@ struct ContentHostLayer: View {
                         isVisible: isActiveTab,
                         isFocused: isFocused,
                         isEditorVisuallyShown: shows
-                    ))]
+                    )),]
                 case let .diffViewer(state):
                     return [.diff(DiffEntry(
                         tabID: tab.id,
@@ -185,7 +185,7 @@ struct ContentHostLayer: View {
                         contentRect: tabContentRect,
                         isVisible: isActiveTab,
                         isFocused: isFocused
-                    ))]
+                    )),]
                 case let .jjDiffViewer(state):
                     return [.jjDiff(JjDiffEntry(
                         tabID: tab.id,
@@ -194,7 +194,7 @@ struct ContentHostLayer: View {
                         contentRect: tabContentRect,
                         isVisible: isActiveTab,
                         isFocused: isFocused
-                    ))]
+                    )),]
                 case .vcs:
                     return []
                 }

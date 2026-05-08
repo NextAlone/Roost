@@ -49,7 +49,9 @@ public extension AgentKind {
         switch self {
         case .claudeCode: #"(?m)^\s*claude\s+--resume\s+\S+.*$"#
         case .codex: #"(?m)^\s*codex\s+resume\s+\S+.*$"#
-        case .geminiCli, .openCode, .terminal: nil
+        case .geminiCli,
+             .openCode,
+             .terminal: nil
         }
     }
 
@@ -67,14 +69,19 @@ public extension AgentKind {
         switch self {
         case .claudeCode: .appendArgs
         case .codex: .replaceWithCaptured
-        case .geminiCli, .openCode, .terminal: .notSupported
+        case .geminiCli,
+             .openCode,
+             .terminal: .notSupported
         }
     }
 
     var gracefulExitInput: [String]? {
         switch self {
         case .claudeCode: ["/exit", "Enter"]
-        case .codex, .geminiCli, .openCode, .terminal: nil
+        case .codex,
+             .geminiCli,
+             .openCode,
+             .terminal: nil
         }
     }
 }

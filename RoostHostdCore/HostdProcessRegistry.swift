@@ -397,14 +397,14 @@ public actor HostdProcessRegistry {
 
     private static let paneDeadPollNanoseconds: UInt64 = 500_000_000
 
-    internal static func runTmuxExitWatcherLoop(
+    static func runTmuxExitWatcherLoop(
         sessionName: String,
         tmux: any HostdTmuxControlling,
         pollNanoseconds: UInt64 = HostdProcessRegistry.paneDeadPollNanoseconds,
         onExit: @Sendable @escaping (_ lastTail: String?) -> Void
     ) async {
         while !Task.isCancelled {
-            if !(await tmux.hasSession(named: sessionName)) {
+            if await !(tmux.hasSession(named: sessionName)) {
                 onExit(nil)
                 return
             }

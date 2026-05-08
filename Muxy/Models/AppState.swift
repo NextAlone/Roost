@@ -420,14 +420,15 @@ final class AppState {
         }
         let preset = agentPresetForRouting(initialPane.agentKind)
 
-        var capturedTail: String? = nil
+        var capturedTail: String?
         if mode == .resume, let client = hostdClient {
             do {
                 let probe = try await client.waitForSessionExit(id: paneID, timeoutMs: 1000)
                 if !probe.didTimeout {
                     capturedTail = probe.lastTail
                     let preview = (probe.lastTail ?? "").suffix(400)
-                    logger.notice("reloadAgent ALREADY_EXITED tail_len=\(probe.lastTail?.count ?? -1, privacy: .public) tail_preview=\(String(preview), privacy: .public)")
+                    let tailLen = probe.lastTail?.count ?? -1
+                    logger.notice("reloadAgent EXITED len=\(tailLen, privacy: .public) tail=\(String(preview), privacy: .public)")
                 } else {
                     logger.notice("reloadAgent PROBE TIMED_OUT (still running)")
                 }
@@ -444,7 +445,7 @@ final class AppState {
         }
 
         guard let livePane = pane(forSessionID: paneID) else { return }
-        var captured: String? = nil
+        var captured: String?
         if mode == .resume {
             if let local = livePane.capturedResumeCommand {
                 captured = local
@@ -503,7 +504,8 @@ final class AppState {
         let workspacePath = reloadedPane.projectPath
         reloadedPane.markHostdAttachPreparing()
         Task { @MainActor [client, paneID, newSessionID, location, agentKind, workspacePath, environment, launchCommand] in
-            logger.notice("reloadAgent CREATE_SESSION paneID=\(paneID, privacy: .public) newSessionID=\(newSessionID, privacy: .public) cmd=\(launchCommand ?? "nil", privacy: .public)")
+            let cmdLog = launchCommand ?? "nil"
+            logger.notice("reloadAgent CREATE pane=\(paneID, privacy: .public) cmd=\(cmdLog, privacy: .public)")
             do {
                 try await client.createSession(HostdCreateSessionRequest(
                     id: paneID,
@@ -514,10 +516,11 @@ final class AppState {
                     command: launchCommand,
                     environment: environment
                 ))
-                logger.notice("reloadAgent CREATE_SESSION OK paneID=\(paneID, privacy: .public)")
+                logger.notice("reloadAgent CREATE OK pane=\(paneID, privacy: .public)")
                 self.pane(forSessionID: paneID)?.markHostdAttachReady()
             } catch {
-                logger.error("reloadAgent CREATE_SESSION FAIL paneID=\(paneID, privacy: .public) err=\(error.localizedDescription, privacy: .public)")
+                let errLog = error.localizedDescription
+                logger.error("reloadAgent CREATE FAIL pane=\(paneID, privacy: .public) err=\(errLog, privacy: .public)")
                 self.pane(forSessionID: paneID)?.markHostdAttachFailed(Self.hostdErrorMessage(error))
             }
         }

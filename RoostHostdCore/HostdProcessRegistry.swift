@@ -304,6 +304,7 @@ public actor HostdProcessRegistry {
         )
         do {
             try await store.record(record)
+            startTmuxExitWatcher(id: record.id, sessionName: sessionName)
             return HostdAttachSessionResponse(record: record, ownership: .hostdOwnedProcess)
         } catch {
             try? await tmux.killSession(named: sessionName)
@@ -331,6 +332,59 @@ public actor HostdProcessRegistry {
         guard sessions[id] != nil else { return }
         releaseKeepaliveIfLive(id: id)
         try? await store.update(id: id, lastState: .exited)
+    }
+
+    private static let paneDeadPollNanoseconds: UInt64 = 500_000_000
+
+    internal static func runTmuxExitWatcherLoop(
+        sessionName: String,
+        tmux: any HostdTmuxControlling,
+        pollNanoseconds: UInt64 = HostdProcessRegistry.paneDeadPollNanoseconds,
+        onExit: @Sendable @escaping (_ lastTail: String?) -> Void
+    ) async {
+        while !Task.isCancelled {
+            if !(await tmux.hasSession(named: sessionName)) {
+                onExit(nil)
+                return
+            }
+            if await tmux.isPaneDead(sessionName: sessionName) {
+                let tail = await tmux.captureLastTail(sessionName: sessionName, lines: 200)
+                onExit(tail)
+                try? await tmux.killSession(named: sessionName)
+                return
+            }
+            try? await Task.sleep(nanoseconds: pollNanoseconds)
+        }
+    }
+
+    private func startTmuxExitWatcher(id: UUID, sessionName: String) {
+        let tmux = self.tmux
+        Task { [weak self] in
+            let weakSelf = self
+            await Self.runTmuxExitWatcherLoop(sessionName: sessionName, tmux: tmux) { lastTail in
+                Task {
+                    await weakSelf?.handleTmuxExit(id: id, sessionName: sessionName, lastTail: lastTail)
+                }
+            }
+        }
+    }
+
+    private func handleTmuxExit(id: UUID, sessionName _: String, lastTail: String?) async {
+        if let existing = try? await storedRecord(id: id) {
+            let updated = SessionRecord(
+                id: existing.id,
+                projectID: existing.projectID,
+                worktreeID: existing.worktreeID,
+                workspacePath: existing.workspacePath,
+                agentKind: existing.agentKind,
+                command: existing.command,
+                createdAt: existing.createdAt,
+                lastState: .exited,
+                lastTail: lastTail
+            )
+            try? await store.record(updated)
+        }
+        tmuxAttachedClientCounts.removeValue(forKey: id)
     }
 
     private func releaseKeepaliveIfLive(id: UUID) {

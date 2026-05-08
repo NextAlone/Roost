@@ -364,6 +364,19 @@ final class AppState {
         ))
     }
 
+    func refreshBinaryUpdateBanner(paneID: UUID) {
+        guard let pane = pane(forSessionID: paneID),
+              let path = pane.agentBinaryPath,
+              let baseline = pane.agentBinaryMTime
+        else { return }
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path.path)
+        let now = (attrs?[.modificationDate] as? Date) ?? baseline
+        let updated = now > baseline
+        if updated != pane.binaryUpdateDetected {
+            dispatch(.setBinaryUpdateDetected(paneID: paneID, value: updated))
+        }
+    }
+
     private static func extractResumeCommand(preset: AgentPreset, lastTail: String?) -> String? {
         guard let lastTail, let regex = preset.compiledResumeRegex() else { return nil }
         let range = NSRange(lastTail.startIndex..., in: lastTail)

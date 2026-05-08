@@ -1,5 +1,11 @@
 import AppKit
 import GhosttyKit
+import MuxyShared
+
+struct ReloadMenuConfig {
+    let canReload: Bool
+    let resumeEnabled: Bool
+}
 
 final class GhosttyTerminalNSView: NSView {
     nonisolated(unsafe) private(set) var surface: ghostty_surface_t?
@@ -21,6 +27,8 @@ final class GhosttyTerminalNSView: NSView {
     var onCmdClickFile: ((String) -> Void)?
     var resolveCmdHoverFile: ((String) -> Bool)?
     var onOpenURL: ((URL) -> Bool)?
+    var reloadMenuConfig = ReloadMenuConfig(canReload: false, resumeEnabled: false)
+    var onReloadAgent: ((AgentReloadMode) -> Void)?
     private var isShowingHandCursor = false
     private var fileHoverUnderlineLayer: CAShapeLayer?
     private var lastMouseTopDownPoint: CGPoint?
@@ -730,7 +738,38 @@ final class GhosttyTerminalNSView: NSView {
         menu.addItem(contextSplitMenuItem(title: "Split Down", direction: .vertical, position: .second))
         menu.addItem(contextSplitMenuItem(title: "Split Up", direction: .vertical, position: .first))
 
+        if reloadMenuConfig.canReload {
+            menu.addItem(.separator())
+
+            let resume = NSMenuItem(
+                title: "Reload Agent (Resume)",
+                action: #selector(handleContextReloadResume(_:)),
+                keyEquivalent: ""
+            )
+            resume.target = self
+            resume.isEnabled = reloadMenuConfig.resumeEnabled
+            menu.addItem(resume)
+
+            let fresh = NSMenuItem(
+                title: "Reload Agent (Fresh)",
+                action: #selector(handleContextReloadFresh(_:)),
+                keyEquivalent: ""
+            )
+            fresh.target = self
+            menu.addItem(fresh)
+        }
+
         NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+
+    @objc
+    private func handleContextReloadResume(_: Any?) {
+        onReloadAgent?(.resume)
+    }
+
+    @objc
+    private func handleContextReloadFresh(_: Any?) {
+        onReloadAgent?(.fresh)
     }
 
     private func contextSplitMenuItem(title: String, direction: SplitDirection, position: SplitPosition) -> NSMenuItem {

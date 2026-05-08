@@ -686,6 +686,25 @@ final class AppState {
         ))
     }
 
+    func openJjDiffViewer(repoPath: String, revset: String, filePath: String, projectID: UUID) {
+        for area in allAreas(for: projectID) {
+            if let tab = area.tabs.first(where: { tab in
+                guard let diff = tab.content.jjDiffViewerState else { return false }
+                return diff.repoPath == repoPath
+                    && diff.revset == revset
+                    && diff.filePath == filePath
+            }) {
+                dispatch(.selectTab(projectID: projectID, areaID: area.id, tabID: tab.id))
+                return
+            }
+        }
+        dispatch(.createJjDiffViewerTab(
+            projectID: projectID,
+            areaID: nil,
+            request: JjDiffViewerRequest(repoPath: repoPath, revset: revset, filePath: filePath)
+        ))
+    }
+
     private func openFileInExternalEditor(_ filePath: String, projectID: UUID, command: String) {
         for area in allAreas(for: projectID) {
             if let tab = area.tabs.first(where: { $0.content.pane?.externalEditorFilePath == filePath }) {

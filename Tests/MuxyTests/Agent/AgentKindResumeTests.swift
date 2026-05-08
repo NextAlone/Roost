@@ -37,9 +37,7 @@ struct AgentKindResumeTests {
         #expect(AgentKind.openCode.expectedBinaryName == "opencode")
         #expect(AgentKind.terminal.expectedBinaryName == nil)
     }
-}
 
-extension AgentKindResumeTests {
     @Test
     func resumeStrategyByKind() {
         #expect(AgentKind.claudeCode.resumeStrategy == .appendArgs)

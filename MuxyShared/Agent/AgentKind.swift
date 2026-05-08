@@ -38,6 +38,12 @@ public enum AgentKind: String, Sendable, Codable, Hashable, CaseIterable {
     }
 }
 
+public enum ResumeStrategy: Sendable, Hashable {
+    case appendArgs
+    case replaceWithCaptured
+    case notSupported
+}
+
 public extension AgentKind {
     var defaultResumeRegex: String? {
         switch self {
@@ -56,15 +62,7 @@ public extension AgentKind {
         case .terminal: nil
         }
     }
-}
 
-public enum ResumeStrategy: Sendable, Hashable {
-    case appendArgs
-    case replaceWithCaptured
-    case notSupported
-}
-
-public extension AgentKind {
     var resumeStrategy: ResumeStrategy {
         switch self {
         case .claudeCode: .appendArgs

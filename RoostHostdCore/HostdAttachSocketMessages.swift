@@ -19,6 +19,15 @@ public enum HostdAttachSocketOperation: String, Sendable, Codable, Equatable {
     case writeSessionInput
     case resizeSession
     case sendSessionSignal
+    case interruptSession
+}
+
+public struct HostdInterruptSessionRequest: Sendable, Codable, Equatable {
+    public let id: UUID
+
+    public init(id: UUID) {
+        self.id = id
+    }
 }
 
 public struct HostdAttachSocketRequest: Sendable, Codable, Equatable {

@@ -282,6 +282,13 @@ public actor HostdProcessRegistry {
         try session.sendSignal(signal)
     }
 
+    public func interruptTmuxSession(id: UUID) async throws {
+        guard let record = try await storedRecord(id: id), record.agentKind != .terminal else {
+            throw HostdProcessRegistryError.sessionNotFound(id)
+        }
+        try await tmux.sendKeys(sessionName: HostdTmuxSessionName.name(for: id), keys: "C-c")
+    }
+
     private func markExitedIfKnown(id: UUID) async throws {
         if sessions[id] != nil {
             releaseKeepaliveIfLive(id: id)

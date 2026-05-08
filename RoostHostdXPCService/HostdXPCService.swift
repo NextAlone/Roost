@@ -306,6 +306,18 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
         rejectRuntimeControl("send signal", request: request, as: HostdSendSessionSignalRequest.self, reply: reply)
     }
 
+    func interruptSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdInterruptSessionRequest.self, from: request)
+                try await registry.interruptTmuxSession(id: request.id)
+                return try HostdXPCCodec.success()
+            }
+            return
+        }
+        rejectRuntimeControl("interrupt", request: request, as: HostdInterruptSessionRequest.self, reply: reply)
+    }
+
     private func respond(
         _ reply: @escaping @Sendable (Data) -> Void,
         _ work: @escaping @Sendable (RoostHostd) async throws -> Data

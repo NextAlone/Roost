@@ -106,6 +106,10 @@ public final class HostdDaemonSocketServer: @unchecked Sendable {
             let request = try HostdXPCCodec.decode(HostdSendSessionSignalRequest.self, from: request.payload)
             try await registry.sendSessionSignal(id: request.id, signal: request.signal)
             payload = try HostdXPCCodec.success()
+        case .interruptSession:
+            let request = try HostdXPCCodec.decode(HostdInterruptSessionRequest.self, from: request.payload)
+            try await registry.interruptTmuxSession(id: request.id)
+            payload = try HostdXPCCodec.success()
         }
         return HostdAttachSocketResponse(payload: payload)
     }

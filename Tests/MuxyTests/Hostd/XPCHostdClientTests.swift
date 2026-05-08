@@ -158,6 +158,12 @@ struct XPCHostdClientTests {
             return try HostdXPCCodec.success()
         }
 
+        func interruptSession(_ data: Data) async throws -> Data {
+            let request = try HostdXPCCodec.decode(HostdInterruptSessionRequest.self, from: data)
+            controlIDs["interrupt"] = request.id
+            return try HostdXPCCodec.success()
+        }
+
         func recordedControlIDs() -> [String: UUID] {
             controlIDs
         }
@@ -198,6 +204,7 @@ struct XPCHostdClientTests {
         func writeSessionInput(_ request: Data) async throws -> Data { throw Failure() }
         func resizeSession(_ request: Data) async throws -> Data { throw Failure() }
         func sendSessionSignal(_ request: Data) async throws -> Data { throw Failure() }
+        func interruptSession(_ request: Data) async throws -> Data { throw Failure() }
     }
 
     private struct HangingTransport: HostdXPCTransport {
@@ -217,6 +224,7 @@ struct XPCHostdClientTests {
         func writeSessionInput(_ request: Data) async throws -> Data { try await never() }
         func resizeSession(_ request: Data) async throws -> Data { try await never() }
         func sendSessionSignal(_ request: Data) async throws -> Data { try await never() }
+        func interruptSession(_ request: Data) async throws -> Data { try await never() }
 
         private func never() async throws -> Data {
             try await Task.sleep(nanoseconds: 10_000_000_000)
@@ -266,6 +274,7 @@ struct XPCHostdClientTests {
         try await client.writeSessionInput(id: id, data: Data("hello\n".utf8))
         try await client.resizeSession(id: id, columns: 100, rows: 40)
         try await client.sendSessionSignal(id: id, signal: .interrupt)
+        try await client.interruptSession(id: id)
 
         let ids = await transport.recordedControlIDs()
         #expect(attach.record.id == id)
@@ -280,6 +289,7 @@ struct XPCHostdClientTests {
         #expect(ids["write"] == id)
         #expect(ids["resize"] == id)
         #expect(ids["signal"] == id)
+        #expect(ids["interrupt"] == id)
         #expect(await transport.recordedStreamRequest()?.after == 12)
         #expect(await transport.recordedStreamRequest()?.timeout == 0.25)
         #expect(await transport.recordedStreamRequest()?.limit == 128)

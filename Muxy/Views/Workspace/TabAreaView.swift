@@ -231,6 +231,10 @@ private struct TabContentView: View {
                 focused: focused,
                 visible: visible
             )
+            .overlay {
+                InactiveWindowClickView(action: onFocus)
+                    .accessibilityHidden(true)
+            }
         case let .vcs(vcsState):
             VCSTabView(state: vcsState, focused: focused, onFocus: onFocus)
                 .overlay {

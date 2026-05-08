@@ -87,6 +87,12 @@ public actor HostdProcessRegistry {
     private var sessions: [UUID: HostdPTYSession] = [:]
     private var liveSessionIDs = Set<UUID>()
     private var tmuxAttachedClientCounts: [UUID: Int] = [:]
+    private var pendingExitWaiters: [UUID: [WaiterEntry]] = [:]
+
+    private struct WaiterEntry {
+        let id: UUID
+        let continuation: CheckedContinuation<HostdWaitForSessionExitResponse, Never>
+    }
 
     init(
         store: SessionStore,
@@ -289,6 +295,44 @@ public actor HostdProcessRegistry {
         try await tmux.sendKeys(sessionName: HostdTmuxSessionName.name(for: id), keys: "C-c")
     }
 
+    public func waitForSessionExit(
+        id: UUID,
+        timeoutMs: Int
+    ) async -> HostdWaitForSessionExitResponse {
+        if let record = try? await storedRecord(id: id), record.lastState == .exited {
+            return HostdWaitForSessionExitResponse(lastTail: record.lastTail, didTimeout: false)
+        }
+        let waiterID = UUID()
+        return await withCheckedContinuation { continuation in
+            pendingExitWaiters[id, default: []].append(WaiterEntry(id: waiterID, continuation: continuation))
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(max(timeoutMs, 0)) * 1_000_000)
+                await self?.timeoutWaiter(sessionID: id, waiterID: waiterID)
+            }
+        }
+    }
+
+    private func timeoutWaiter(sessionID: UUID, waiterID: UUID) {
+        guard var waiters = pendingExitWaiters[sessionID],
+              let idx = waiters.firstIndex(where: { $0.id == waiterID })
+        else { return }
+        let entry = waiters.remove(at: idx)
+        if waiters.isEmpty {
+            pendingExitWaiters.removeValue(forKey: sessionID)
+        } else {
+            pendingExitWaiters[sessionID] = waiters
+        }
+        entry.continuation.resume(returning: HostdWaitForSessionExitResponse(lastTail: nil, didTimeout: true))
+    }
+
+    private func resumeExitWaiters(sessionID: UUID, lastTail: String?) {
+        guard let waiters = pendingExitWaiters.removeValue(forKey: sessionID) else { return }
+        let response = HostdWaitForSessionExitResponse(lastTail: lastTail, didTimeout: false)
+        for entry in waiters {
+            entry.continuation.resume(returning: response)
+        }
+    }
+
     private func markExitedIfKnown(id: UUID) async throws {
         if sessions[id] != nil {
             releaseKeepaliveIfLive(id: id)
@@ -392,6 +436,7 @@ public actor HostdProcessRegistry {
             try? await store.record(updated)
         }
         tmuxAttachedClientCounts.removeValue(forKey: id)
+        resumeExitWaiters(sessionID: id, lastTail: lastTail)
     }
 
     private func releaseKeepaliveIfLive(id: UUID) {

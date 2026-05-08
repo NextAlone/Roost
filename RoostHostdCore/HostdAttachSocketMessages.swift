@@ -20,6 +20,7 @@ public enum HostdAttachSocketOperation: String, Sendable, Codable, Equatable {
     case resizeSession
     case sendSessionSignal
     case interruptSession
+    case waitForSessionExit
 }
 
 public struct HostdInterruptSessionRequest: Sendable, Codable, Equatable {
@@ -27,6 +28,26 @@ public struct HostdInterruptSessionRequest: Sendable, Codable, Equatable {
 
     public init(id: UUID) {
         self.id = id
+    }
+}
+
+public struct HostdWaitForSessionExitRequest: Sendable, Codable, Equatable {
+    public let id: UUID
+    public let timeoutMs: Int
+
+    public init(id: UUID, timeoutMs: Int) {
+        self.id = id
+        self.timeoutMs = timeoutMs
+    }
+}
+
+public struct HostdWaitForSessionExitResponse: Sendable, Codable, Equatable {
+    public let lastTail: String?
+    public let didTimeout: Bool
+
+    public init(lastTail: String?, didTimeout: Bool) {
+        self.lastTail = lastTail
+        self.didTimeout = didTimeout
     }
 }
 
@@ -49,7 +70,7 @@ public struct HostdAttachSocketResponse: Sendable, Codable, Equatable {
 }
 
 public struct HostdDaemonRuntimeIdentity: Sendable, Codable, Equatable {
-    public static let currentProtocolVersion = 8
+    public static let currentProtocolVersion = 9
 
     public let protocolVersion: Int
 

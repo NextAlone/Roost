@@ -1156,3 +1156,16 @@ final class AppState {
         ))
     }
 }
+
+#if DEBUG
+extension AppState {
+    func pane(id paneID: UUID) -> TerminalPaneState? {
+        pane(forSessionID: paneID)
+    }
+
+    func testSetCapturedResume(_ paneID: UUID, captured: String?) {
+        guard let pane = pane(forSessionID: paneID) else { return }
+        pane.capturedResumeCommand = captured
+    }
+}
+#endif

@@ -115,9 +115,11 @@ struct VCSTabView: View {
     @ViewBuilder
     private var jjContent: some View {
         if let jjState = state.jjState {
-            JjPanelView(state: jjState, onOpenFile: { path in
-                openFileInEditor(path)
-            })
+            JjPanelView(
+                state: jjState,
+                onOpenFile: { path in openFileInEditor(path) },
+                onOpenDiff: { path in openJjDiffInTab(path, repoPath: jjState.repoPath) }
+            )
         } else {
             jjPlaceholder
         }
@@ -717,6 +719,16 @@ struct VCSTabView: View {
     private func openDiffInTab(_ relativePath: String, isStaged: Bool) {
         guard let projectID = appState.activeProjectID else { return }
         appState.openDiffViewer(vcs: state, filePath: relativePath, isStaged: isStaged, projectID: projectID)
+    }
+
+    private func openJjDiffInTab(_ relativePath: String, repoPath: String) {
+        guard let projectID = appState.activeProjectID else { return }
+        appState.openJjDiffViewer(
+            repoPath: repoPath,
+            revset: "@",
+            filePath: relativePath,
+            projectID: projectID
+        )
     }
 }
 

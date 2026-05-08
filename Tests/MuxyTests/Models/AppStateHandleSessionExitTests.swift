@@ -48,6 +48,21 @@ struct AppStateHandleSessionExitTests {
         #expect(pane.lastState == .exited)
     }
 
+    @Test("markPaneSessionExited fetches captured resume command via hostd")
+    func markPaneExitFetchesCaptured() async throws {
+        let rig = AppStateTestRig()
+        rig.ownership = .hostdOwnedProcess
+        rig.waitForSessionExitTail = "Resume this session with:\nclaude --resume xyz-789\n"
+        let app = rig.makeAppState()
+        let pane = await rig.makeAgentPane(kind: .claudeCode, app: app)
+
+        _ = app.markPaneSessionExited(paneID: pane.id)
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(pane.capturedResumeCommand == "claude --resume xyz-789")
+        #expect(pane.lastState == .exited)
+    }
+
     @Test("ignores stale sessionID")
     func ignoresStaleSessionID() {
         let rig = AppStateTestRig()

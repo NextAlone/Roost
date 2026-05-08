@@ -15,6 +15,7 @@ final class AppStateTestRig {
     var deleteCalls: [UUID] = []
     var slowTerminateNanoseconds: UInt64 = 0
     var slowInterruptNanoseconds: UInt64 = 0
+    var waitForSessionExitTail: String? = nil
     var ownership: HostdRuntimeOwnership = .appOwnedMetadataOnly
 
     let selectionStore = AppStateTestRigSelectionStore()
@@ -142,6 +143,14 @@ final class AppStateTestRigHostdClient: RoostHostdClient, @unchecked Sendable {
 
     func sendTmuxKeys(id: UUID, keys: [String]) async throws {
         await MainActor.run { rig?.sendTmuxKeysCalls.append((id, keys)) }
+    }
+
+    func waitForSessionExit(id _: UUID, timeoutMs _: Int) async throws -> HostdWaitForSessionExitResponse {
+        let tail = await MainActor.run { rig?.waitForSessionExitTail }
+        if let tail {
+            return HostdWaitForSessionExitResponse(lastTail: tail, didTimeout: false)
+        }
+        return HostdWaitForSessionExitResponse(lastTail: nil, didTimeout: true)
     }
 
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data {

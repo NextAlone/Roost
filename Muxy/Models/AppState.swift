@@ -359,6 +359,21 @@ final class AppState {
         if changed {
             advanceAgentActivityRevision()
         }
+        let agentKind = pane.agentKind
+        let viewSessionID = pane.sessionID
+        if agentKind != .terminal, let client = hostdClient {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    let response = try await client.waitForSessionExit(id: paneID, timeoutMs: 1000)
+                    if !response.didTimeout {
+                        self.handleSessionExit(paneID: paneID, sessionID: viewSessionID, lastTail: response.lastTail)
+                    }
+                } catch {
+                    logger.warning("waitForSessionExit on pane exit failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
         return true
     }
 

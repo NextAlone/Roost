@@ -36,11 +36,19 @@ final class TerminalPaneState: Identifiable {
     var lastState: SessionLifecycleState = .running
     var activityState: AgentActivityState
     var previousActivityState: AgentActivityState?
+    var sessionID: UUID
+    var capturedResumeCommand: String?
+    var agentBinaryPath: URL?
+    var agentBinaryMTime: Date?
+    var binaryUpdateDetected: Bool = false
+    var exitBannerDismissed: Bool = false
+    var mtimeBannerDismissed: Bool = false
     let searchState = TerminalSearchState()
     @ObservationIgnored private var titleDebounceTask: Task<Void, Never>?
 
     init(
         id: UUID = UUID(),
+        sessionID: UUID = UUID(),
         projectPath: String,
         title: String = "Terminal",
         initialWorkingDirectory: String? = nil,
@@ -53,6 +61,7 @@ final class TerminalPaneState: Identifiable {
         createdAt: Date = Date()
     ) {
         self.id = id
+        self.sessionID = sessionID
         self.projectPath = projectPath
         self.title = title
         self.currentWorkingDirectory = initialWorkingDirectory

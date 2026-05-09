@@ -84,7 +84,6 @@ final class AppState {
         case markPaneSessionExited(paneID: UUID, capturedResumeCommand: String?)
         case reloadAgent(
             paneID: UUID,
-            mode: AgentReloadMode,
             newSessionID: UUID,
             command: String,
             env: [String: String],
@@ -405,8 +404,8 @@ final class AppState {
         }
     }
 
-    func reloadAgent(paneID: UUID, mode: AgentReloadMode) async {
-        logger.notice("reloadAgent ENTRY paneID=\(paneID, privacy: .public) mode=\(String(describing: mode), privacy: .public)")
+    func reloadAgent(paneID: UUID) async {
+        logger.notice("reloadAgent ENTRY paneID=\(paneID, privacy: .public)")
         guard !inFlightReloadPaneIDs.contains(paneID) else {
             logger.notice("reloadAgent SKIPPED inFlight paneID=\(paneID, privacy: .public)")
             return
@@ -421,7 +420,7 @@ final class AppState {
         let preset = agentPresetForRouting(initialPane.agentKind)
 
         var capturedTail: String?
-        if mode == .resume, let client = hostdClient {
+        if let client = hostdClient {
             do {
                 let probe = try await client.waitForSessionExit(id: paneID, timeoutMs: 1000)
                 if !probe.didTimeout {
@@ -446,19 +445,16 @@ final class AppState {
 
         guard let livePane = pane(forSessionID: paneID) else { return }
         var captured: String?
-        if mode == .resume {
-            if let local = livePane.capturedResumeCommand {
-                captured = local
-            } else if let tail = capturedTail {
-                captured = Self.extractResumeCommand(preset: preset, lastTail: tail)
-            }
+        if let local = livePane.capturedResumeCommand {
+            captured = local
+        } else if let tail = capturedTail {
+            captured = Self.extractResumeCommand(preset: preset, lastTail: tail)
         }
         logger.notice("reloadAgent CAPTURED captured=\(captured ?? "nil", privacy: .public)")
         let newSessionID = UUID()
         let command = AgentReloadCommandBuilder.build(
             preset: preset,
-            captured: captured,
-            mode: mode
+            captured: captured
         )
         let env = livePane.env
         let cwd = livePane.cwd ?? URL(fileURLWithPath: livePane.currentWorkingDirectory ?? "/tmp")
@@ -477,7 +473,6 @@ final class AppState {
 
         dispatch(.reloadAgent(
             paneID: paneID,
-            mode: mode,
             newSessionID: newSessionID,
             command: command,
             env: env,
@@ -503,7 +498,7 @@ final class AppState {
         let agentKind = reloadedPane.agentKind
         let workspacePath = reloadedPane.projectPath
         reloadedPane.markHostdAttachPreparing()
-        Task { @MainActor [client, paneID, newSessionID, location, agentKind, workspacePath, environment, launchCommand] in
+        Task { @MainActor [client, paneID, location, agentKind, workspacePath, environment, launchCommand] in
             let cmdLog = launchCommand ?? "nil"
             logger.notice("reloadAgent CREATE pane=\(paneID, privacy: .public) cmd=\(cmdLog, privacy: .public)")
             do {

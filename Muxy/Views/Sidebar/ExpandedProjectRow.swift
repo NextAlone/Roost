@@ -643,12 +643,17 @@ enum ExpandedWorktreeRowBackgroundKind: Equatable {
     case neutral
     case hover
     case awaiting
+    case awaitingUrgent
     case completed
 
-    static func resolve(dominantState: AgentActivityState?, hovered: Bool) -> ExpandedWorktreeRowBackgroundKind {
+    static func resolve(
+        dominantState: AgentActivityState?,
+        dominantPreviousState: AgentActivityState?,
+        hovered: Bool
+    ) -> ExpandedWorktreeRowBackgroundKind {
         switch dominantState {
         case .awaiting:
-            .awaiting
+            dominantState?.isUrgentAwaiting(previous: dominantPreviousState) == true ? .awaitingUrgent : .awaiting
         case .completed:
             .completed
         case .running,
@@ -804,8 +809,18 @@ private struct ExpandedWorktreeRow: View {
     private var rowBackground: AnyShapeStyle {
         switch ExpandedWorktreeRowBackgroundKind.resolve(
             dominantState: agentActivitySummary?.dominantState,
+            dominantPreviousState: agentActivitySummary?.dominantPreviousState,
             hovered: hovered
         ) {
+        case .awaitingUrgent:
+            return AnyShapeStyle(LinearGradient(
+                colors: [
+                    MuxyTheme.diffRemoveFg.opacity(0.18),
+                    MuxyTheme.diffRemoveFg.opacity(0.06),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            ))
         case .awaiting:
             return AnyShapeStyle(LinearGradient(
                 colors: [

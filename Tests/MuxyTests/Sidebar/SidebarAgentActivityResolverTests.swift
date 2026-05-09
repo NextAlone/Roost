@@ -78,7 +78,7 @@ struct SidebarAgentActivityResolverTests {
         )
 
         #expect(summary?.dominantState == .awaiting)
-        #expect(summary?.agentStates == [.running, .awaiting])
+        #expect(summary?.agentEntries.map(\.state) == [.running, .awaiting])
     }
 
     @Test("summary surfaces completed before idle")
@@ -103,11 +103,19 @@ struct SidebarAgentActivityResolverTests {
     func summaryDotIdentitiesIncludeState() {
         let completed = SidebarAgentActivitySummary(
             dominantState: .completed,
-            agentStates: [.completed, .completed]
+            dominantPreviousState: nil,
+            agentEntries: [
+                .init(state: .completed, previousState: nil),
+                .init(state: .completed, previousState: nil),
+            ]
         )
         let idle = SidebarAgentActivitySummary(
             dominantState: .idle,
-            agentStates: [.idle, .idle]
+            dominantPreviousState: nil,
+            agentEntries: [
+                .init(state: .idle, previousState: nil),
+                .init(state: .idle, previousState: nil),
+            ]
         )
 
         #expect(completed.dots.map(\.id) != idle.dots.map(\.id))
@@ -126,7 +134,7 @@ struct SidebarAgentActivityResolverTests {
         )
 
         #expect(summary?.showsSidebarStatusDots == true)
-        #expect(summary?.dots == [SidebarAgentActivityDot(index: 0, state: .idle)])
+        #expect(summary?.dots == [SidebarAgentActivityDot(index: 0, state: .idle, previousState: nil)])
     }
 
     @Test("returns nil for terminal-only workspace")

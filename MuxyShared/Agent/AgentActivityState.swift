@@ -26,4 +26,8 @@ public enum AgentActivityState: String, Sendable, Codable, Hashable, CaseIterabl
         case .exited: "Exited"
         }
     }
+
+    public func isUrgentAwaiting(previous: AgentActivityState?) -> Bool {
+        self == .awaiting && previous == .running
+    }
 }

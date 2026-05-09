@@ -59,8 +59,7 @@ struct AgentReloadIntegrationTests {
         let captured = "claude --resume real-id-456"
         let command = AgentReloadCommandBuilder.build(
             preset: preset,
-            captured: captured,
-            mode: .resume
+            captured: captured
         )
         #expect(command == "claude --dangerously-skip-permissions --resume real-id-456")
     }

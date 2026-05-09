@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 enum PaneTabStripLayout {
     static let agentActivityStatusIconWidth: CGFloat = AgentActivityStatusBadgeLayout.diameter
-    static let agentActivityStatusIconHeight: CGFloat = AgentActivityStatusBadgeLayout.height
+    static let agentActivityStatusIconHeight: CGFloat = AgentActivityStatusBadgeLayout.diameter
 }
 
 struct PaneTabStrip: View {
@@ -17,8 +17,8 @@ struct PaneTabStrip: View {
         let colorID: String?
         let agentKind: AgentKind
         let agentActivityState: AgentActivityState?
+        let agentPreviousActivityState: AgentActivityState?
         let canReloadAgent: Bool
-        let resumeEnabled: Bool
 
         var agentActivityStateForIcon: AgentActivityState? {
             guard kind == .terminal, agentKind != .terminal else { return nil }
@@ -52,7 +52,7 @@ struct PaneTabStrip: View {
     let onSetCustomTitle: (UUID, String?) -> Void
     let onSetColorID: (UUID, String?) -> Void
     let onReorderTab: (IndexSet, Int) -> Void
-    let onReloadAgent: (UUID, AgentReloadMode) -> Void
+    let onReloadAgent: (UUID) -> Void
     @Environment(TabDragCoordinator.self) private var dragCoordinator
     @AppStorage(AgentToolbarSettings.visibleAgentsKey)
     private var visibleAgentsRaw = AgentToolbarSettings.defaultVisibleAgentsRaw
@@ -64,7 +64,6 @@ struct PaneTabStrip: View {
             let agentKind = pane?.agentKind ?? .terminal
             let canReload = agentKind != .terminal
                 && pane?.hostdRuntimeOwnership == .hostdOwnedProcess
-            let resumeEnabled = canReload && agentKind.resumeStrategy != .notSupported
             return TabSnapshot(
                 id: tab.id,
                 title: tab.title,
@@ -74,8 +73,8 @@ struct PaneTabStrip: View {
                 colorID: tab.colorID,
                 agentKind: agentKind,
                 agentActivityState: agentKind == .terminal ? nil : pane?.activityState,
-                canReloadAgent: canReload,
-                resumeEnabled: resumeEnabled
+                agentPreviousActivityState: agentKind == .terminal ? nil : pane?.previousActivityState,
+                canReloadAgent: canReload
             )
         }
     }
@@ -179,7 +178,7 @@ struct PaneTabStrip: View {
                     onTogglePin: { onTogglePin(tab.id) },
                     onSetCustomTitle: { onSetCustomTitle(tab.id, $0) },
                     onSetColorID: { onSetColorID(tab.id, $0) },
-                    onReloadAgent: { mode in onReloadAgent(tab.id, mode) }
+                    onReloadAgent: { onReloadAgent(tab.id) }
                 )
                 .frame(width: perTabWidth)
                 .background {
@@ -405,7 +404,7 @@ private struct TabCell: View {
     let onTogglePin: () -> Void
     let onSetCustomTitle: (String?) -> Void
     let onSetColorID: (String?) -> Void
-    let onReloadAgent: (AgentReloadMode) -> Void
+    let onReloadAgent: () -> Void
     @State private var hovered = false
     @State private var isRenaming = false
     @State private var renameText = ""
@@ -554,9 +553,7 @@ private struct TabCell: View {
             .accessibilityAddTraits(.isButton)
             .contextMenu {
                 if tab.canReloadAgent {
-                    Button("Reload Agent (Resume)") { onReloadAgent(.resume) }
-                        .disabled(!tab.resumeEnabled)
-                    Button("Reload Agent (Fresh)") { onReloadAgent(.fresh) }
+                    Button("Reload Agent") { onReloadAgent() }
                     Divider()
                 }
                 Button("New Tab to the Left") { onCreateLeft() }
@@ -678,7 +675,7 @@ private struct TabCell: View {
             Image(systemName: "rectangle.split.2x1")
                 .font(.system(size: 11, weight: .semibold))
         } else if let state = tab.agentActivityStateForIcon {
-            AgentActivityStatusBadge(state: state)
+            AgentActivityStatusBadge(state: state, previousState: tab.agentPreviousActivityState)
                 .frame(
                     width: PaneTabStripLayout.agentActivityStatusIconWidth,
                     height: PaneTabStripLayout.agentActivityStatusIconHeight

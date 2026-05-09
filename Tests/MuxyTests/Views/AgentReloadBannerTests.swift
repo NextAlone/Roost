@@ -5,27 +5,24 @@ import Testing
 
 @Suite("AgentReloadBanner")
 struct AgentReloadBannerTests {
-    @Test("exit variant shows resume and restart")
-    func exitVariantShowsResumeAndRestart() {
+    @Test("exit variant shows reload primary")
+    func exitVariantShowsReload() {
         let model = AgentReloadBanner.Model.exit(
             agentName: "claude",
             captured: "claude --resume abc",
             onResume: {},
-            onFresh: {},
             onDismiss: {}
         )
         #expect(model.primaryButtonEnabled)
-        #expect(model.primaryLabel == "Resume")
-        #expect(model.secondaryLabel == "Restart fresh")
+        #expect(model.primaryLabel == "Reload Agent")
     }
 
-    @Test("exit without capture disables resume")
-    func exitWithoutCaptureDisablesResume() {
+    @Test("exit without capture disables reload")
+    func exitWithoutCaptureDisablesReload() {
         let model = AgentReloadBanner.Model.exit(
             agentName: "claude",
             captured: nil,
             onResume: {},
-            onFresh: {},
             onDismiss: {}
         )
         #expect(!model.primaryButtonEnabled)
@@ -39,6 +36,5 @@ struct AgentReloadBannerTests {
             onDismiss: {}
         )
         #expect(model.primaryLabel == "Reload")
-        #expect(model.secondaryLabel == nil)
     }
 }

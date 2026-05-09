@@ -62,13 +62,16 @@ struct ExpandedProjectRowSelectionTests {
 
     @Test("workspace row background emphasizes only waiting and completed agents")
     func workspaceRowBackgroundEmphasizesOnlyWaitingAndCompletedAgents() {
-        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: nil, hovered: false) == .neutral)
-        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .idle, hovered: false) == .neutral)
-        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .running, hovered: false) == .neutral)
-        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .exited, hovered: false) == .neutral)
-        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .awaiting, hovered: false) == .awaiting)
-        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .completed, hovered: false) == .completed)
-        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .running, hovered: true) == .hover)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: nil, dominantPreviousState: nil, hovered: false) == .neutral)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .idle, dominantPreviousState: nil, hovered: false) == .neutral)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .running, dominantPreviousState: nil, hovered: false) == .neutral)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .exited, dominantPreviousState: nil, hovered: false) == .neutral)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .awaiting, dominantPreviousState: nil, hovered: false) == .awaiting)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .awaiting, dominantPreviousState: .idle, hovered: false) == .awaiting)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .awaiting, dominantPreviousState: .completed, hovered: false) == .awaiting)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .awaiting, dominantPreviousState: .running, hovered: false) == .awaitingUrgent)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .completed, dominantPreviousState: nil, hovered: false) == .completed)
+        #expect(ExpandedWorktreeRowBackgroundKind.resolve(dominantState: .running, dominantPreviousState: nil, hovered: true) == .hover)
     }
 
     @Test("project expands for active or agent-bearing vcs projects")

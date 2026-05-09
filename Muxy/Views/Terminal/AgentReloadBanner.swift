@@ -11,9 +11,6 @@ struct AgentReloadBanner: View {
                 .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 12)
-            if let secondary = model.secondaryLabel {
-                Button(secondary, action: model.onSecondary).buttonStyle(.bordered)
-            }
             Button(model.primaryLabel, action: model.onPrimary)
                 .buttonStyle(.borderedProminent)
                 .disabled(!model.primaryButtonEnabled)
@@ -35,26 +32,21 @@ struct AgentReloadBanner: View {
         let primaryLabel: String
         let primaryButtonEnabled: Bool
         let onPrimary: () -> Void
-        let secondaryLabel: String?
-        let onSecondary: () -> Void
         let onDismiss: () -> Void
 
         static func exit(
             agentName: String,
             captured: String?,
             onResume: @escaping () -> Void,
-            onFresh: @escaping () -> Void,
             onDismiss: @escaping () -> Void
         ) -> Model {
             Model(
                 title: "\(agentName) exited.",
                 iconName: "circle.fill",
                 tint: .orange,
-                primaryLabel: "Resume",
+                primaryLabel: "Reload Agent",
                 primaryButtonEnabled: captured != nil,
                 onPrimary: onResume,
-                secondaryLabel: "Restart fresh",
-                onSecondary: onFresh,
                 onDismiss: onDismiss
             )
         }
@@ -71,8 +63,6 @@ struct AgentReloadBanner: View {
                 primaryLabel: "Reload",
                 primaryButtonEnabled: true,
                 onPrimary: onReload,
-                secondaryLabel: nil,
-                onSecondary: {},
                 onDismiss: onDismiss
             )
         }

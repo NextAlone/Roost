@@ -4,28 +4,12 @@ import Testing
 
 @Suite("AgentReloadCommandBuilder")
 struct AgentReloadCommandBuilderTests {
-    @Test("fresh always returns default command")
-    func freshAlwaysReturnsDefaultCommand() {
-        let preset = AgentPreset(
-            kind: .claudeCode,
-            defaultCommand: "claude --x",
-            resumeCommandRegex: nil
-        )
-        let cmd = AgentReloadCommandBuilder.build(
-            preset: preset,
-            captured: "claude --resume abc",
-            mode: .fresh
-        )
-        #expect(cmd == "claude --x")
-    }
-
     @Test("claude appends args")
     func claudeAppendArgs() {
         let preset = AgentPreset(kind: .claudeCode, defaultCommand: "claude --x")
         let cmd = AgentReloadCommandBuilder.build(
             preset: preset,
-            captured: "claude --resume abc",
-            mode: .resume
+            captured: "claude --resume abc"
         )
         #expect(cmd == "claude --x --resume abc")
     }
@@ -35,8 +19,7 @@ struct AgentReloadCommandBuilderTests {
         let preset = AgentPreset(kind: .claudeCode, defaultCommand: "claude --x")
         let cmd = AgentReloadCommandBuilder.build(
             preset: preset,
-            captured: "rogue --resume abc",
-            mode: .resume
+            captured: "rogue --resume abc"
         )
         #expect(cmd == "claude --x")
     }
@@ -46,8 +29,7 @@ struct AgentReloadCommandBuilderTests {
         let preset = AgentPreset(kind: .claudeCode, defaultCommand: "claude --x")
         let cmd = AgentReloadCommandBuilder.build(
             preset: preset,
-            captured: "claude --resume abc; ls",
-            mode: .resume
+            captured: "claude --resume abc; ls"
         )
         #expect(cmd == "claude --x")
     }
@@ -57,8 +39,7 @@ struct AgentReloadCommandBuilderTests {
         let preset = AgentPreset(kind: .codex, defaultCommand: "codex --y")
         let cmd = AgentReloadCommandBuilder.build(
             preset: preset,
-            captured: "codex resume abc-123",
-            mode: .resume
+            captured: "codex resume abc-123"
         )
         #expect(cmd == "codex resume abc-123")
     }
@@ -68,8 +49,7 @@ struct AgentReloadCommandBuilderTests {
         let preset = AgentPreset(kind: .codex, defaultCommand: "codex --y")
         let cmd = AgentReloadCommandBuilder.build(
             preset: preset,
-            captured: "rogue resume abc",
-            mode: .resume
+            captured: "rogue resume abc"
         )
         #expect(cmd == "codex --y")
     }
@@ -79,8 +59,7 @@ struct AgentReloadCommandBuilderTests {
         let preset = AgentPreset(kind: .geminiCli, defaultCommand: "gemini --z")
         let cmd = AgentReloadCommandBuilder.build(
             preset: preset,
-            captured: "anything",
-            mode: .resume
+            captured: "anything"
         )
         #expect(cmd == "gemini --z")
     }
@@ -90,8 +69,7 @@ struct AgentReloadCommandBuilderTests {
         let preset = AgentPreset(kind: .terminal, defaultCommand: nil)
         let cmd = AgentReloadCommandBuilder.build(
             preset: preset,
-            captured: nil,
-            mode: .fresh
+            captured: nil
         )
         #expect(cmd == "")
     }

@@ -87,11 +87,7 @@ struct TerminalPaneChrome: View {
                     captured: state.capturedResumeCommand,
                     onResume: {
                         let paneID = state.id
-                        Task { await appState.reloadAgent(paneID: paneID, mode: .resume) }
-                    },
-                    onFresh: {
-                        let paneID = state.id
-                        Task { await appState.reloadAgent(paneID: paneID, mode: .fresh) }
+                        Task { await appState.reloadAgent(paneID: paneID) }
                     },
                     onDismiss: {
                         appState.dispatch(.dismissExitBanner(paneID: state.id))
@@ -106,7 +102,7 @@ struct TerminalPaneChrome: View {
                     agentName: state.agentKind.displayName,
                     onReload: {
                         let paneID = state.id
-                        Task { await appState.reloadAgent(paneID: paneID, mode: .resume) }
+                        Task { await appState.reloadAgent(paneID: paneID) }
                     },
                     onDismiss: {
                         appState.dispatch(.dismissBinaryUpdateBanner(paneID: state.id))
@@ -388,13 +384,11 @@ struct TerminalBridge: NSViewRepresentable {
 
     private func configureReloadMenu(_ view: GhosttyTerminalNSView) {
         let canReload = state.agentKind != .terminal && state.hostdRuntimeOwnership == .hostdOwnedProcess
-        let resumeEnabled = state.agentKind.resumeStrategy != .notSupported
-            && !(state.lastState == .running && state.capturedResumeCommand == nil)
-        view.reloadMenuConfig = ReloadMenuConfig(canReload: canReload, resumeEnabled: resumeEnabled)
-        view.onReloadAgent = { [weak state, appState] mode in
+        view.reloadMenuConfig = ReloadMenuConfig(canReload: canReload)
+        view.onReloadAgent = { [weak state, appState] in
             guard let paneID = state?.id else { return }
             Task { @MainActor in
-                await appState.reloadAgent(paneID: paneID, mode: mode)
+                await appState.reloadAgent(paneID: paneID)
             }
         }
     }

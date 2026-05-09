@@ -31,6 +31,6 @@ struct PaneTabStripSnapshotTests {
     @Test("agent tab status icon reserves the shared badge footprint")
     func agentTabStatusIconReservesSharedBadgeFootprint() {
         #expect(PaneTabStripLayout.agentActivityStatusIconWidth == AgentActivityStatusBadgeLayout.diameter)
-        #expect(PaneTabStripLayout.agentActivityStatusIconHeight == AgentActivityStatusBadgeLayout.height)
+        #expect(PaneTabStripLayout.agentActivityStatusIconHeight == AgentActivityStatusBadgeLayout.diameter)
     }
 }

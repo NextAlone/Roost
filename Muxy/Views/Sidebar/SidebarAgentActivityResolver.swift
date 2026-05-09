@@ -4,32 +4,39 @@ import MuxyShared
 struct SidebarAgentActivityDot: Equatable, Identifiable {
     let index: Int
     let state: AgentActivityState
+    let previousState: AgentActivityState?
 
     var id: String {
-        "\(index)-\(state.rawValue)"
+        "\(index)-\(state.rawValue)-\(previousState?.rawValue ?? "nil")"
     }
 }
 
 struct SidebarAgentActivitySummary: Equatable {
     let dominantState: AgentActivityState
-    let agentStates: [AgentActivityState]
+    let dominantPreviousState: AgentActivityState?
+    let agentEntries: [AgentActivityEntry]
+
+    struct AgentActivityEntry: Equatable {
+        let state: AgentActivityState
+        let previousState: AgentActivityState?
+    }
 
     var agentCount: Int {
-        agentStates.count
+        agentEntries.count
     }
 
     var dots: [SidebarAgentActivityDot] {
-        agentStates.enumerated().map { index, state in
-            SidebarAgentActivityDot(index: index, state: state)
+        agentEntries.enumerated().map { index, entry in
+            SidebarAgentActivityDot(index: index, state: entry.state, previousState: entry.previousState)
         }
     }
 
     var showsSidebarStatusDots: Bool {
-        !agentStates.isEmpty
+        !agentEntries.isEmpty
     }
 
     func count(for state: AgentActivityState) -> Int {
-        agentStates.count { $0 == state }
+        agentEntries.count { $0.state == state }
     }
 
     var accessibilityLabel: String {
@@ -68,16 +75,23 @@ enum SidebarAgentActivityResolver {
 
     @MainActor
     static func summary(tabs: [TerminalTab], activeTabID _: UUID?) -> SidebarAgentActivitySummary? {
-        let agentStates = tabs
+        let entries: [SidebarAgentActivitySummary.AgentActivityEntry] = tabs
             .compactMap(\.content.pane)
             .filter { $0.agentKind != .terminal }
-            .map(\.activityState)
-        guard !agentStates.isEmpty else { return nil }
+            .map { .init(state: $0.activityState, previousState: $0.previousActivityState) }
+        guard !entries.isEmpty else { return nil }
         guard let dominantState = AgentActivityState.sidebarPriority.first(where: { state in
-            agentStates.contains(state)
+            entries.contains(where: { $0.state == state })
         })
         else { return nil }
-        return SidebarAgentActivitySummary(dominantState: dominantState, agentStates: agentStates)
+        let dominantPrevious = entries
+            .first(where: { $0.state == dominantState })?
+            .previousState
+        return SidebarAgentActivitySummary(
+            dominantState: dominantState,
+            dominantPreviousState: dominantPrevious,
+            agentEntries: entries
+        )
     }
 }
 

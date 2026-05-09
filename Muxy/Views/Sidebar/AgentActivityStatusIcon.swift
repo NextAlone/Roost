@@ -8,35 +8,40 @@ enum AgentActivityStatusBadgeLayout {
 
 struct AgentActivityStatusBadge: View {
     let state: AgentActivityState
+    var previousState: AgentActivityState?
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .center) {
             Circle()
                 .fill(MuxyTheme.fgDim.opacity(0.26))
-                .frame(
-                    width: AgentActivityStatusBadgeLayout.diameter,
-                    height: AgentActivityStatusBadgeLayout.diameter
-                )
-            AgentActivityStatusIcon(state: state)
+            AgentActivityStatusIcon(state: state, previousState: previousState)
                 .id(state.rawValue)
         }
         .frame(
             width: AgentActivityStatusBadgeLayout.diameter,
-            height: AgentActivityStatusBadgeLayout.height
+            height: AgentActivityStatusBadgeLayout.diameter,
+            alignment: .center
         )
     }
 }
 
 struct AgentActivityStatusIcon: View {
     let state: AgentActivityState
+    var previousState: AgentActivityState?
 
     var body: some View {
-        AgentActivityPulsingStatusIcon(style: AgentActivityStatusPulseStyle(state: state))
+        AgentActivityPulsingStatusIcon(style: AgentActivityStatusPulseStyle(state: state, previousState: previousState))
     }
 }
 
 struct AgentActivityStatusPulseStyle: Equatable {
     let state: AgentActivityState
+    var previousState: AgentActivityState?
+
+    init(state: AgentActivityState, previousState: AgentActivityState? = nil) {
+        self.state = state
+        self.previousState = previousState
+    }
 
     var breathes: Bool {
         switch state {
@@ -97,12 +102,15 @@ private struct AgentActivityPulsingStatusIcon: View {
     }
 
     private var color: Color {
+        if style.state.isUrgentAwaiting(previous: style.previousState) {
+            return MuxyTheme.diffRemoveFg
+        }
         switch style.state {
-        case .running: MuxyTheme.accent
-        case .awaiting: MuxyTheme.warning
-        case .completed: MuxyTheme.diffAddFg
-        case .idle: MuxyTheme.fgDim.opacity(0.45)
-        case .exited: MuxyTheme.fgDim
+        case .running: return MuxyTheme.accent
+        case .awaiting: return MuxyTheme.warning
+        case .completed: return MuxyTheme.diffAddFg
+        case .idle: return MuxyTheme.fgDim.opacity(0.45)
+        case .exited: return MuxyTheme.fgDim
         }
     }
 
@@ -128,7 +136,7 @@ struct AgentActivityDotStack: View {
     var body: some View {
         HStack(spacing: -4) {
             ForEach(dots) { dot in
-                AgentActivityStackDot(state: dot.state)
+                AgentActivityStackDot(state: dot.state, previousState: dot.previousState)
             }
         }
         .frame(height: AgentActivityStatusBadgeLayout.height)
@@ -148,8 +156,9 @@ struct AgentActivityDotStack: View {
 
 struct AgentActivityStackDot: View {
     let state: AgentActivityState
+    var previousState: AgentActivityState?
 
     var body: some View {
-        AgentActivityStatusBadge(state: state)
+        AgentActivityStatusBadge(state: state, previousState: previousState)
     }
 }

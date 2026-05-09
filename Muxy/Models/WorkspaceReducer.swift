@@ -206,12 +206,9 @@ enum WorkspaceReducer {
                 pane.lastState = .exited
             }
 
-        case let .reloadAgent(paneID, mode, newSessionID, command, env, cwd, agentBinaryPath, agentBinaryMTime):
+        case let .reloadAgent(paneID, newSessionID, _, env, cwd, agentBinaryPath, agentBinaryMTime):
             if let pane = WorkspaceReducerShared.findPane(id: paneID, state: state) {
                 pane.sessionID = newSessionID
-                if mode != .resume {
-                    pane.startupCommand = command
-                }
                 pane.env = env
                 pane.cwd = cwd
                 pane.capturedResumeCommand = nil

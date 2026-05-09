@@ -3,11 +3,10 @@ import Foundation
 public enum AgentReloadCommandBuilder {
     public static func build(
         preset: AgentPreset,
-        captured: String?,
-        mode: AgentReloadMode
+        captured: String?
     ) -> String {
         let base = preset.defaultCommand ?? ""
-        guard mode == .resume, let captured else { return base }
+        guard let captured else { return base }
         switch preset.kind.resumeStrategy {
         case .notSupported:
             return base

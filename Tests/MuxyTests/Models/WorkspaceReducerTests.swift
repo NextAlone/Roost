@@ -926,10 +926,10 @@ struct WorkspaceReducerTests {
         let newPath = URL(fileURLWithPath: "/usr/local/bin/claude")
         let newMtime = Date()
 
+        let originalStartup = pane.startupCommand
         _ = WorkspaceReducer.reduce(
             action: .reloadAgent(
                 paneID: paneID,
-                mode: .resume,
                 newSessionID: UUID(),
                 command: "claude --x --resume abc",
                 env: ["PATH": "/usr/bin"],
@@ -947,7 +947,7 @@ struct WorkspaceReducerTests {
         #expect(pane.mtimeBannerDismissed == false)
         #expect(pane.lastState == .preparing)
         #expect(pane.cwd == newCwd)
-        #expect(pane.startupCommand == "claude --x --resume abc")
+        #expect(pane.startupCommand == originalStartup)
         #expect(pane.env == ["PATH": "/usr/bin"])
         #expect(pane.agentBinaryPath == newPath)
         #expect(pane.agentBinaryMTime == newMtime)

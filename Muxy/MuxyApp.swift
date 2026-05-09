@@ -1,4 +1,5 @@
 import AppKit
+import Network
 import RoostHostdCore
 import SwiftUI
 
@@ -180,6 +181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var pendingOpenPaths: [String] = []
     private var systemAppearanceObserver: NSObjectProtocol?
+    private var localNetworkAccessBrowser: NWBrowser?
 
     @MainActor
     func handleOpenProjectPath(_ path: String) {
@@ -266,8 +268,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationSocketServer.shared.start()
         AIProviderRegistry.shared.installAll()
         _ = AIUsageSettingsStore.isUsageEnabled()
+        requestLocalNetworkAccess()
 
         consumeLaunchArguments()
+    }
+
+    @MainActor
+    private func requestLocalNetworkAccess() {
+        guard localNetworkAccessBrowser == nil else { return }
+        let browser = NWBrowser(
+            for: .bonjour(type: "_roost-localnet._tcp", domain: nil),
+            using: NWParameters.tcp
+        )
+        browser.stateUpdateHandler = { _ in }
+        browser.start(queue: .main)
+        localNetworkAccessBrowser = browser
     }
 
     @MainActor

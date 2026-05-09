@@ -15,21 +15,13 @@ struct ScratchRow: View {
         WorktreeKey(projectID: Project.scratchID, worktreeID: Worktree.scratchID)
     }
 
-    private var agentActivitySummary: SidebarAgentActivitySummary? {
+    var body: some View {
         _ = appState.agentActivityRevision
-        return SidebarAgentActivityResolver.summary(
+        let summary = SidebarAgentActivityResolver.summary(
             tabs: appState.allTabs(forKey: scratchKey),
             activeTabID: isActive ? appState.focusedArea(for: Project.scratchID)?.activeTabID : nil
         )
-    }
-
-    var body: some View {
-        header
-            .onTapGesture { selectScratch() }
-    }
-
-    private var header: some View {
-        HStack(spacing: ExpandedWorktreeRowLayout.projectColumnSpacing) {
+        return HStack(spacing: ExpandedWorktreeRowLayout.projectColumnSpacing) {
             icon
 
             Text("Scratch")
@@ -39,7 +31,7 @@ struct ScratchRow: View {
 
             Spacer(minLength: 4)
 
-            if let summary = agentActivitySummary {
+            if let summary {
                 AgentActivityDotStack(dots: summary.dots)
             }
         }
@@ -57,6 +49,7 @@ struct ScratchRow: View {
         .contextMenu {
             Button("New Session…") { createSession(kind: .terminal) }
         }
+        .onTapGesture { selectScratch() }
     }
 
     private var icon: some View {

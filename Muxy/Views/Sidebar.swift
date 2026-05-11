@@ -75,6 +75,9 @@ struct Sidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            topFixedBar
+                .fixedSize(horizontal: false, vertical: true)
+
             projectList
                 .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
                 .clipped()
@@ -92,6 +95,21 @@ struct Sidebar: View {
         .onReceive(NotificationCenter.default.publisher(for: .toggleSidebar)) { _ in
             toggleExpanded()
         }
+    }
+
+    private var topFixedBar: some View {
+        VStack(spacing: 4) {
+            if isWide {
+                ScratchRow()
+            } else {
+                ScratchCollapsedRow()
+            }
+            PendingAgentsBanner()
+            NewWorkspaceButton(expanded: isWide)
+        }
+        .padding(.horizontal, isWide ? 6 : 8)
+        .padding(.vertical, 4)
+        .background(MuxyTheme.bg)
     }
 
     private func toggleExpanded() {
@@ -122,12 +140,6 @@ struct Sidebar: View {
     private var projectList: some View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: 4) {
-                if isWide {
-                    ScratchRow()
-                } else {
-                    ScratchCollapsedRow()
-                }
-
                 ForEach(Array(sortedProjects.enumerated()), id: \.element.id) { index, project in
                     Group {
                         if isWide {

@@ -42,6 +42,20 @@ struct Sidebar: View {
     @State private var expanded = UserDefaults.standard.bool(forKey: "muxy.sidebarExpanded")
     @AppStorage(SidebarCollapsedStyle.storageKey) private var collapsedStyleRaw = SidebarCollapsedStyle.defaultValue.rawValue
     @AppStorage(SidebarExpandedStyle.storageKey) private var expandedStyleRaw = SidebarExpandedStyle.defaultValue.rawValue
+    @AppStorage(ProjectSortMode.storageKey) private var projectSortModeRaw = ProjectSortMode.defaultValue.rawValue
+
+    private var projectSortMode: ProjectSortMode {
+        ProjectSortMode(rawValue: projectSortModeRaw) ?? ProjectSortMode.defaultValue
+    }
+
+    private var sortedProjects: [Project] {
+        ProjectSortingService.sort(
+            projects: projectStore.projects,
+            worktreesByProject: worktreeStore.worktrees,
+            mode: projectSortMode,
+            now: Date()
+        )
+    }
 
     private var collapsedStyle: SidebarCollapsedStyle {
         SidebarCollapsedStyle(rawValue: collapsedStyleRaw) ?? .defaultValue
@@ -114,7 +128,7 @@ struct Sidebar: View {
                     ScratchCollapsedRow()
                 }
 
-                ForEach(Array(projectStore.projects.enumerated()), id: \.element.id) { index, project in
+                ForEach(Array(sortedProjects.enumerated()), id: \.element.id) { index, project in
                     Group {
                         if isWide {
                             ExpandedProjectRow(
@@ -169,14 +183,16 @@ struct Sidebar: View {
 
     private func projectDragGesture(for project: Project) -> some Gesture {
         DragGesture(minimumDistance: 6, coordinateSpace: .named("sidebar"))
-            .onChanged { value in
+            .onChanged { [projectSortMode] value in
+                guard projectSortMode == .manual else { return }
                 if dragState.draggedID == nil {
                     dragState.draggedID = project.id
                     dragState.lastReorderTargetID = nil
                 }
                 reorderIfNeeded(at: value.location)
             }
-            .onEnded { _ in
+            .onEnded { [projectSortMode] _ in
+                guard projectSortMode == .manual else { return }
                 withAnimation(.easeInOut(duration: 0.15)) {
                     dragState.draggedID = nil
                     dragState.frames = [:]

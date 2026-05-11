@@ -2,7 +2,7 @@ import MuxyShared
 import SwiftUI
 
 enum AgentActivityStatusBadgeLayout {
-    static let diameter: CGFloat = 13
+    static let diameter: CGFloat = 14
     static let height: CGFloat = 18
 }
 

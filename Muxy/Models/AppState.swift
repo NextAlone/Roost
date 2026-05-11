@@ -282,6 +282,38 @@ final class AppState {
         return root.allAreas().flatMap(\.tabs)
     }
 
+    var awaitingPanes: [AwaitingPaneSummary] {
+        _ = agentActivityRevision
+        var results: [AwaitingPaneSummary] = []
+        for (key, root) in workspaceRoots {
+            for area in root.allAreas() {
+                for tab in area.tabs {
+                    guard let pane = tab.content.pane,
+                          pane.activityState == .awaiting
+                    else { continue }
+                    results.append(AwaitingPaneSummary(
+                        id: pane.id,
+                        paneID: pane.id,
+                        projectID: key.projectID,
+                        worktreeID: key.worktreeID,
+                        paneTitle: tab.title,
+                        projectName: projectName(for: key.projectID) ?? "",
+                        workspaceName: workspaceName(for: key) ?? ""
+                    ))
+                }
+            }
+        }
+        return results.sorted { $0.paneTitle < $1.paneTitle }
+    }
+
+    private func projectName(for id: UUID) -> String? {
+        nil
+    }
+
+    private func workspaceName(for key: WorktreeKey) -> String? {
+        worktreeStore?.worktree(projectID: key.projectID, worktreeID: key.worktreeID)?.name
+    }
+
     @discardableResult
     func updateAgentActivity(paneID: UUID, state: AgentActivityState, sourceType: String? = nil) -> Bool {
         for (key, root) in workspaceRoots {
@@ -1481,6 +1513,16 @@ final class AppState {
             replacementWorktreePath: replacement?.path
         ))
     }
+}
+
+struct AwaitingPaneSummary: Identifiable, Hashable {
+    let id: UUID
+    let paneID: UUID
+    let projectID: UUID
+    let worktreeID: UUID
+    let paneTitle: String
+    let projectName: String
+    let workspaceName: String
 }
 
 #if DEBUG

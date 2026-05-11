@@ -55,8 +55,12 @@ struct ExpandedProjectRow: View {
         }
     }
 
+    private var shouldShowWorktreeList: Bool {
+        isVcsRepo && worktrees.count > 1
+    }
+
     private var projectAgentActivitySummary: SidebarAgentActivitySummary? {
-        guard !isVcsRepo else { return nil }
+        guard !shouldShowWorktreeList else { return nil }
         _ = appState.agentActivityRevision
         guard let worktree = worktrees.first else { return nil }
         let key = WorktreeKey(projectID: project.id, worktreeID: worktree.id)
@@ -73,7 +77,7 @@ struct ExpandedProjectRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             projectHeader
-            if worktreesExpanded, isVcsRepo {
+            if worktreesExpanded, shouldShowWorktreeList {
                 worktreeList
             }
         }
@@ -105,6 +109,12 @@ struct ExpandedProjectRow: View {
                 hasAgentTabs: hasAgentTabs
             )
             else { return }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                worktreesExpanded = true
+            }
+        }
+        .onChange(of: worktrees.count) { previous, current in
+            guard previous <= 1, current > 1 else { return }
             withAnimation(.easeInOut(duration: 0.15)) {
                 worktreesExpanded = true
             }
@@ -177,7 +187,7 @@ struct ExpandedProjectRow: View {
 
             Spacer(minLength: 4)
 
-            if isVcsRepo {
+            if shouldShowWorktreeList {
                 worktreeChevron
             } else if let summary = projectAgentActivitySummary {
                 AgentActivityDotStack(dots: summary.dots)

@@ -307,16 +307,6 @@ struct ExpandedProjectRow: View {
                 }
             }
 
-            ExpandedNewWorktreeButton {
-                presentCreateWorktreeSheet()
-            }
-            .popover(isPresented: $showCreateWorktreeSheet, arrowEdge: .trailing) {
-                CreateWorktreeSheet(project: project) { result in
-                    showCreateWorktreeSheet = false
-                    handleCreateWorktreeResult(result)
-                }
-            }
-
             if !untrackedJjWorkspaceNames.isEmpty {
                 UntrackedJjWorkspacesHint(names: untrackedJjWorkspaceNames) { name in
                     importUntrackedJjWorkspace(name: name)
@@ -324,6 +314,12 @@ struct ExpandedProjectRow: View {
             }
         }
         .padding(.bottom, 4)
+        .popover(isPresented: $showCreateWorktreeSheet, arrowEdge: .trailing) {
+            CreateWorktreeSheet(project: project) { result in
+                showCreateWorktreeSheet = false
+                handleCreateWorktreeResult(result)
+            }
+        }
     }
 
     private func agentActivitySummary(for worktree: Worktree, selected: Bool) -> SidebarAgentActivitySummary? {
@@ -869,39 +865,6 @@ private struct WorktreeTreeMarker: View {
             .font(.system(size: 14, weight: .bold))
             .foregroundStyle(MuxyTheme.fgDim.opacity(0.72))
             .frame(maxWidth: .infinity)
-    }
-}
-
-private struct ExpandedNewWorktreeButton: View {
-    let action: () -> Void
-    @State private var hovered = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: ExpandedWorktreeRowLayout.treeColumnSpacing) {
-                Image(systemName: "plus")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(hovered ? MuxyTheme.accent : MuxyTheme.fgDim)
-                    .frame(width: ExpandedWorktreeRowLayout.newWorktreeMarkerWidth)
-                Text("New Workspace")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(hovered ? MuxyTheme.accent : MuxyTheme.fgDim)
-                Spacer()
-            }
-            .frame(height: ExpandedWorktreeRowLayout.newWorktreeRowMinHeight)
-            .padding(.leading, ExpandedWorktreeRowLayout.newWorktreeLeadingContentInset)
-            .padding(.trailing, ExpandedWorktreeRowLayout.trailingContentInset)
-            .background(hovered ? MuxyTheme.hover : Color.clear)
-            .contentShape(Rectangle())
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(MuxyTheme.border.opacity(0.45))
-                    .frame(height: 1)
-            }
-        }
-        .buttonStyle(.plain)
-        .onHover { hovered = $0 }
-        .accessibilityLabel("New Workspace")
     }
 }
 

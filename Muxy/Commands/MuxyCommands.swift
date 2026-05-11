@@ -184,6 +184,12 @@ struct MuxyCommands: Commands {
             }
             .shortcut(for: .newTab, store: keyBindings)
 
+            Button("New Workspace") {
+                performShortcutAction(.newWorkspace)
+            }
+            .shortcut(for: .newWorkspace, store: keyBindings)
+            .disabled(activeProjectPath == nil)
+
             Menu("Custom Commands") {
                 if commandShortcuts.shortcuts.isEmpty {
                     Button("No Custom Commands") {}

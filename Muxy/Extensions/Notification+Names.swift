@@ -3,6 +3,7 @@ import Foundation
 extension Notification.Name {
     static let renameActiveTab = Notification.Name("MuxyRenameActiveTab")
     static let requestCreateWorkspaceForAgent = Notification.Name("MuxyRequestCreateWorkspaceForAgent")
+    static let requestNewWorkspace = Notification.Name("MuxyRequestNewWorkspace")
     static let toggleThemePicker = Notification.Name("MuxyToggleThemePicker")
     static let themeDidChange = Notification.Name("MuxyThemeDidChange")
     static let findInTerminal = Notification.Name("MuxyFindInTerminal")

@@ -113,6 +113,16 @@ struct ShortcutActionDispatcher {
             return true
         case .newProject:
             return false
+        case .newWorkspace:
+            guard let projectID = appState.activeProjectID,
+                  projectID != Project.scratchID
+            else { return false }
+            notificationCenter.post(
+                name: .requestNewWorkspace,
+                object: nil,
+                userInfo: ["projectID": projectID]
+            )
+            return true
         case .openProject:
             ProjectOpenService.openProject(
                 appState: appState,

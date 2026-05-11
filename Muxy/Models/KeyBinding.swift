@@ -23,6 +23,7 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
     case previousTab
     case toggleThemePicker
     case newProject
+    case newWorkspace
     case openProject
     case reloadConfig
     case selectTab1
@@ -169,6 +170,7 @@ enum ShortcutAction: String, Codable, CaseIterable, Identifiable {
         case .navigateForward: ShortcutMetadata(displayName: "Navigate Forward", category: "Navigation", scope: .mainWindow)
         case .toggleThemePicker: ShortcutMetadata(displayName: "Theme Picker", category: "App", scope: .mainWindow)
         case .newProject: ShortcutMetadata(displayName: "New Project", category: "App", scope: .mainWindow)
+        case .newWorkspace: ShortcutMetadata(displayName: "New Workspace", category: "Project Navigation", scope: .mainWindow)
         case .openProject: ShortcutMetadata(displayName: "Open Project", category: "App", scope: .mainWindow)
         case .reloadConfig: ShortcutMetadata(displayName: "Reload Configuration", category: "App", scope: .global)
         }
@@ -285,7 +287,8 @@ struct KeyBinding: Codable, Identifiable {
         Self(action: .toggleAIUsage, combo: KeyCombo(key: "l", command: true)),
         Self(action: .navigateBack, combo: KeyCombo(key: KeyCombo.leftArrowKey, command: true, control: true)),
         Self(action: .navigateForward, combo: KeyCombo(key: KeyCombo.rightArrowKey, command: true, control: true)),
-        Self(action: .newProject, combo: KeyCombo(key: "n", command: true, shift: true)),
+        Self(action: .newWorkspace, combo: KeyCombo(key: "n", command: true, shift: true)),
+        Self(action: .newProject, combo: KeyCombo(key: "n", command: true, option: true)),
         Self(action: .newClaudeCodeTab, combo: KeyCombo(key: "1", command: true, option: true)),
         Self(action: .newCodexTab, combo: KeyCombo(key: "2", command: true, option: true)),
         Self(action: .newGeminiCliTab, combo: KeyCombo(key: "3", command: true, option: true)),

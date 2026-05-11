@@ -146,6 +146,10 @@ struct ExpandedProjectRow: View {
             pendingAgentKind = kind
             presentCreateWorktreeSheet()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .requestNewWorkspace)) { note in
+            guard let id = note.userInfo?["projectID"] as? UUID, id == project.id else { return }
+            presentCreateWorktreeSheet()
+        }
         .sheet(item: $logoCropImage) { item in
             LogoCropperSheet(
                 sourceImage: item.image,

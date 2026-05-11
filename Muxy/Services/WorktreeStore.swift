@@ -12,6 +12,8 @@ final class WorktreeStore {
     private let persistence: any WorktreePersisting
     private let listGitWorktrees: @Sendable (String) async throws -> [GitWorktreeRecord]
     private let listJjWorkspaces: @Sendable (String) async throws -> [JjWorkspaceEntry]
+    private let saveDebounce: Duration
+    private var pendingSaveTasks: [UUID: Task<Void, Never>] = [:]
 
     init(
         persistence: any WorktreePersisting,
@@ -22,11 +24,13 @@ final class WorktreeStore {
             let service = JjWorkspaceService(queue: JjProcessQueue.shared)
             return try await service.list(repoPath: repoPath)
         },
-        projects: [Project] = []
+        projects: [Project] = [],
+        saveDebounce: Duration = .seconds(1)
     ) {
         self.persistence = persistence
         self.listGitWorktrees = listGitWorktrees
         self.listJjWorkspaces = listJjWorkspaces
+        self.saveDebounce = saveDebounce
         guard !projects.isEmpty else { return }
         loadAll(projects: projects)
     }
@@ -412,6 +416,25 @@ final class WorktreeStore {
         let primary = list.filter(\.isPrimary)
         let others = list.filter { !$0.isPrimary }.sorted { $0.createdAt < $1.createdAt }
         return primary + others
+    }
+
+    func markActive(projectID: UUID, worktreeID: UUID, at date: Date) {
+        guard var list = worktrees[projectID] else { return }
+        guard let index = list.firstIndex(where: { $0.id == worktreeID }) else { return }
+        list[index].lastActiveAt = date
+        setWorktrees(list, for: projectID)
+        scheduleDebouncedSave(projectID: projectID)
+    }
+
+    private func scheduleDebouncedSave(projectID: UUID) {
+        pendingSaveTasks[projectID]?.cancel()
+        let debounce = saveDebounce
+        pendingSaveTasks[projectID] = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: debounce)
+            guard !Task.isCancelled, let self else { return }
+            self.save(projectID: projectID)
+            self.pendingSaveTasks[projectID] = nil
+        }
     }
 
     private func save(projectID: UUID) {

@@ -2,10 +2,11 @@ import SwiftUI
 
 struct PendingAgentsBanner: View {
     @Environment(AppState.self) private var appState
+    @Environment(ProjectStore.self) private var projectStore
     @State private var showingPopover = false
 
     var body: some View {
-        let awaiting = appState.awaitingPanes
+        let awaiting = resolvedSummaries(from: appState.awaitingPanes)
         if awaiting.isEmpty {
             EmptyView()
         } else {
@@ -39,6 +40,23 @@ struct PendingAgentsBanner: View {
                 }
                 .frame(minWidth: 240)
             }
+        }
+    }
+
+    private func resolvedSummaries(from summaries: [AwaitingPaneSummary]) -> [AwaitingPaneSummary] {
+        summaries.map { summary in
+            guard summary.projectName.isEmpty,
+                  let name = projectStore.projects.first(where: { $0.id == summary.projectID })?.name
+            else { return summary }
+            return AwaitingPaneSummary(
+                id: summary.id,
+                paneID: summary.paneID,
+                projectID: summary.projectID,
+                worktreeID: summary.worktreeID,
+                paneTitle: summary.paneTitle,
+                projectName: name,
+                workspaceName: summary.workspaceName
+            )
         }
     }
 

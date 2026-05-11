@@ -186,6 +186,16 @@ struct Sidebar: View {
                 dragState.frames = frames
             }
         }
+        .contextMenu {
+            Picker("Sort", selection: Binding(
+                get: { projectSortMode },
+                set: { projectSortModeRaw = $0.rawValue }
+            )) {
+                ForEach(ProjectSortMode.allCases) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+        }
         .coordinateSpace(name: "sidebar")
     }
 

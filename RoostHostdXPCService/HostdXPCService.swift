@@ -67,7 +67,9 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
             let keepalive = processKeepalive ?? XPCTransactionHostdProcessKeepalive()
             self.hostdTask = nil
             self.processRegistryTask = Task {
-                try await HostdProcessRegistry(databaseURL: databaseURL, keepalive: keepalive)
+                let registry = try await HostdProcessRegistry(databaseURL: databaseURL, keepalive: keepalive)
+                try await registry.recoverRunningSessions()
+                return registry
             }
         }
         super.init()

@@ -15,6 +15,7 @@ signal(SIGPIPE, SIG_IGN)
 
 let instanceLock = try HostdDaemonInstanceLock()
 let registry = try await HostdProcessRegistry(databaseURL: HostdStorage.defaultDatabaseURL())
+try await registry.recoverRunningSessions()
 let server = HostdDaemonSocketServer(socketPath: socketPath, registry: registry)
 server.start()
 while true {

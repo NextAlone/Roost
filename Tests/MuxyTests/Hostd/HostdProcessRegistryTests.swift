@@ -507,6 +507,46 @@ struct HostdProcessRegistryTests {
         #expect(text.contains("interrupted"))
     }
 
+    @Test("recoverRunningSessions marks dead tmux sessions as exited and restarts watchers for live ones")
+    func recoverRunningSessionsCleansZombies() async throws {
+        let url = makeTempStoreURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = try await SessionStore(url: url)
+
+        let liveAgentID = UUID()
+        let deadAgentID = UUID()
+        let terminalID = UUID()
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+
+        for (id, kind) in [(liveAgentID, AgentKind.claudeCode), (deadAgentID, AgentKind.claudeCode), (terminalID, AgentKind.terminal)] {
+            try await store.record(SessionRecord(
+                id: id,
+                projectID: UUID(),
+                worktreeID: UUID(),
+                workspacePath: "/tmp",
+                agentKind: kind,
+                command: "sleep 1",
+                createdAt: baseDate,
+                lastState: .running
+            ))
+        }
+
+        let liveName = HostdTmuxSessionName.name(for: liveAgentID)
+        let mock = MockRegistryTmux(liveSessions: Set([liveName]))
+        let registry = HostdProcessRegistry(store: store, tmux: mock)
+
+        try await registry.recoverRunningSessions()
+
+        let records = try await store.list()
+        let liveRecord = records.first { $0.id == liveAgentID }
+        let deadRecord = records.first { $0.id == deadAgentID }
+        let terminalRecord = records.first { $0.id == terminalID }
+
+        #expect(liveRecord?.lastState == .running)
+        #expect(deadRecord?.lastState == .exited)
+        #expect(terminalRecord?.lastState == .exited)
+    }
+
     private func waitForHostdOutput(
         from registry: HostdProcessRegistry,
         id: UUID,
@@ -555,6 +595,21 @@ struct HostdProcessRegistryTests {
 
 private enum HostdProcessRegistryTestError: Error {
     case outputTimeout
+}
+
+private final class MockRegistryTmux: HostdTmuxControlling, @unchecked Sendable {
+    private let liveSessions: Set<String>
+
+    init(liveSessions: Set<String>) {
+        self.liveSessions = liveSessions
+    }
+
+    func launch(sessionName: String, workspacePath: String, command: String, environment: [String: String]) async throws {}
+    func hasSession(named sessionName: String) async -> Bool { liveSessions.contains(sessionName) }
+    func killSession(named sessionName: String) async throws {}
+    func isPaneDead(sessionName: String) async -> Bool { false }
+    func captureLastTail(sessionName: String, lines: Int) async -> String? { nil }
+    func sendKeys(sessionName: String, keys: String) async throws {}
 }
 
 private final class RecordingHostdProcessKeepalive: HostdProcessKeepalive, @unchecked Sendable {

@@ -114,6 +114,22 @@ public actor HostdProcessRegistry {
         self.tmux = tmux
     }
 
+    public func recoverRunningSessions() async throws {
+        let running = try await store.listLive()
+        for record in running {
+            if record.agentKind == .terminal {
+                try await store.update(id: record.id, lastState: .exited)
+                continue
+            }
+            let sessionName = HostdTmuxSessionName.name(for: record.id)
+            if await tmux.hasSession(named: sessionName) {
+                startTmuxExitWatcher(id: record.id, sessionName: sessionName)
+            } else {
+                try await store.update(id: record.id, lastState: .exited)
+            }
+        }
+    }
+
     public func launchSession(_ request: HostdLaunchSessionRequest) async throws -> HostdAttachSessionResponse {
         let command = request.command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty else { throw HostdProcessRegistryError.emptyCommand }

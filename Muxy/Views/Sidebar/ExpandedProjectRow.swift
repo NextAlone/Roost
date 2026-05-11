@@ -201,6 +201,7 @@ struct ExpandedProjectRow: View {
         .frame(minHeight: ExpandedWorktreeRowLayout.projectRowMinHeight)
         .padding(.leading, ExpandedWorktreeRowLayout.projectLeadingContentInset)
         .padding(.trailing, ExpandedWorktreeRowLayout.trailingContentInset)
+        .padding(.vertical, 2)
         .background(headerBackground)
         .overlay(alignment: .bottom) {
             Rectangle()

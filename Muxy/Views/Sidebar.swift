@@ -138,7 +138,7 @@ struct Sidebar: View {
 
     private var projectList: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(spacing: 4) {
+            LazyVStack(spacing: 0) {
                 ForEach(Array(sortedProjects.enumerated()), id: \.element.id) { index, project in
                     Group {
                         if isWide {

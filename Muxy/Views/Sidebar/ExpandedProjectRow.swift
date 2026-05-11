@@ -92,11 +92,12 @@ struct ExpandedProjectRow: View {
             }
         }
         .onChange(of: isActive) { _, active in
-            guard Self.shouldExpandProjectWorktrees(
-                isActive: active,
-                isVcsRepo: isVcsRepo,
-                hasAgentTabs: hasAgentTabs
-            )
+            guard active,
+                  Self.shouldExpandProjectWorktrees(
+                      isActive: active,
+                      isVcsRepo: isVcsRepo,
+                      hasAgentTabs: hasAgentTabs
+                  )
             else { return }
             withAnimation(.easeInOut(duration: 0.15)) {
                 worktreesExpanded = true

@@ -35,6 +35,7 @@ struct MuxyApp: App {
         )
         let statusStore = WorkspaceStatusStore()
         initialHostdRuntimeOwnership = hostdRuntimeOwnership
+        appState.worktreeStore = worktreeStore
         appState.restoreSelection(
             projects: projectStore.projects,
             worktrees: worktreeStore.worktrees

@@ -104,6 +104,7 @@ final class AppState {
     private var hostdRuntimeOwnership: HostdRuntimeOwnership
     private var hostdClient: (any RoostHostdClient)?
     private let activityLog: any ActivityLogStoring
+    weak var worktreeStore: WorktreeStore?
     var onProjectsEmptied: (([UUID]) -> Void)?
 
     var activeProjectID: UUID?
@@ -304,6 +305,11 @@ final class AppState {
                     }
                     pane.activityState = state
                     advanceAgentActivityRevision()
+                    worktreeStore?.markActive(
+                        projectID: key.projectID,
+                        worktreeID: key.worktreeID,
+                        at: Date()
+                    )
                     activityLog.append(AgentActivityEvent(
                         paneID: pane.id,
                         projectID: key.projectID,

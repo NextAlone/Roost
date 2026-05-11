@@ -243,6 +243,23 @@ final class AppState {
         ))
     }
 
+    func focusPane(paneID: UUID) {
+        for (key, root) in workspaceRoots {
+            for area in root.allAreas() {
+                for tab in area.tabs {
+                    guard let pane = tab.content.pane, pane.id == paneID else { continue }
+                    dispatch(.navigate(
+                        projectID: key.projectID,
+                        worktreeID: key.worktreeID,
+                        areaID: area.id,
+                        tabID: tab.id
+                    ))
+                    return
+                }
+            }
+        }
+    }
+
     func focusedArea(for projectID: UUID) -> TabArea? {
         guard let key = activeWorktreeKey(for: projectID),
               let root = workspaceRoots[key],

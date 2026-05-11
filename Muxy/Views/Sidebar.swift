@@ -5,6 +5,12 @@ enum SidebarLayout {
     static let collapsedWidth: CGFloat = 44
     static let expandedWidth: CGFloat = 220
     static let width: CGFloat = 44
+    static let expandedProjectListHorizontalInset: CGFloat = 6
+    static let collapsedProjectListHorizontalInset: CGFloat = 8
+    static let topFixedBarTopPadding: CGFloat = 4
+    static let topFixedBarBottomPadding: CGFloat = 0
+    static let projectListTopPadding: CGFloat = 0
+    static let projectListBottomPadding: CGFloat = 4
 
     static func resolvedWidth(
         expanded: Bool,
@@ -98,16 +104,20 @@ struct Sidebar: View {
     }
 
     private var topFixedBar: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 0) {
             if isWide {
                 ScratchRow()
+                    .padding(.horizontal, ScratchRowLayout.expandedOuterHorizontalInset)
+                PendingAgentsBanner()
             } else {
                 ScratchCollapsedRow()
+                    .padding(.horizontal, 8)
+                PendingAgentsBanner()
+                    .padding(.horizontal, 8)
             }
-            PendingAgentsBanner()
         }
-        .padding(.horizontal, isWide ? 6 : 8)
-        .padding(.vertical, 4)
+        .padding(.top, SidebarLayout.topFixedBarTopPadding)
+        .padding(.bottom, SidebarLayout.topFixedBarBottomPadding)
         .background(MuxyTheme.bg)
     }
 
@@ -131,7 +141,10 @@ struct Sidebar: View {
 
     private var addProjectBar: some View {
         addButton
-            .padding(.horizontal, isWide ? 6 : 8)
+            .padding(
+                .horizontal,
+                isWide ? SidebarLayout.expandedProjectListHorizontalInset : SidebarLayout.collapsedProjectListHorizontalInset
+            )
             .padding(.vertical, 4)
             .background(MuxyTheme.bg)
     }
@@ -178,8 +191,12 @@ struct Sidebar: View {
                     .gesture(projectDragGesture(for: project))
                 }
             }
-            .padding(.horizontal, isWide ? 6 : 8)
-            .padding(.vertical, 4)
+            .padding(
+                .horizontal,
+                isWide ? SidebarLayout.expandedProjectListHorizontalInset : SidebarLayout.collapsedProjectListHorizontalInset
+            )
+            .padding(.top, SidebarLayout.projectListTopPadding)
+            .padding(.bottom, SidebarLayout.projectListBottomPadding)
             .onPreferenceChange(UUIDFramePreferenceKey<SidebarFrameTag>.self) { frames in
                 guard dragState.draggedID != nil else { return }
                 dragState.frames = frames

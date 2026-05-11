@@ -201,7 +201,7 @@ struct ExpandedProjectRow: View {
         .frame(minHeight: ExpandedWorktreeRowLayout.projectRowMinHeight)
         .padding(.leading, ExpandedWorktreeRowLayout.projectLeadingContentInset)
         .padding(.trailing, ExpandedWorktreeRowLayout.trailingContentInset)
-        .padding(.vertical, 2)
+        .padding(.vertical, ExpandedWorktreeRowLayout.projectVerticalPadding)
         .background(headerBackground)
         .overlay(alignment: .bottom) {
             Rectangle()
@@ -635,6 +635,7 @@ enum ExpandedWorktreeRowLayout {
     static let trailingContentInset: CGFloat = AddProjectButtonLayout.expandedTrailingContentInset
     static let statusDotHeight: CGFloat = AgentActivityStatusBadgeLayout.height
     static let projectRowMinHeight: CGFloat = AddProjectButtonLayout.expandedRowHeight
+    static let projectVerticalPadding: CGFloat = 2
     static let worktreeRowMinHeight: CGFloat = 30
     static let newWorktreeRowMinHeight: CGFloat = worktreeRowMinHeight
     static let minContentHeight: CGFloat = worktreeRowMinHeight

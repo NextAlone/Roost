@@ -36,7 +36,7 @@ final class AwaitingPanesTests: XCTestCase {
         XCTAssertLessThanOrEqual(stamp!, after)
     }
 
-    func testAwaitingPanesReflectsAwaitingState() throws {
+    func testAgentAttentionPanesReflectsNeedInputWaitAndDoneStates() throws {
         let project = Project(name: "p", path: "/tmp/p")
         let persistence = InMemoryWorktreePersistence()
         let primary = Worktree(name: "default", path: "/tmp/p", isPrimary: true)
@@ -54,18 +54,33 @@ final class AwaitingPanesTests: XCTestCase {
         let key = WorktreeKey(projectID: project.id, worktreeID: primary.id)
         let area = TabArea(projectPath: primary.path)
         area.createAgentTab(kind: .codex)
-        let paneA = area.activeTab!.content.pane!.id
+        let needInputPane = area.activeTab!.content.pane!
         area.createAgentTab(kind: .codex)
-        let paneB = area.activeTab!.content.pane!.id
+        let waitPane = area.activeTab!.content.pane!
+        area.createAgentTab(kind: .codex)
+        let donePane = area.activeTab!.content.pane!
+        area.createAgentTab(kind: .codex)
+        let runningPane = area.activeTab!.content.pane!
         appState.workspaceRoots[key] = .tabArea(area)
 
-        XCTAssertEqual(appState.awaitingPanes.count, 0)
-        _ = appState.updateAgentActivity(paneID: paneA, state: .awaiting)
-        XCTAssertEqual(appState.awaitingPanes.map(\.paneID), [paneA])
-        _ = appState.updateAgentActivity(paneID: paneB, state: .awaiting)
-        XCTAssertEqual(Set(appState.awaitingPanes.map(\.paneID)), Set([paneA, paneB]))
-        _ = appState.acknowledgeAgentActivity(paneID: paneA)
-        XCTAssertEqual(appState.awaitingPanes.map(\.paneID), [paneB])
+        needInputPane.activityState = .running
+        _ = appState.updateAgentActivity(paneID: needInputPane.id, state: .awaiting)
+        _ = appState.updateAgentActivity(paneID: waitPane.id, state: .awaiting)
+        _ = appState.updateAgentActivity(paneID: donePane.id, state: .completed)
+        _ = appState.updateAgentActivity(paneID: runningPane.id, state: .running)
+
+        XCTAssertEqual(appState.agentAttentionPanes.map(\.paneID), [needInputPane.id, waitPane.id, donePane.id])
+        XCTAssertEqual(appState.agentAttentionPanes.map(\.attentionKind), [.needInput, .wait, .done])
+
+        _ = appState.acknowledgeAgentActivity(paneID: needInputPane.id)
+        XCTAssertEqual(appState.agentAttentionPanes.map(\.paneID), [waitPane.id, donePane.id])
+    }
+
+    func testAttentionSummaryTextGroupsNeedInputWaitAndDone() {
+        XCTAssertEqual(
+            PendingAgentsBanner.summaryText(for: [.needInput, .needInput, .wait, .done]),
+            "2 need input · 1 waiting · 1 done"
+        )
     }
 }
 

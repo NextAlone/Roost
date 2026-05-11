@@ -299,14 +299,14 @@ final class AppState {
         return root.allAreas().flatMap(\.tabs)
     }
 
-    var awaitingPanes: [AwaitingPaneSummary] {
+    var agentAttentionPanes: [AwaitingPaneSummary] {
         _ = agentActivityRevision
         var results: [AwaitingPaneSummary] = []
         for (key, root) in workspaceRoots {
             for area in root.allAreas() {
                 for tab in area.tabs {
                     guard let pane = tab.content.pane,
-                          pane.activityState == .awaiting
+                          let attentionKind = AgentAttentionKind(state: pane.activityState, previousState: pane.previousActivityState)
                     else { continue }
                     results.append(AwaitingPaneSummary(
                         id: pane.id,
@@ -315,12 +315,22 @@ final class AppState {
                         worktreeID: key.worktreeID,
                         paneTitle: tab.title,
                         projectName: projectName(for: key.projectID) ?? "",
-                        workspaceName: workspaceName(for: key) ?? ""
+                        workspaceName: workspaceName(for: key) ?? "",
+                        attentionKind: attentionKind
                     ))
                 }
             }
         }
-        return results.sorted { $0.paneTitle < $1.paneTitle }
+        return results.sorted { lhs, rhs in
+            if lhs.attentionKind != rhs.attentionKind {
+                return lhs.attentionKind.sortOrder < rhs.attentionKind.sortOrder
+            }
+            return lhs.paneTitle < rhs.paneTitle
+        }
+    }
+
+    var awaitingPanes: [AwaitingPaneSummary] {
+        agentAttentionPanes.filter { $0.attentionKind != .done }
     }
 
     private func projectName(for id: UUID) -> String? {
@@ -1532,6 +1542,43 @@ final class AppState {
     }
 }
 
+enum AgentAttentionKind: Hashable, CaseIterable {
+    case needInput
+    case wait
+    case done
+
+    init?(state: AgentActivityState, previousState: AgentActivityState?) {
+        switch state {
+        case .awaiting where state.isUrgentAwaiting(previous: previousState):
+            self = .needInput
+        case .awaiting:
+            self = .wait
+        case .completed:
+            self = .done
+        case .running,
+             .idle,
+             .exited:
+            return nil
+        }
+    }
+
+    var sortOrder: Int {
+        switch self {
+        case .needInput: 0
+        case .wait: 1
+        case .done: 2
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .needInput: "need input"
+        case .wait: "waiting"
+        case .done: "done"
+        }
+    }
+}
+
 struct AwaitingPaneSummary: Identifiable, Hashable {
     let id: UUID
     let paneID: UUID
@@ -1540,6 +1587,7 @@ struct AwaitingPaneSummary: Identifiable, Hashable {
     let paneTitle: String
     let projectName: String
     let workspaceName: String
+    let attentionKind: AgentAttentionKind
 }
 
 #if DEBUG

@@ -1,6 +1,15 @@
 import MuxyShared
 import SwiftUI
 
+enum ScratchRowLayout {
+    static let expandedOuterHorizontalInset: CGFloat = SidebarLayout.expandedProjectListHorizontalInset
+    static let expandedContentLeadingInset: CGFloat = ExpandedWorktreeRowLayout.projectLeadingContentInset
+    static let expandedContentTrailingInset: CGFloat = ExpandedWorktreeRowLayout.trailingContentInset
+    static let expandedIconSize: CGFloat = ExpandedWorktreeRowLayout.projectIconSize
+    static let expandedMinHeight: CGFloat = ExpandedWorktreeRowLayout.projectRowMinHeight
+    static let expandedVerticalPadding: CGFloat = ExpandedWorktreeRowLayout.projectVerticalPadding
+}
+
 struct ScratchRow: View {
     @Environment(AppState.self) private var appState
     @Environment(\.roostHostdClient) private var hostdClient
@@ -35,9 +44,10 @@ struct ScratchRow: View {
                 AgentActivityDotStack(dots: summary.dots)
             }
         }
-        .frame(minHeight: ExpandedWorktreeRowLayout.projectRowMinHeight)
-        .padding(.leading, ExpandedWorktreeRowLayout.projectLeadingContentInset)
-        .padding(.trailing, ExpandedWorktreeRowLayout.trailingContentInset)
+        .frame(minHeight: ScratchRowLayout.expandedMinHeight)
+        .padding(.leading, ScratchRowLayout.expandedContentLeadingInset)
+        .padding(.trailing, ScratchRowLayout.expandedContentTrailingInset)
+        .padding(.vertical, ScratchRowLayout.expandedVerticalPadding)
         .background(headerBackground)
         .overlay(alignment: .bottom) {
             Rectangle()
@@ -55,15 +65,15 @@ struct ScratchRow: View {
     private var icon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 6)
-                .fill(hovered ? MuxyTheme.fg.opacity(0.22) : MuxyTheme.fg.opacity(0.18))
+                .fill(hovered ? MuxyTheme.hover : MuxyTheme.surface)
 
             Image(systemName: "doc.plaintext")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(isActive ? MuxyTheme.fg : MuxyTheme.fgMuted)
         }
         .frame(
-            width: ExpandedWorktreeRowLayout.projectIconSize,
-            height: ExpandedWorktreeRowLayout.projectIconSize
+            width: ScratchRowLayout.expandedIconSize,
+            height: ScratchRowLayout.expandedIconSize
         )
     }
 
@@ -128,7 +138,7 @@ struct ScratchCollapsedRow: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 6)
-                .fill(hovered ? MuxyTheme.fg.opacity(0.22) : MuxyTheme.fg.opacity(0.18))
+                .fill(hovered ? MuxyTheme.hover : MuxyTheme.surface)
 
             Image(systemName: "doc.plaintext")
                 .font(.system(size: 13, weight: .medium))

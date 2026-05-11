@@ -105,7 +105,6 @@ struct Sidebar: View {
                 ScratchCollapsedRow()
             }
             PendingAgentsBanner()
-            NewWorkspaceButton(expanded: isWide)
         }
         .padding(.horizontal, isWide ? 6 : 8)
         .padding(.vertical, 4)

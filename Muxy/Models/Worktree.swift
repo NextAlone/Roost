@@ -22,6 +22,7 @@ struct Worktree: Identifiable, Codable, Hashable {
     var vcsKind: VcsKind
     var currentChangeId: String?
     var jjWorkspaceName: String?
+    var lastActiveAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -34,7 +35,8 @@ struct Worktree: Identifiable, Codable, Hashable {
         createdAt: Date = Date(),
         vcsKind: VcsKind = .git,
         currentChangeId: String? = nil,
-        jjWorkspaceName: String? = nil
+        jjWorkspaceName: String? = nil,
+        lastActiveAt: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -47,6 +49,7 @@ struct Worktree: Identifiable, Codable, Hashable {
         self.vcsKind = vcsKind
         self.currentChangeId = currentChangeId
         self.jjWorkspaceName = jjWorkspaceName
+        self.lastActiveAt = lastActiveAt
     }
 
     var isExternallyManaged: Bool {
@@ -78,6 +81,7 @@ struct Worktree: Identifiable, Codable, Hashable {
         case vcsKind
         case currentChangeId
         case jjWorkspaceName
+        case lastActiveAt
     }
 
     init(from decoder: Decoder) throws {
@@ -93,6 +97,7 @@ struct Worktree: Identifiable, Codable, Hashable {
         vcsKind = try container.decodeIfPresent(VcsKind.self, forKey: .vcsKind) ?? .git
         currentChangeId = try container.decodeIfPresent(String.self, forKey: .currentChangeId)
         jjWorkspaceName = try container.decodeIfPresent(String.self, forKey: .jjWorkspaceName)
+        lastActiveAt = try container.decodeIfPresent(Date.self, forKey: .lastActiveAt)
     }
 
     private static func normalizedWorkspaceName(_ value: String?) -> String? {

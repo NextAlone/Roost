@@ -108,11 +108,8 @@ struct Sidebar: View {
             if isWide {
                 ScratchRow()
                     .padding(.horizontal, ScratchRowLayout.expandedOuterHorizontalInset)
-                PendingAgentsBanner()
             } else {
                 ScratchCollapsedRow()
-                    .padding(.horizontal, 8)
-                PendingAgentsBanner()
                     .padding(.horizontal, 8)
             }
         }

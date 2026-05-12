@@ -16,6 +16,12 @@ swift run Roost
 
 The Swift package builds three executables (`Roost`, `roost-hostd-daemon`, `RoostHostdXPCService`) plus the `RoostHostdCore`, `MuxyShared`, `MuxyServer`, and `GhosttyKit` libraries. `roost-hostd-daemon` is a standalone helper used by the `hostdOwnedProcess` runtime mode and is launched out of the app bundle at runtime.
 
+```bash
+scripts/build-release.sh --arch arm64 --version 1.3.0 --zip
+```
+
+`scripts/build-release.sh` produces an `.app` bundle under `build/Roost.app` and packages it via `--zip` or `--dmg`. Required flags: `--arch` (`arm64` or `x86_64`), `--version` (`X.Y.Z` or `X.Y.Z-beta.N`). Optional: `--sign-identity`, `--sparkle-public-key`, `--sparkle-feed-url`, `--build-number`.
+
 ## Tests
 
 ```bash

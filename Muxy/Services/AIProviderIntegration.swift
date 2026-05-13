@@ -67,6 +67,7 @@ final class AIProviderRegistry {
         MiniMaxUsageProvider(),
         KimiUsageProvider(),
         FactoryUsageProvider(),
+        DeepSeekUsageProvider(),
     ]
 
     private init() {}

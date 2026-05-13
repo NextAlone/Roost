@@ -425,27 +425,31 @@ struct SidebarFooter: View {
         notificationStore.unreadCount > 0 ? "bell.badge" : "bell"
     }
 
-    private var previewProviderDisplay: (percent: Int, iconName: String)? {
+    private var previewProviderDisplay: (percent: Int?, iconName: String)? {
         guard let selection = usageService.previewSelection(pinnedRawValue: pinnedPreviewProviderID),
               case .available = selection.snapshot.state
         else { return nil }
 
         let snapshot = selection.snapshot
         let rowPercent = selection.row?.percent
-        let usedPercent = max(0, min(100, rowPercent ?? snapshot.rows.compactMap(\.percent).max() ?? 0))
-        let displayPercent: Double = switch usageDisplayMode {
-        case .used:
-            usedPercent
-        case .remaining:
-            max(0, min(100, 100 - usedPercent))
+        if let usedPercent = rowPercent ?? snapshot.rows.compactMap(\.percent).max() {
+            let displayPercent: Double = switch usageDisplayMode {
+            case .used:
+                usedPercent
+            case .remaining:
+                max(0, min(100, 100 - usedPercent))
+            }
+            return (Int(displayPercent.rounded()), snapshot.providerIconName)
         }
-
-        return (Int(displayPercent.rounded()), snapshot.providerIconName)
+        return (nil, snapshot.providerIconName)
     }
 
     private var previewProviderPercentLabel: String? {
         guard let display = previewProviderDisplay else { return nil }
-        return "\(max(0, min(100, display.percent)))%"
+        if let percent = display.percent {
+            return "\(max(0, min(100, percent)))%"
+        }
+        return usageService.previewSelection(pinnedRawValue: pinnedPreviewProviderID)?.row?.detail
     }
 
     private var aiUsageButton: some View {

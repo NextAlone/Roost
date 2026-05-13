@@ -141,6 +141,7 @@ enum AIUsageRowPolicy {
     static func isVisible(_ row: AIUsageMetricRow, includeSecondary: Bool) -> Bool {
         if isPrimary(row) { return true }
         if includeSecondary, isSecondary(row) { return true }
+        if row.percent == nil, row.detail != nil { return true }
         return false
     }
 
@@ -200,10 +201,13 @@ final class AIUsageService {
            let snapshot = snapshots.first(where: { canonicalAIUsageProviderID($0.providerID) == pin.providerID }),
            case .available = snapshot.state
         {
-            if let label = pin.rowLabel,
-               let row = snapshot.rows.first(where: { $0.label == label && $0.percent != nil })
-            {
-                return AIUsagePreviewSelection(snapshot: snapshot, row: row)
+            if let label = pin.rowLabel {
+                if let row = snapshot.rows.first(where: { $0.label == label && $0.percent != nil }) {
+                    return AIUsagePreviewSelection(snapshot: snapshot, row: row)
+                }
+                if let row = snapshot.rows.first(where: { $0.label == label }) {
+                    return AIUsagePreviewSelection(snapshot: snapshot, row: row)
+                }
             }
             if pin.rowLabel == nil, snapshot.rows.contains(where: { $0.percent != nil }) {
                 return AIUsagePreviewSelection(snapshot: snapshot, row: nil)

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AIUsagePreviewButton: View {
-    let display: (percent: Int, iconName: String)?
+    let display: (percent: Int?, iconName: String)?
     let percentLabel: String?
     let expanded: Bool
     let onTap: () -> Void
@@ -175,7 +175,7 @@ struct AIUsageMetricRowView: View {
         .rawValue
     @State private var pinHovered = false
 
-    private var canPin: Bool { row.percent != nil }
+    private var canPin: Bool { row.percent != nil || row.detail != nil }
 
     private func togglePin() {
         if isPinned {

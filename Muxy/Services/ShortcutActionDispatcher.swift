@@ -26,6 +26,11 @@ struct ShortcutActionDispatcher {
         self.hostdClient = hostdClient
     }
 
+    private var currentSortMode: ProjectSortMode {
+        let raw = UserDefaults.standard.string(forKey: ProjectSortMode.storageKey) ?? ProjectSortMode.defaultValue.rawValue
+        return ProjectSortMode(rawValue: raw) ?? ProjectSortMode.defaultValue
+    }
+
     func perform(_ action: ShortcutAction, activeProject: Project?, openVCS: (Project) -> Void) -> Bool {
         if let index = action.tabSelectionIndex {
             guard let projectID = appState.activeProjectID else { return false }
@@ -34,7 +39,13 @@ struct ShortcutActionDispatcher {
         }
 
         if let index = action.projectSelectionIndex {
-            appState.selectProjectByIndex(index, projects: projectStore.projects, worktrees: worktreeStore.worktrees)
+            let sorted = ProjectSortingService.sort(
+                projects: projectStore.projects,
+                worktreesByProject: worktreeStore.worktrees,
+                mode: currentSortMode,
+                now: Date()
+            )
+            appState.selectProjectByIndex(index, projects: sorted, worktrees: worktreeStore.worktrees)
             return true
         }
 
@@ -134,10 +145,22 @@ struct ShortcutActionDispatcher {
             ghostty.reloadConfig()
             return true
         case .nextProject:
-            appState.selectNextProject(projects: projectStore.projects, worktrees: worktreeStore.worktrees)
+            let sorted = ProjectSortingService.sort(
+                projects: projectStore.projects,
+                worktreesByProject: worktreeStore.worktrees,
+                mode: currentSortMode,
+                now: Date()
+            )
+            appState.selectNextProject(projects: sorted, worktrees: worktreeStore.worktrees)
             return true
         case .previousProject:
-            appState.selectPreviousProject(projects: projectStore.projects, worktrees: worktreeStore.worktrees)
+            let sorted = ProjectSortingService.sort(
+                projects: projectStore.projects,
+                worktreesByProject: worktreeStore.worktrees,
+                mode: currentSortMode,
+                now: Date()
+            )
+            appState.selectPreviousProject(projects: sorted, worktrees: worktreeStore.worktrees)
             return true
         case .findInTerminal:
             notificationCenter.post(name: .findInTerminal, object: nil)

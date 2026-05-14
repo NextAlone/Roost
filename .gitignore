@@ -15,7 +15,8 @@ Muxy/Resources/rg
 /ghostty
 /build
 .agents/
-.claude/
+.claude/*.local.json
+.claude/*.lock
 *.dmg
 appcast*.xml
 .plans/

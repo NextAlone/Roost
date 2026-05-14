@@ -110,8 +110,11 @@ final class GhosttyRuntimeEventAdapter: GhosttyRuntimeEventHandling {
             let mime = String(cString: mimePtr)
             guard mime.hasPrefix("text/plain") else { continue }
 
+            let trimmed = String(cString: dataPtr).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+
             NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(String(cString: dataPtr), forType: .string)
+            NSPasteboard.general.setString(trimmed, forType: .string)
             return
         }
     }

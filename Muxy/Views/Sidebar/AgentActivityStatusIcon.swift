@@ -61,11 +61,11 @@ struct AgentActivityStatusPulseStyle: Equatable {
 
     var restingDiameter: CGFloat {
         switch state {
-        case .running: 7
+        case .running: 8
         case .awaiting: 6
-        case .completed: 8
+        case .completed: 9
         case .idle: 6
-        case .exited: 9
+        case .exited: 10
         }
     }
 

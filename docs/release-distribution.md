@@ -106,7 +106,7 @@ Build an update-enabled app by injecting the derived public key and feed URL:
 PUBLIC_KEY="$(scripts/derive-sparkle-public-key.swift "$SPARKLE_PRIVATE_KEY")"
 scripts/build-release.sh \
   --arch arm64 \
-  --version 1.4.1 \
+  --version 1.4.2 \
   --zip \
   --sign-identity - \
   --sparkle-public-key "$PUBLIC_KEY" \
@@ -118,8 +118,8 @@ Generate an appcast entry for the ZIP:
 ```bash
 SPARKLE_PRIVATE_KEY="$SPARKLE_PRIVATE_KEY" \
   scripts/generate-appcast.sh \
-  build/Roost-1.4.1-arm64.zip \
-  v1.4.1 \
+  build/Roost-1.4.2-arm64.zip \
+  v1.4.2 \
   1 \
   build/appcast.xml
 ```

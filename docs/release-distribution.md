@@ -66,6 +66,26 @@ Use a version that does not collide with a published release (e.g. `1.2.2-beta.0
 xattr -dr com.apple.quarantine /Applications/Roost.app
 ```
 
+### Dev Build Alongside an Installed Roost
+
+When testing a local build on the same machine where a production Roost (e.g. from Nix or a published release) is installed, pass `--dev` so the bundle uses an isolated identifier:
+
+```bash
+scripts/build-release.sh --arch arm64 --version <X.Y.Z[-beta.N]> --zip --sign-identity - --dev
+```
+
+`--dev` rewrites the bundle to `app.roost.mac.dev`, sets `CFBundleName` / `CFBundleDisplayName` to `Roost-Dev`, swaps the URL scheme to `roost-dev://`, and appends `-dev` to the artifact name. Launch Services then treats the dev build as a separate application from the production install, so `open -b app.roost.mac` continues to activate the production instance and `open -b app.roost.mac.dev` targets the local build. The dev bundle gets its own App Sandbox container (`~/Library/Containers/app.roost.mac.dev/`); user-level config under `~/Library/Application Support/Roost/` is shared between dev and production.
+
+If multiple `app.roost.mac` paths get registered with Launch Services (stale `build/` dirs, old Nix store derivations, Xcode `DerivedData`), `open -b app.roost.mac` may launch a second instance instead of activating the running one. List and unregister stale paths:
+
+```bash
+LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+$LSREG -dump | grep -E "^path:.*[Rr]oost\.app"
+$LSREG -u "<stale-path>"
+```
+
+Production builds also carry `LSMultipleInstancesProhibited` in `Muxy/Info.plist`, which prevents Launch Services from spawning a second instance for the same bundle path.
+
 ## Nix
 
 `nix/package.nix` is a `stdenvNoCC.mkDerivation` that fetches the published GitHub release ZIP by `version` and validates it with the SRI hash in `src.hash`. The release workflow rewrites both fields (see "Current ZIP Release" above), so the flake at `github:NextAlone/Roost/v<version>` is consumable as soon as the release is created. See `docs/nix-darwin.md` for the nix-darwin module wiring.

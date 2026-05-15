@@ -12,6 +12,7 @@ SPARKLE_PUBLIC_KEY=""
 SPARKLE_FEED_URL=""
 PACKAGE_FORMAT="zip"
 BUILD_NUMBER=""
+DEV_BUILD=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -47,6 +48,10 @@ while [[ $# -gt 0 ]]; do
             BUILD_NUMBER="$2"
             shift 2
             ;;
+        --dev)
+            DEV_BUILD=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
             exit 1
@@ -55,7 +60,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$ARCH" || -z "$VERSION" ]]; then
-    echo "Usage: $0 --arch <arm64|x86_64> --version <X.Y.Z[-beta.N]> [--zip|--dmg] [--build-number <number>] [--sign-identity <identity>] [--sparkle-public-key <key>] [--sparkle-feed-url <url>]"
+    echo "Usage: $0 --arch <arm64|x86_64> --version <X.Y.Z[-beta.N]> [--zip|--dmg] [--build-number <number>] [--sign-identity <identity>] [--sparkle-public-key <key>] [--sparkle-feed-url <url>] [--dev]"
     exit 1
 fi
 
@@ -75,12 +80,20 @@ if [[ -z "$BUILD_NUMBER" ]]; then
 fi
 
 APP_BUNDLE="$BUILD_DIR/Roost.app"
-ZIP_NAME="Roost-${VERSION}-${ARCH}.zip"
-DMG_NAME="Roost-${VERSION}-${ARCH}.dmg"
+NAME_SUFFIX=""
+if [[ "$DEV_BUILD" == "true" ]]; then
+    NAME_SUFFIX="-dev"
+fi
+ZIP_NAME="Roost-${VERSION}-${ARCH}${NAME_SUFFIX}.zip"
+DMG_NAME="Roost-${VERSION}-${ARCH}${NAME_SUFFIX}.dmg"
 
 rm -rf "$APP_BUNDLE"
 
-echo "==> Building for $ARCH ($TRIPLE)"
+if [[ "$DEV_BUILD" == "true" ]]; then
+    echo "==> Building for $ARCH ($TRIPLE) [dev: bundle id app.roost.mac.dev]"
+else
+    echo "==> Building for $ARCH ($TRIPLE)"
+fi
 cd "$PROJECT_ROOT"
 swift build -c release --triple "$TRIPLE"
 swift build -c release --triple "$TRIPLE" --product RoostHostdXPCService
@@ -119,6 +132,15 @@ strip -Sx "$XPC_BUNDLE/Contents/MacOS/RoostHostdXPCService"
 cp "$PROJECT_ROOT/Muxy/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP_BUNDLE/Contents/Info.plist"
+
+if [[ "$DEV_BUILD" == "true" ]]; then
+    echo "==> Applying dev bundle id override"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier app.roost.mac.dev" "$APP_BUNDLE/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleName Roost-Dev" "$APP_BUNDLE/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Roost-Dev" "$APP_BUNDLE/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLName app.roost.mac.dev" "$APP_BUNDLE/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 roost-dev" "$APP_BUNDLE/Contents/Info.plist"
+fi
 
 echo "==> Compiling app icons"
 ICON_BUILD_DIR="$BUILD_DIR/AppIcons"

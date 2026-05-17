@@ -156,6 +156,15 @@ extension SplitNode {
         }
     }
 
+    var allPanes: [TerminalPaneState] {
+        switch self {
+        case let .tabArea(area):
+            area.tabs.compactMap { $0.content.pane }
+        case let .split(branch):
+            branch.first.allPanes + branch.second.allPanes
+        }
+    }
+
     func findArea(id: UUID) -> TabArea? {
         switch self {
         case let .tabArea(area): area.id == id ? area : nil

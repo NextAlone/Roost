@@ -47,6 +47,18 @@ struct ClaudeCodeDetectorTests {
         #expect(detector.detect(screenContent: screen) == .working)
     }
 
+    @Test func staleSpinnerAbovePromptIsIdle() {
+        let blankGap = String(repeating: "\n", count: 8)
+        let screen = "\u{273B} Cooked for 10s" + blankGap + "\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\n\u{276F} \n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
+        #expect(detector.detect(screenContent: screen) == .idle)
+    }
+
+    @Test func recentSpinnerWithinPromptGapIsWorking() {
+        let blankGap = String(repeating: "\n", count: 5)
+        let screen = "\u{273B} Cooking for 10s" + blankGap + "\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\n\u{276F} \n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
+        #expect(detector.detect(screenContent: screen) == .working)
+    }
+
     @Test func blockedDoYouWant() {
         let screen = "Do you want to run this command?\n\nYes No"
         #expect(detector.detect(screenContent: screen) == .blocked)

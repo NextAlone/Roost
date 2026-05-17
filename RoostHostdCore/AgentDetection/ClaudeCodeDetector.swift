@@ -39,7 +39,7 @@ public struct ClaudeCodeDetector: AgentDetector {
                 "\u{00B7}\u{2731}\u{2732}\u{2733}\u{2734}\u{2735}\u{2736}\u{2737}\u{2738}\u{2739}\u{273A}\u{273B}\u{273C}\u{273D}\u{273E}\u{273F}\u{2740}\u{2741}\u{2742}\u{2743}\u{2747}\u{2748}\u{2749}\u{274A}\u{274B}\u{2722}\u{2723}\u{2724}\u{2725}\u{2726}\u{2727}\u{2728}\u{229B}\u{2295}\u{2299}\u{25C9}\u{25CE}\u{2042}\u{2055}\u{203B}\u{235F}\u{2606}\u{2605}"
             )
         var emptyGap = 0
-        for line in aboveContent.split(separator: "\n").reversed() {
+        for line in aboveContent.split(separator: "\n", omittingEmptySubsequences: false).reversed() {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty {
                 emptyGap += 1
@@ -109,26 +109,6 @@ public struct ClaudeCodeDetector: AgentDetector {
                 || trimmed.hasPrefix("1. yes") || trimmed.hasPrefix("2. no")
                 || trimmed.hasPrefix("yes, and ") || trimmed.hasPrefix("no, and tell claude")
         }
-    }
-
-    private func hasSpinnerActivity(_ content: String) -> Bool {
-        let spinnerChars =
-            Set(
-                "\u{00B7}\u{2731}\u{2732}\u{2733}\u{2734}\u{2735}\u{2736}\u{2737}\u{2738}\u{2739}\u{273A}\u{273B}\u{273C}\u{273D}\u{273E}\u{273F}\u{2740}\u{2741}\u{2742}\u{2743}\u{2747}\u{2748}\u{2749}\u{274A}\u{274B}\u{2722}\u{2723}\u{2724}\u{2725}\u{2726}\u{2727}\u{2728}\u{229B}\u{2295}\u{2299}\u{25C9}\u{25CE}\u{2042}\u{2055}\u{203B}\u{235F}\u{2606}\u{2605}"
-            )
-        for line in content.split(separator: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard let first = trimmed.first else { continue }
-            if spinnerChars.contains(first) {
-                let rest = trimmed.dropFirst()
-                if rest.hasPrefix(" "),
-                   rest.contains(where: { $0.isLetter || $0.isNumber })
-                {
-                    return true
-                }
-            }
-        }
-        return false
     }
 
     private func contentAbovePromptBox(_ content: String) -> String {

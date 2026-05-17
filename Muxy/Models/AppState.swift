@@ -359,7 +359,7 @@ final class AppState {
                     guard let pane = tab.content.pane, pane.id == paneID else { continue }
                     guard pane.activityState != state else { return true }
                     if state == .completed,
-                       pane.activityState == .awaiting || pane.activityState == .exited
+                       pane.activityState == .exited
                     {
                         return true
                     }

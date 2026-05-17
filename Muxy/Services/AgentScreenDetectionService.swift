@@ -108,20 +108,20 @@ final class AgentScreenDetectionService {
         }
     }
 
-    private static func resolveTargetState(
+    static func resolveTargetState(
         rawState: AgentDetectionState,
         previousActivityState: AgentActivityState
     ) -> AgentActivityState {
         switch rawState {
         case .working:
-            if previousActivityState == .idle || previousActivityState == .completed {
+            if previousActivityState == .idle || previousActivityState == .completed || previousActivityState == .awaiting {
                 return .running
             }
             return previousActivityState
         case .blocked:
             return .awaiting
         case .idle:
-            if previousActivityState == .running {
+            if previousActivityState == .running || previousActivityState == .awaiting {
                 return .completed
             }
             return .idle

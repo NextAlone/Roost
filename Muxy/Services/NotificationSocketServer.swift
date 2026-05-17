@@ -18,7 +18,11 @@ final class NotificationSocketServer: @unchecked Sendable {
 
     static var socketPath: String {
         MuxyFileStorage.appSupportDirectory()
+            #if DEV_MODE
+            .appendingPathComponent("roost-dev.sock")
+            #else
             .appendingPathComponent("roost.sock")
+            #endif
             .path
     }
 

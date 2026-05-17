@@ -6,7 +6,7 @@ enum HostdRuntimePreferences {
         guard let raw = defaults.string(forKey: GeneralSettingsKeys.hostdRuntime),
               let runtime = RoostConfigHostdRuntime(rawValue: raw)
         else {
-            return .metadataOnly
+            return .hostdOwnedProcess
         }
         return runtime
     }

@@ -86,6 +86,7 @@ final class AIProviderRegistry {
                 continue
             }
             guard provider.isToolInstalled() else { continue }
+            #if !DEV_MODE
             guard let hookScript = MuxyNotificationHooks.scriptPath(named: provider.hookScriptName, extension: "sh") else {
                 logger.info("Hook script \(provider.hookScriptName) not found, skipping \(provider.displayName)")
                 continue
@@ -96,10 +97,12 @@ final class AIProviderRegistry {
             } catch {
                 logger.error("Failed to install \(provider.displayName): \(error.localizedDescription)")
             }
+            #endif
         }
     }
 
     func forceInstall(_ provider: AIProviderIntegration) {
+        #if !DEV_MODE
         guard let hookScript = MuxyNotificationHooks.scriptPath(named: provider.hookScriptName, extension: "sh") else {
             logger.info("Hook script \(provider.hookScriptName) not found, skipping force install")
             return
@@ -112,6 +115,7 @@ final class AIProviderRegistry {
         } catch {
             logger.error("Failed to force-install \(provider.displayName): \(error.localizedDescription)")
         }
+        #endif
     }
 
     func uninstallAll() {

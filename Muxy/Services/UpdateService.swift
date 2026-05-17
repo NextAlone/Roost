@@ -1,7 +1,9 @@
 import Combine
 import Foundation
 import os
+#if !DEV_MODE
 import Sparkle
+#endif
 
 private let logger = Logger(subsystem: "app.muxy", category: "UpdateService")
 
@@ -46,33 +48,41 @@ enum UpdateChannel: String, CaseIterable, Identifiable {
 final class UpdateService: NSObject {
     static let shared = UpdateService()
 
+    #if !DEV_MODE
     @ObservationIgnored private let controller: SPUStandardUpdaterController
     @ObservationIgnored private var cancellables = Set<AnyCancellable>()
     @ObservationIgnored private let feedDelegate: FeedDelegate
+
+    private var updater: SPUUpdater {
+        controller.updater
+    }
+    #endif
 
     private(set) var canCheckForUpdates = false
     private(set) var availableUpdateVersion: String?
 
     var channel: UpdateChannel {
-        get { feedDelegate.channel }
+        get { storedChannel }
         set {
-            guard newValue != feedDelegate.channel else { return }
-            feedDelegate.channel = newValue
+            guard newValue != storedChannel else { return }
+            storedChannel = newValue
             UserDefaults.standard.set(newValue.rawValue, forKey: UpdateChannel.storageKey)
             availableUpdateVersion = nil
+            #if !DEV_MODE
             if newValue.hasConfiguredFeed {
                 updater.checkForUpdatesInBackground()
             }
+            #endif
         }
     }
 
-    private var updater: SPUUpdater {
-        controller.updater
-    }
+    private var storedChannel: UpdateChannel
 
     override private init() {
         let stored = UserDefaults.standard.string(forKey: UpdateChannel.storageKey)
             .flatMap { UpdateChannel(rawValue: $0) } ?? .stable
+        storedChannel = stored
+        #if !DEV_MODE
         let delegate = FeedDelegate(channel: stored)
         feedDelegate = delegate
         controller = SPUStandardUpdaterController(
@@ -85,10 +95,14 @@ final class UpdateService: NSObject {
             .assign(to: \.canCheckForUpdates, on: self)
             .store(in: &cancellables)
         observeUpdateNotifications()
+        #else
+        super.init()
+        #endif
         applyFeatureFlags()
     }
 
     func start() {
+        #if !DEV_MODE
         guard feedDelegate.channel.hasConfiguredFeed else {
             canCheckForUpdates = false
             return
@@ -98,11 +112,14 @@ final class UpdateService: NSObject {
         } catch {
             logger.warning("Sparkle updater failed to start: \(error.localizedDescription)")
         }
+        #endif
     }
 
     func checkForUpdates() {
+        #if !DEV_MODE
         guard feedDelegate.channel.hasConfiguredFeed else { return }
         controller.checkForUpdates(nil)
+        #endif
     }
 
     private func applyFeatureFlags() {
@@ -113,6 +130,7 @@ final class UpdateService: NSObject {
         #endif
     }
 
+    #if !DEV_MODE
     private func observeUpdateNotifications() {
         NotificationCenter.default.publisher(for: .SUUpdaterDidFindValidUpdate)
             .compactMap { $0.userInfo?[SUUpdaterAppcastItemNotificationKey] as? SUAppcastItem }
@@ -129,8 +147,10 @@ final class UpdateService: NSObject {
             }
             .store(in: &cancellables)
     }
+    #endif
 }
 
+#if !DEV_MODE
 private final class FeedDelegate: NSObject, SPUUpdaterDelegate {
     var channel: UpdateChannel
 
@@ -150,3 +170,4 @@ private final class FeedDelegate: NSObject, SPUUpdaterDelegate {
         }
     }
 }
+#endif

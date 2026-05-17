@@ -2,7 +2,11 @@ import Foundation
 
 public enum HostdTmuxSessionName {
     public static func name(for id: UUID) -> String {
+        #if DEV_MODE
+        "roost-dev-\(id.uuidString.lowercased())"
+        #else
         "roost-\(id.uuidString.lowercased())"
+        #endif
     }
 }
 

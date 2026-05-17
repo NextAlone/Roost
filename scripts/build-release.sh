@@ -12,6 +12,7 @@ SPARKLE_PUBLIC_KEY=""
 SPARKLE_FEED_URL=""
 PACKAGE_FORMAT="zip"
 BUILD_NUMBER=""
+DEV_MODE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -47,6 +48,10 @@ while [[ $# -gt 0 ]]; do
             BUILD_NUMBER="$2"
             shift 2
             ;;
+        --dev)
+            DEV_MODE=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
             exit 1
@@ -55,7 +60,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$ARCH" || -z "$VERSION" ]]; then
-    echo "Usage: $0 --arch <arm64|x86_64> --version <X.Y.Z[-beta.N]> [--zip|--dmg] [--build-number <number>] [--sign-identity <identity>] [--sparkle-public-key <key>] [--sparkle-feed-url <url>]"
+    echo "Usage: $0 --arch <arm64|x86_64> --version <X.Y.Z[-beta.N]> [--dev] [--zip|--dmg] [--build-number <number>] [--sign-identity <identity>] [--sparkle-public-key <key>] [--sparkle-feed-url <url>]"
     exit 1
 fi
 
@@ -64,14 +69,26 @@ if [[ "$ARCH" != "arm64" && "$ARCH" != "x86_64" ]]; then
     exit 1
 fi
 
-if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]; then
-    echo "Error: version must be X.Y.Z or X.Y.Z-beta.N"
-    exit 1
+if [[ "$DEV_MODE" == "true" ]]; then
+    if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(beta|dev)(\.[0-9]+)?)?$ ]]; then
+        echo "Error: version must be X.Y.Z[-beta.N|-dev|-dev.N]"
+        exit 1
+    fi
+else
+    if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]; then
+        echo "Error: version must be X.Y.Z or X.Y.Z-beta.N"
+        exit 1
+    fi
 fi
 
 TRIPLE="${ARCH}-apple-macosx14.0"
 if [[ -z "$BUILD_NUMBER" ]]; then
     BUILD_NUMBER="$(date -u +%Y%m%d%H%M)"
+fi
+
+SHARED_FLAGS=(-c release --triple "$TRIPLE")
+if [[ "$DEV_MODE" == "true" ]]; then
+    SHARED_FLAGS+=(-Xswiftc -DDEV_MODE)
 fi
 
 APP_BUNDLE="$BUILD_DIR/Roost.app"
@@ -82,11 +99,11 @@ rm -rf "$APP_BUNDLE"
 
 echo "==> Building for $ARCH ($TRIPLE)"
 cd "$PROJECT_ROOT"
-swift build -c release --triple "$TRIPLE"
-swift build -c release --triple "$TRIPLE" --product RoostHostdXPCService
-swift build -c release --triple "$TRIPLE" --product roost-hostd-daemon
+swift build "${SHARED_FLAGS[@]}"
+swift build "${SHARED_FLAGS[@]}" --product RoostHostdXPCService
+swift build "${SHARED_FLAGS[@]}" --product roost-hostd-daemon
 
-SPM_BUILD_DIR=$(swift build -c release --triple "$TRIPLE" --show-bin-path)
+SPM_BUILD_DIR=$(swift build "${SHARED_FLAGS[@]}" --show-bin-path)
 
 echo "==> Creating app bundle"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
@@ -97,9 +114,11 @@ install_name_tool -add_rpath @executable_path/../Frameworks "$APP_BUNDLE/Content
 cp "$SPM_BUILD_DIR/roost-hostd-daemon" "$APP_BUNDLE/Contents/MacOS/roost-hostd-daemon"
 chmod 755 "$APP_BUNDLE/Contents/MacOS/roost-hostd-daemon"
 
-echo "==> Stripping local and debug symbols"
-strip -Sx "$APP_BUNDLE/Contents/MacOS/Roost"
-strip -Sx "$APP_BUNDLE/Contents/MacOS/roost-hostd-daemon"
+if [[ "$DEV_MODE" != "true" ]]; then
+    echo "==> Stripping local and debug symbols"
+    strip -Sx "$APP_BUNDLE/Contents/MacOS/Roost"
+    strip -Sx "$APP_BUNDLE/Contents/MacOS/roost-hostd-daemon"
+fi
 
 if [[ -d "$SPM_BUILD_DIR/Roost_Roost.bundle" ]]; then
     cp -R "$SPM_BUILD_DIR/Roost_Roost.bundle" "$APP_BUNDLE/Contents/Resources/Roost_Roost.bundle"
@@ -112,9 +131,14 @@ XPC_BUNDLE="$APP_BUNDLE/Contents/XPCServices/RoostHostdXPCService.xpc"
 mkdir -p "$XPC_BUNDLE/Contents/MacOS"
 cp "$SPM_BUILD_DIR/RoostHostdXPCService" "$XPC_BUNDLE/Contents/MacOS/RoostHostdXPCService"
 cp "$PROJECT_ROOT/RoostHostdXPCService/Info.plist" "$XPC_BUNDLE/Contents/Info.plist"
+if [[ "$DEV_MODE" == "true" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier app.roost.mac.hostd-dev" "$XPC_BUNDLE/Contents/Info.plist"
+fi
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$XPC_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$XPC_BUNDLE/Contents/Info.plist"
-strip -Sx "$XPC_BUNDLE/Contents/MacOS/RoostHostdXPCService"
+if [[ "$DEV_MODE" != "true" ]]; then
+    strip -Sx "$XPC_BUNDLE/Contents/MacOS/RoostHostdXPCService"
+fi
 
 cp "$PROJECT_ROOT/Muxy/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_BUNDLE/Contents/Info.plist"
@@ -146,6 +170,17 @@ if [[ -n "$SPARKLE_PUBLIC_KEY" ]]; then
     if [[ -n "$SPARKLE_FEED_URL" ]]; then
         /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $SPARKLE_FEED_URL" "$APP_PLIST"
     fi
+fi
+
+if [[ "$DEV_MODE" == "true" ]]; then
+    echo "==> Ad-hoc signing hostd XPC service"
+    /usr/bin/codesign --force --sign - "$XPC_BUNDLE"
+
+    echo "==> Ad-hoc signing hostd daemon"
+    /usr/bin/codesign --force --sign - "$APP_BUNDLE/Contents/MacOS/roost-hostd-daemon"
+
+    echo "==> Ad-hoc signing app bundle"
+    /usr/bin/codesign --force --deep --sign - "$APP_BUNDLE"
 fi
 
 if [[ -n "$SIGN_IDENTITY" ]]; then

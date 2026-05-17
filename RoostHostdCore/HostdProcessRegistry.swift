@@ -370,7 +370,7 @@ public actor HostdProcessRegistry {
             return AgentDetectionResult(state: stateMachine.currentState, agentLabel: detector.agentLabel)
         }
         detectionStates[id] = stateMachine
-        HostdLogger.log("[HostdDetection] CONFIRMED \(agentLabel): \(stateMachine.currentState.label) tail=\(String(screenContent.suffix(100)))")
+        HostdLogger.log("[HostdDetection] CONFIRMED \(agentLabel): \(stateMachine.currentState.label)")
         return AgentDetectionResult(state: confirmedState, agentLabel: detector.agentLabel)
     }
 

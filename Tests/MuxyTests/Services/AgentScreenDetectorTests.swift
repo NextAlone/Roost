@@ -1,5 +1,7 @@
 import Foundation
+import MuxyShared
 import Testing
+@testable import Roost
 @testable import RoostHostdCore
 
 struct ClaudeCodeDetectorTests {
@@ -123,6 +125,27 @@ struct CodexDetectorTests {
 
     @Test func blockedDoYouWant() {
         #expect(detector.detect(screenContent: "Do you want to continue? yes / no") == .blocked)
+    }
+}
+
+@MainActor
+struct AgentScreenDetectionServiceTests {
+    @Test func awaitingReturnsToRunningWhenWorkResumes() {
+        let state = AgentScreenDetectionService.resolveTargetState(
+            rawState: .working,
+            previousActivityState: .awaiting
+        )
+
+        #expect(state == .running)
+    }
+
+    @Test func awaitingCompletesWhenWorkFinishes() {
+        let state = AgentScreenDetectionService.resolveTargetState(
+            rawState: .idle,
+            previousActivityState: .awaiting
+        )
+
+        #expect(state == .completed)
     }
 }
 

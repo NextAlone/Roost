@@ -81,8 +81,8 @@ struct AppStateAgentActivityTests {
         #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
-    @Test("done preserves awaiting")
-    func donePreservesAwaiting() {
+    @Test("done transitions awaiting to completed")
+    func doneTransitionsAwaitingToCompleted() {
         let appState = makeAppState()
         let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
         let area = TabArea(projectPath: "/tmp/wt")
@@ -96,9 +96,9 @@ struct AppStateAgentActivityTests {
         let updated = appState.updateAgentActivity(paneID: pane.id, state: .completed)
 
         #expect(updated == true)
-        #expect(pane.activityState == .awaiting)
+        #expect(pane.activityState == .completed)
         #expect(pane.previousActivityState == .running)
-        #expect(appState.agentActivityRevision == revisionBefore)
+        #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
     @Test("done preserves exited")

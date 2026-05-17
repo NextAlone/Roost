@@ -16,6 +16,7 @@ final class AppStateTestRig {
     var slowTerminateNanoseconds: UInt64 = 0
     var slowInterruptNanoseconds: UInt64 = 0
     var waitForSessionExitTail: String? = nil
+    var waitForSessionExitContinuations: [CheckedContinuation<Void, Never>] = []
     var ownership: HostdRuntimeOwnership = .appOwnedMetadataOnly
 
     let selectionStore = AppStateTestRigSelectionStore()
@@ -49,6 +50,12 @@ final class AppStateTestRig {
         app.workspaceRoots[key] = .tabArea(area)
         app.focusedAreaID[key] = area.id
         return area.activeTab!.content.pane!
+    }
+
+    func waitForSessionExitCall() async {
+        await withCheckedContinuation { continuation in
+            waitForSessionExitContinuations.append(continuation)
+        }
     }
 }
 
@@ -146,7 +153,15 @@ final class AppStateTestRigHostdClient: RoostHostdClient, @unchecked Sendable {
     }
 
     func waitForSessionExit(id _: UUID, timeoutMs _: Int) async throws -> HostdWaitForSessionExitResponse {
-        let tail = await MainActor.run { rig?.waitForSessionExitTail }
+        let tail = await MainActor.run { () -> String? in
+            guard let rig else { return nil }
+            let continuations = rig.waitForSessionExitContinuations
+            rig.waitForSessionExitContinuations.removeAll()
+            for continuation in continuations {
+                continuation.resume()
+            }
+            return rig.waitForSessionExitTail
+        }
         if let tail {
             return HostdWaitForSessionExitResponse(lastTail: tail, didTimeout: false)
         }

@@ -6,11 +6,11 @@ import Testing
 
 @Suite("HostdRuntimePreferences")
 struct HostdRuntimePreferencesTests {
-    @Test("defaults to metadata-only runtime")
-    func defaultsToMetadataOnly() throws {
+    @Test("defaults to hostd-owned runtime")
+    func defaultsToHostdOwnedProcess() throws {
         let defaults = try makeDefaults()
 
-        #expect(HostdRuntimePreferences.runtime(defaults: defaults) == .metadataOnly)
+        #expect(HostdRuntimePreferences.runtime(defaults: defaults) == .hostdOwnedProcess)
     }
 
     @Test("stores selected runtime in user defaults")

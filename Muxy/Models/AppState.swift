@@ -45,6 +45,16 @@ final class AppState {
         let runtimeOwnership: HostdRuntimeOwnership
     }
 
+    struct ReloadAgentRequest {
+        let paneID: UUID
+        let newSessionID: UUID
+        let command: String
+        let env: [String: String]
+        let cwd: URL
+        let agentBinaryPath: URL?
+        let agentBinaryMTime: Date?
+    }
+
     enum Action {
         case selectProject(projectID: UUID, worktreeID: UUID, worktreePath: String)
         case selectWorktree(projectID: UUID, worktreeID: UUID, worktreePath: String)
@@ -82,15 +92,7 @@ final class AppState {
         case navigate(projectID: UUID, worktreeID: UUID, areaID: UUID, tabID: UUID?)
         case applyLayout(projectID: UUID, worktreePath: String, config: LayoutConfig)
         case markPaneSessionExited(paneID: UUID, capturedResumeCommand: String?)
-        case reloadAgent(
-            paneID: UUID,
-            newSessionID: UUID,
-            command: String,
-            env: [String: String],
-            cwd: URL,
-            agentBinaryPath: URL?,
-            agentBinaryMTime: Date?
-        )
+        case reloadAgent(ReloadAgentRequest)
         case setBinaryUpdateDetected(paneID: UUID, value: Bool)
         case dismissExitBanner(paneID: UUID)
         case dismissBinaryUpdateBanner(paneID: UUID)
@@ -546,7 +548,7 @@ final class AppState {
         }
         terminalViews.removeView(for: paneID)
 
-        dispatch(.reloadAgent(
+        dispatch(.reloadAgent(ReloadAgentRequest(
             paneID: paneID,
             newSessionID: newSessionID,
             command: command,
@@ -554,7 +556,7 @@ final class AppState {
             cwd: cwd,
             agentBinaryPath: binaryPath,
             agentBinaryMTime: mtime
-        ))
+        )))
 
         guard let location = paneLocation(paneID: paneID),
               let reloadedPane = pane(forSessionID: paneID),
@@ -823,10 +825,8 @@ final class AppState {
 
     private func paneLocation(paneID: UUID) -> WorktreeKey? {
         for (key, root) in workspaceRoots {
-            for area in root.allAreas() {
-                if area.tabs.compactMap(\.content.pane).contains(where: { $0.id == paneID }) {
-                    return key
-                }
+            for area in root.allAreas() where area.tabs.compactMap(\.content.pane).contains(where: { $0.id == paneID }) {
+                return key
             }
         }
         return nil

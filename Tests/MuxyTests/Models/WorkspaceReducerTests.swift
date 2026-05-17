@@ -928,7 +928,7 @@ struct WorkspaceReducerTests {
 
         let originalStartup = pane.startupCommand
         _ = WorkspaceReducer.reduce(
-            action: .reloadAgent(
+            action: .reloadAgent(AppState.ReloadAgentRequest(
                 paneID: paneID,
                 newSessionID: UUID(),
                 command: "claude --x --resume abc",
@@ -936,7 +936,7 @@ struct WorkspaceReducerTests {
                 cwd: newCwd,
                 agentBinaryPath: newPath,
                 agentBinaryMTime: newMtime
-            ),
+            )),
             state: &state
         )
 

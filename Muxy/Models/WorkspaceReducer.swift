@@ -206,17 +206,17 @@ enum WorkspaceReducer {
                 pane.lastState = .exited
             }
 
-        case let .reloadAgent(paneID, newSessionID, _, env, cwd, agentBinaryPath, agentBinaryMTime):
-            if let pane = WorkspaceReducerShared.findPane(id: paneID, state: state) {
-                pane.sessionID = newSessionID
-                pane.env = env
-                pane.cwd = cwd
+        case let .reloadAgent(request):
+            if let pane = WorkspaceReducerShared.findPane(id: request.paneID, state: state) {
+                pane.sessionID = request.newSessionID
+                pane.env = request.env
+                pane.cwd = request.cwd
                 pane.capturedResumeCommand = nil
                 pane.binaryUpdateDetected = false
                 pane.exitBannerDismissed = false
                 pane.mtimeBannerDismissed = false
-                pane.agentBinaryPath = agentBinaryPath
-                pane.agentBinaryMTime = agentBinaryMTime
+                pane.agentBinaryPath = request.agentBinaryPath
+                pane.agentBinaryMTime = request.agentBinaryMTime
                 pane.lastState = .preparing
             }
 

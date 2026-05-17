@@ -154,47 +154,55 @@ struct ContentHostLayer: View {
                 case let .terminal(pane):
                     let shouldMount = pane.hostdRuntimeOwnership != .hostdOwnedProcess
                         || pane.hostdAttachState == .ready
-                    return [.terminal(TerminalEntry(
-                        tabID: tab.id,
-                        areaID: area.id,
-                        pane: pane,
-                        contentRect: tabContentRect,
-                        isVisible: isActiveTab,
-                        isFocused: isFocused,
-                        shouldMountBridge: shouldMount
-                    )),]
+                    return [
+                        .terminal(TerminalEntry(
+                            tabID: tab.id,
+                            areaID: area.id,
+                            pane: pane,
+                            contentRect: tabContentRect,
+                            isVisible: isActiveTab,
+                            isFocused: isFocused,
+                            shouldMountBridge: shouldMount
+                        )),
+                    ]
                 case let .editor(state):
                     let editorRect = Self.editorContentRect(in: tabContentRect)
                     let shows = !state.awaitingLargeFileConfirmation
                         && !state.isLoading
                         && state.errorMessage == nil
-                    return [.editor(EditorEntry(
-                        tabID: tab.id,
-                        areaID: area.id,
-                        state: state,
-                        contentRect: editorRect,
-                        isVisible: isActiveTab,
-                        isFocused: isFocused,
-                        isEditorVisuallyShown: shows
-                    )),]
+                    return [
+                        .editor(EditorEntry(
+                            tabID: tab.id,
+                            areaID: area.id,
+                            state: state,
+                            contentRect: editorRect,
+                            isVisible: isActiveTab,
+                            isFocused: isFocused,
+                            isEditorVisuallyShown: shows
+                        )),
+                    ]
                 case let .diffViewer(state):
-                    return [.diff(DiffEntry(
-                        tabID: tab.id,
-                        areaID: area.id,
-                        state: state,
-                        contentRect: tabContentRect,
-                        isVisible: isActiveTab,
-                        isFocused: isFocused
-                    )),]
+                    return [
+                        .diff(DiffEntry(
+                            tabID: tab.id,
+                            areaID: area.id,
+                            state: state,
+                            contentRect: tabContentRect,
+                            isVisible: isActiveTab,
+                            isFocused: isFocused
+                        )),
+                    ]
                 case let .jjDiffViewer(state):
-                    return [.jjDiff(JjDiffEntry(
-                        tabID: tab.id,
-                        areaID: area.id,
-                        state: state,
-                        contentRect: tabContentRect,
-                        isVisible: isActiveTab,
-                        isFocused: isFocused
-                    )),]
+                    return [
+                        .jjDiff(JjDiffEntry(
+                            tabID: tab.id,
+                            areaID: area.id,
+                            state: state,
+                            contentRect: tabContentRect,
+                            isVisible: isActiveTab,
+                            isFocused: isFocused
+                        )),
+                    ]
                 case .vcs:
                     return []
                 }

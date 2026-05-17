@@ -74,9 +74,9 @@ struct MuxyApp: App {
                             hostdClient = client
                             NSLog("[RoostApp] client created: ownership=\(String(describing: ownership))")
                             await appState.recordRestoredAgentSessions(hostdClient: client)
-                        let service = AgentScreenDetectionService(appState: appState, client: client)
-                        agentScreenDetectionService = service
-                        service.start()
+                            let service = AgentScreenDetectionService(appState: appState, client: client)
+                            agentScreenDetectionService = service
+                            service.start()
                         } else {
                             NSLog("[RoostApp] factory returned nil, no client")
                         }

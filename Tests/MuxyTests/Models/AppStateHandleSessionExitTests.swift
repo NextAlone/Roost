@@ -56,8 +56,9 @@ struct AppStateHandleSessionExitTests {
         let app = rig.makeAppState()
         let pane = await rig.makeAgentPane(kind: .claudeCode, app: app)
 
+        async let waitForExit: Void = rig.waitForSessionExitCall()
         _ = app.markPaneSessionExited(paneID: pane.id)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await waitForExit
 
         #expect(pane.capturedResumeCommand == "claude --resume xyz-789")
         #expect(pane.lastState == .exited)

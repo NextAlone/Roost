@@ -28,7 +28,7 @@ enum JjDiffLoader {
                 )
                 guard !Task.isCancelled else { return }
                 let parsed = GitDiffParser.parseRows(raw)
-                let truncated = lineLimit != nil && countLines(raw) >= lineLimit!
+                let truncated = lineLimit.map { countLines(raw) >= $0 } ?? false
                 cache.store(
                     DiffCache.LoadedDiff(
                         rows: GitDiffParser.collapseContextRows(parsed.rows),

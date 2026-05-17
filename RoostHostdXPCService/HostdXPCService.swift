@@ -344,6 +344,18 @@ final class HostdXPCService: NSObject, RoostHostdXPCProtocol, @unchecked Sendabl
         rejectRuntimeControl("send tmux keys", request: request, as: HostdSendTmuxKeysRequest.self, reply: reply)
     }
 
+    func detectAgentActivity(_ request: Data, reply: @escaping @Sendable (Data) -> Void) {
+        if runtime.ownership == .hostdOwnedProcess {
+            respondRegistry(reply) { registry in
+                let request = try HostdXPCCodec.decode(HostdDetectAgentActivityRequest.self, from: request)
+                let response = await registry.detectAgentActivity(id: request.id, agentLabel: request.agentLabel)
+                return try HostdXPCCodec.success(response)
+            }
+            return
+        }
+        rejectRuntimeControl("detect agent activity", request: request, as: HostdDetectAgentActivityRequest.self, reply: reply)
+    }
+
     private func respond(
         _ reply: @escaping @Sendable (Data) -> Void,
         _ work: @escaping @Sendable (RoostHostd) async throws -> Data

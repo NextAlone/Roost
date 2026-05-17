@@ -176,6 +176,11 @@ struct XPCHostdClientTests {
             return try HostdXPCCodec.success()
         }
 
+        func detectAgentActivity(_ data: Data) async throws -> Data {
+            _ = try HostdXPCCodec.decode(HostdDetectAgentActivityRequest.self, from: data)
+            return try HostdXPCCodec.success(AgentDetectionResult(state: .unknown, agentLabel: nil))
+        }
+
         func recordedControlIDs() -> [String: UUID] {
             controlIDs
         }
@@ -219,6 +224,7 @@ struct XPCHostdClientTests {
         func interruptSession(_ request: Data) async throws -> Data { throw Failure() }
         func waitForSessionExit(_ request: Data) async throws -> Data { throw Failure() }
         func sendTmuxKeys(_ request: Data) async throws -> Data { throw Failure() }
+        func detectAgentActivity(_ request: Data) async throws -> Data { throw Failure() }
     }
 
     private struct HangingTransport: HostdXPCTransport {
@@ -241,6 +247,7 @@ struct XPCHostdClientTests {
         func interruptSession(_ request: Data) async throws -> Data { try await never() }
         func waitForSessionExit(_ request: Data) async throws -> Data { try await never() }
         func sendTmuxKeys(_ request: Data) async throws -> Data { try await never() }
+        func detectAgentActivity(_ request: Data) async throws -> Data { try await never() }
 
         private func never() async throws -> Data {
             try await Task.sleep(nanoseconds: 10_000_000_000)

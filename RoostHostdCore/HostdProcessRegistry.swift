@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import MuxyShared
+import os
 
 public struct HostdLaunchSessionRequest: Sendable, Equatable {
     public let id: UUID
@@ -88,6 +89,7 @@ public actor HostdProcessRegistry {
     private var liveSessionIDs = Set<UUID>()
     private var tmuxAttachedClientCounts: [UUID: Int] = [:]
     private var pendingExitWaiters: [UUID: [WaiterEntry]] = [:]
+    private var detectionStates: [UUID: AgentDetectionStateMachine] = [:]
 
     private struct WaiterEntry {
         let id: UUID
@@ -336,6 +338,40 @@ public actor HostdProcessRegistry {
                 await self?.timeoutWaiter(sessionID: id, waiterID: waiterID)
             }
         }
+    }
+
+    public func detectAgentActivity(id: UUID, agentLabel: String) async -> AgentDetectionResult {
+        let sessionName = HostdTmuxSessionName.name(for: id)
+        guard await tmux.hasSession(named: sessionName) else {
+            HostdLogger.log("[HostdDetection] NO SESSION: \(sessionName)")
+            detectionStates.removeValue(forKey: id)
+            return AgentDetectionResult(state: .unknown, agentLabel: nil)
+        }
+        guard let screenContent = await tmux.captureLastTail(sessionName: sessionName, lines: 40) else {
+            HostdLogger.log("[HostdDetection] CAPTURE FAIL: \(sessionName)")
+            detectionStates.removeValue(forKey: id)
+            return AgentDetectionResult(state: .unknown, agentLabel: nil)
+        }
+        guard let detector = switch agentLabel {
+        case "claude": ClaudeCodeDetector() as (any AgentDetector)?
+        case "codex": CodexDetector() as (any AgentDetector)?
+        default: nil as (any AgentDetector)?
+        } else {
+            HostdLogger.log("[HostdDetection] NO DETECTOR for: \(agentLabel)")
+            return AgentDetectionResult(state: .unknown, agentLabel: nil)
+        }
+        let rawState = detector.detect(screenContent: screenContent)
+        var stateMachine = detectionStates[id] ?? AgentDetectionStateMachine()
+        guard let confirmedState = stateMachine.observe(rawState: rawState, agentLabel: agentLabel) else {
+            detectionStates[id] = stateMachine
+            if stateMachine.currentState != .unknown {
+                HostdLogger.log("[HostdDetection] pending \(agentLabel): raw=\(rawState.label) current=\(stateMachine.currentState.label)")
+            }
+            return AgentDetectionResult(state: stateMachine.currentState, agentLabel: detector.agentLabel)
+        }
+        detectionStates[id] = stateMachine
+        HostdLogger.log("[HostdDetection] CONFIRMED \(agentLabel): \(stateMachine.currentState.label) tail=\(String(screenContent.suffix(100)))")
+        return AgentDetectionResult(state: confirmedState, agentLabel: detector.agentLabel)
     }
 
     private func timeoutWaiter(sessionID: UUID, waiterID: UUID) {

@@ -118,6 +118,10 @@ public final class HostdDaemonSocketServer: @unchecked Sendable {
             let request = try HostdXPCCodec.decode(HostdSendTmuxKeysRequest.self, from: request.payload)
             try await registry.sendTmuxKeys(id: request.id, keys: request.keys)
             payload = try HostdXPCCodec.success()
+        case .detectAgentActivity:
+            let request = try HostdXPCCodec.decode(HostdDetectAgentActivityRequest.self, from: request.payload)
+            let response = await registry.detectAgentActivity(id: request.id, agentLabel: request.agentLabel)
+            payload = try HostdXPCCodec.success(response)
         }
         return HostdAttachSocketResponse(payload: payload)
     }

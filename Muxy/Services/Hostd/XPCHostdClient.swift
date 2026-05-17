@@ -22,6 +22,7 @@ protocol HostdXPCTransport: Sendable {
     func interruptSession(_ request: Data) async throws -> Data
     func waitForSessionExit(_ request: Data) async throws -> Data
     func sendTmuxKeys(_ request: Data) async throws -> Data
+    func detectAgentActivity(_ request: Data) async throws -> Data
 }
 
 enum XPCHostdClientError: Error, LocalizedError {
@@ -40,7 +41,13 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var connection: NSXPCConnection?
 
-    init(serviceName: String = "app.roost.mac.hostd") {
+    #if DEV_MODE
+    private static let defaultServiceName = "app.roost.mac.hostd-dev"
+    #else
+    private static let defaultServiceName = "app.roost.mac.hostd"
+    #endif
+
+    init(serviceName: String = defaultServiceName) {
         self.serviceName = serviceName
     }
 
@@ -161,6 +168,12 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
     func sendTmuxKeys(_ request: Data) async throws -> Data {
         try await call { proxy, reply in
             proxy.sendTmuxKeys(request, reply: reply)
+        }
+    }
+
+    func detectAgentActivity(_ request: Data) async throws -> Data {
+        try await call { proxy, reply in
+            proxy.detectAgentActivity(request, reply: reply)
         }
     }
 
@@ -336,6 +349,27 @@ struct XPCHostdClient: RoostHostdClient {
             try await transport.sendTmuxKeys(request)
         }
         try HostdXPCCodec.decodeEmptyReply(from: response)
+    }
+
+    func detectAgentActivity(id: UUID, agentLabel: String) async -> AgentDetectionResult {
+        let request: Data
+        do {
+            request = try HostdXPCCodec.encode(HostdDetectAgentActivityRequest(id: id, agentLabel: agentLabel))
+        } catch {
+            return AgentDetectionResult(state: .unknown, agentLabel: nil)
+        }
+        let response: Data
+        do {
+            response = try await withRequestTimeout("detect agent activity") {
+                try await transport.detectAgentActivity(request)
+            }
+        } catch {
+            return AgentDetectionResult(state: .unknown, agentLabel: nil)
+        }
+        guard let result = try? HostdXPCCodec.decodeReply(AgentDetectionResult.self, from: response) else {
+            return AgentDetectionResult(state: .unknown, agentLabel: nil)
+        }
+        return result
     }
 
     func markExited(sessionID: UUID) async throws {

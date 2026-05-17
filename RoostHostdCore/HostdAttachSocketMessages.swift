@@ -22,6 +22,7 @@ public enum HostdAttachSocketOperation: String, Sendable, Codable, Equatable {
     case interruptSession
     case waitForSessionExit
     case sendTmuxKeys
+    case detectAgentActivity
 }
 
 public struct HostdInterruptSessionRequest: Sendable, Codable, Equatable {
@@ -115,8 +116,22 @@ public struct HostdSessionExitNotice: Sendable, Codable, Equatable {
     }
 }
 
+public struct HostdDetectAgentActivityRequest: Sendable, Codable, Equatable {
+    public let id: UUID
+    public let agentLabel: String
+
+    public init(id: UUID, agentLabel: String) {
+        self.id = id
+        self.agentLabel = agentLabel
+    }
+}
+
 public enum HostdDaemonSocket {
     public static var defaultSocketPath: String {
+        #if DEV_MODE
+        "/tmp/roost-hostd-daemon-dev-\(getuid()).sock"
+        #else
         "/tmp/roost-hostd-daemon-\(getuid()).sock"
+        #endif
     }
 }

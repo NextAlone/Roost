@@ -21,4 +21,5 @@ public protocol RoostHostdXPCProtocol {
     func interruptSession(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
     func waitForSessionExit(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
     func sendTmuxKeys(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
+    func detectAgentActivity(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
 }

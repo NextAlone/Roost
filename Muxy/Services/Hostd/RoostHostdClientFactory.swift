@@ -131,4 +131,8 @@ private struct RuntimeHintHostdClient: RoostHostdClient {
     func markAllRunningExited() async throws {
         try await client.markAllRunningExited()
     }
+
+    func detectAgentActivity(id: UUID, agentLabel: String) async -> AgentDetectionResult {
+        await client.detectAgentActivity(id: id, agentLabel: agentLabel)
+    }
 }

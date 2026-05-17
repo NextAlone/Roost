@@ -170,8 +170,10 @@ final class NotificationSocketServer: @unchecked Sendable {
         let source = AIProviderRegistry.shared.notificationSource(for: activityEvent.sourceType)
 
         if let paneIDString, let paneID = UUID(uuidString: paneIDString) {
-            if let state = activityEvent.activityState {
-                appState.updateAgentActivity(paneID: paneID, state: state, sourceType: activityEvent.sourceType)
+            if let state = activityEvent.activityState,
+               !appState.updateAgentActivity(paneID: paneID, state: state, sourceType: activityEvent.sourceType)
+            {
+                return
             }
             NotificationStore.shared.add(
                 paneID: paneID,

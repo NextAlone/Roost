@@ -360,18 +360,18 @@ public actor HostdProcessRegistry {
             HostdLogger.log("[HostdDetection] NO DETECTOR for: \(agentLabel)")
             return AgentDetectionResult(state: .unknown, agentLabel: nil)
         }
-        let rawState = detector.detect(screenContent: screenContent)
+        let evidence = detector.detectEvidence(screenContent: screenContent)
         var stateMachine = detectionStates[id] ?? AgentDetectionStateMachine()
-        guard let confirmedState = stateMachine.observe(rawState: rawState, agentLabel: agentLabel) else {
+        guard let confirmedState = stateMachine.observe(rawState: evidence.state, agentLabel: agentLabel) else {
             detectionStates[id] = stateMachine
             if stateMachine.currentState != .unknown {
-                HostdLogger.log("[HostdDetection] pending \(agentLabel): raw=\(rawState.label) current=\(stateMachine.currentState.label)")
+                HostdLogger.log("[HostdDetection] pending \(agentLabel): raw=\(evidence.state.label) current=\(stateMachine.currentState.label) signal=\(evidence.signal.rawValue)")
             }
-            return AgentDetectionResult(state: stateMachine.currentState, agentLabel: detector.agentLabel)
+            return AgentDetectionResult(state: stateMachine.currentState, agentLabel: detector.agentLabel, signal: evidence.signal)
         }
         detectionStates[id] = stateMachine
-        HostdLogger.log("[HostdDetection] CONFIRMED \(agentLabel): \(stateMachine.currentState.label)")
-        return AgentDetectionResult(state: confirmedState, agentLabel: detector.agentLabel)
+        HostdLogger.log("[HostdDetection] CONFIRMED \(agentLabel): \(stateMachine.currentState.label) signal=\(evidence.signal.rawValue)")
+        return AgentDetectionResult(state: confirmedState, agentLabel: detector.agentLabel, signal: evidence.signal)
     }
 
     private func timeoutWaiter(sessionID: UUID, waiterID: UUID) {

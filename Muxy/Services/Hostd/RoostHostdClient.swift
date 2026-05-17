@@ -101,7 +101,7 @@ extension RoostHostdClient {
     }
 
     func detectAgentActivity(id: UUID, agentLabel: String) async -> AgentDetectionResult {
-        AgentDetectionResult(state: .unknown, agentLabel: nil)
+        AgentDetectionResult(state: .unknown, agentLabel: nil, signal: .unknown)
     }
 
     func readSessionOutput(id: UUID, timeout: TimeInterval = 0) async throws -> Data {

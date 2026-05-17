@@ -45,8 +45,8 @@ struct AppStateAgentActivityTests {
         #expect(appState.agentActivityRevision == revisionBefore + 1)
     }
 
-    @Test("done transitions idle to completed")
-    func doneTransitionsIdleToCompleted() {
+    @Test("done does not transition idle to completed")
+    func doneDoesNotTransitionIdleToCompleted() {
         let appState = makeAppState()
         let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
         let area = TabArea(projectPath: "/tmp/wt")
@@ -58,9 +58,9 @@ struct AppStateAgentActivityTests {
         let revisionBefore = appState.agentActivityRevision
         let updated = appState.updateAgentActivity(paneID: pane.id, state: .completed)
 
-        #expect(updated == true)
-        #expect(pane.activityState == .completed)
-        #expect(appState.agentActivityRevision == revisionBefore + 1)
+        #expect(updated == false)
+        #expect(pane.activityState == .idle)
+        #expect(appState.agentActivityRevision == revisionBefore)
     }
 
     @Test("done transitions running to completed")
@@ -114,8 +114,26 @@ struct AppStateAgentActivityTests {
         let revisionBefore = appState.agentActivityRevision
         let updated = appState.updateAgentActivity(paneID: pane.id, state: .completed)
 
-        #expect(updated == true)
+        #expect(updated == false)
         #expect(pane.activityState == .exited)
+        #expect(appState.agentActivityRevision == revisionBefore)
+    }
+
+    @Test("same activity state returns false")
+    func sameActivityStateReturnsFalse() {
+        let appState = makeAppState()
+        let key = WorktreeKey(projectID: UUID(), worktreeID: UUID())
+        let area = TabArea(projectPath: "/tmp/wt")
+        area.createAgentTab(kind: .codex)
+        let pane = area.activeTab!.content.pane!
+        pane.activityState = .completed
+        appState.workspaceRoots[key] = .tabArea(area)
+
+        let revisionBefore = appState.agentActivityRevision
+        let updated = appState.updateAgentActivity(paneID: pane.id, state: .completed)
+
+        #expect(updated == false)
+        #expect(pane.activityState == .completed)
         #expect(appState.agentActivityRevision == revisionBefore)
     }
 
@@ -157,7 +175,7 @@ struct AppStateAgentActivityTests {
         let revisionBefore = appState.agentActivityRevision
         let updated = appState.updateAgentActivity(paneID: pane.id, state: .awaiting)
 
-        #expect(updated == true)
+        #expect(updated == false)
         #expect(pane.activityState == .exited)
         #expect(appState.agentActivityRevision == revisionBefore)
     }

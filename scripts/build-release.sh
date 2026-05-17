@@ -150,6 +150,7 @@ fi
 
 cp "$PROJECT_ROOT/Muxy/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 if [[ "$DEV_MODE" == "true" ]]; then
+    echo "==> Applying dev bundle id override"
     /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier app.roost.mac.dev" "$APP_BUNDLE/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleName Roost-dev" "$APP_BUNDLE/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Roost Dev" "$APP_BUNDLE/Contents/Info.plist"
@@ -158,15 +159,6 @@ if [[ "$DEV_MODE" == "true" ]]; then
 fi
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_BUNDLE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP_BUNDLE/Contents/Info.plist"
-
-if [[ "$DEV_MODE" == "true" ]]; then
-    echo "==> Applying dev bundle id override"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier app.roost.mac.dev" "$APP_BUNDLE/Contents/Info.plist"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleName Roost-dev" "$APP_BUNDLE/Contents/Info.plist"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Roost Dev" "$APP_BUNDLE/Contents/Info.plist"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLName app.roost.mac.dev" "$APP_BUNDLE/Contents/Info.plist"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 roost-dev" "$APP_BUNDLE/Contents/Info.plist"
-fi
 
 echo "==> Compiling app icons"
 ICON_BUILD_DIR="$BUILD_DIR/AppIcons"

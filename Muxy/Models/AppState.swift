@@ -359,16 +359,17 @@ final class AppState {
             for area in root.allAreas() {
                 for tab in area.tabs {
                     guard let pane = tab.content.pane, pane.id == paneID else { continue }
-                    guard pane.activityState != state else { return true }
+                    guard pane.activityState != state else { return false }
                     if state == .completed,
-                       pane.activityState == .exited
+                       pane.activityState != .running,
+                       pane.activityState != .awaiting
                     {
-                        return true
+                        return false
                     }
                     if state == .awaiting,
                        pane.activityState == .exited
                     {
-                        return true
+                        return false
                     }
                     let previous = pane.activityState
                     if state == .awaiting {

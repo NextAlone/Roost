@@ -5,32 +5,72 @@ public struct ClaudeCodeDetector: AgentDetector {
 
     public init() {}
 
-    public func detect(screenContent: String) -> AgentDetectionState {
+    public func detectEvidence(screenContent: String) -> AgentScreenEvidence {
         let lower = screenContent.lowercased()
 
         if screenContent.contains("\u{2315} Search") {
-            return .idle
+            return AgentScreenEvidence(state: .idle, signal: .idlePrompt)
         }
         if lower.contains("ctrl+r to toggle") {
-            return .idle
+            return AgentScreenEvidence(state: .idle, signal: .idlePrompt)
+        }
+        if lower.contains("interrupted") && lower.contains("what should claude do instead") {
+            return AgentScreenEvidence(state: .idle, signal: .interruptedPrompt)
         }
 
         if hasBlockedPrompt(screenContent, lower) {
-            return .blocked
+            return AgentScreenEvidence(state: .blocked, signal: .blockedPrompt)
         }
 
         let above = contentAbovePromptBox(screenContent)
         let aboveLower = above.lowercased()
 
         if aboveLower.contains("esc to interrupt") || aboveLower.contains("ctrl+c to interrupt") {
-            return .working
+            return AgentScreenEvidence(state: .working, signal: .workingIndicator)
+        }
+
+        if hasActiveStatusIndicator(above) {
+            return AgentScreenEvidence(state: .working, signal: .workingIndicator)
+        }
+
+        if hasCompletionLineInRecentLines(above) {
+            return AgentScreenEvidence(state: .idle, signal: .completionLine)
         }
 
         if hasSpinnerInRecentLines(above) {
-            return .working
+            return AgentScreenEvidence(state: .working, signal: .workingIndicator)
         }
 
-        return .idle
+        return AgentScreenEvidence(state: .idle, signal: .idlePrompt)
+    }
+
+    private func hasActiveStatusIndicator(_ aboveContent: String) -> Bool {
+        for line in aboveContent.split(separator: "\n", omittingEmptySubsequences: false).reversed() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { continue }
+            if isFinishedStatusLine(trimmed) { return false }
+            if trimmed.range(of: #"\b\p{L}*ing\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func hasCompletionLineInRecentLines(_ aboveContent: String) -> Bool {
+        var emptyGap = 0
+        for line in aboveContent.split(separator: "\n", omittingEmptySubsequences: false).reversed() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                emptyGap += 1
+                continue
+            }
+            if emptyGap > 5 { return false }
+            emptyGap = 0
+            if isFinishedStatusLine(trimmed) {
+                return true
+            }
+        }
+        return false
     }
 
     private func hasSpinnerInRecentLines(_ aboveContent: String) -> Bool {
@@ -47,11 +87,18 @@ public struct ClaudeCodeDetector: AgentDetector {
             }
             if emptyGap > 5 { return false }
             emptyGap = 0
+            if isFinishedStatusLine(trimmed) {
+                return false
+            }
             if let first = trimmed.first, spinnerChars.contains(first) {
                 return true
             }
         }
         return false
+    }
+
+    private func isFinishedStatusLine(_ line: String) -> Bool {
+        line.range(of: #"^\S+\s+\S+(?:ed|lt|nt|pt|ught)\s+for\s+\d+(?:\.\d+)?\s*(?:ms|s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
     private func hasBlockedPrompt(_ content: String, _ lower: String) -> Bool {

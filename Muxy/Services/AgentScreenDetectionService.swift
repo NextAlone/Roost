@@ -6,6 +6,7 @@ import RoostHostdCore
 final class AgentScreenDetectionService {
     private weak var appState: AppState?
     private var pollTask: Task<Void, Never>?
+    private var reconcilers: [UUID: AgentActivityReconciler] = [:]
     private let client: any RoostHostdClient
     private let pollInterval: TimeInterval
 
@@ -27,7 +28,7 @@ final class AgentScreenDetectionService {
         guard pollTask == nil else { return }
         pollTask = Task { [pollInterval, client, weak appState] in
             while !Task.isCancelled {
-                await Self.pollPanes(appState: appState, client: client)
+                await self.pollPanes(appState: appState, client: client)
                 try? await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
             }
         }
@@ -38,12 +39,14 @@ final class AgentScreenDetectionService {
         pollTask = nil
     }
 
-    private static func pollPanes(
+    private func pollPanes(
         appState: AppState?,
         client: any RoostHostdClient
     ) async {
         guard let appState else { return }
         let panes = appState.allAgentPanes
+        let paneIDs = Set(panes.map(\.id))
+        reconcilers = reconcilers.filter { paneIDs.contains($0.key) }
         for pane in panes {
             if pane.hostdRuntimeOwnership != .hostdOwnedProcess {
                 continue
@@ -54,13 +57,14 @@ final class AgentScreenDetectionService {
             }
 
             let result = await client.detectAgentActivity(id: pane.id, agentLabel: agentLabel)
-            let rawState = result.state
             let previousActivityState = pane.activityState
-
-            let targetActivityState = resolveTargetState(
-                rawState: rawState,
+            var reconciler = reconcilers[pane.id] ?? AgentActivityReconciler()
+            let targetActivityState = reconciler.reconcile(
+                detection: result,
                 previousActivityState: previousActivityState
             )
+            reconcilers[pane.id] = reconciler
+            print("[AgentScreenDetection] pane=\(pane.id) agent=\(agentLabel) raw=\(result.state) signal=\(result.signal) previous=\(previousActivityState) target=\(targetActivityState)")
             if targetActivityState == previousActivityState { continue }
 
             appState.updateAgentActivity(
@@ -68,28 +72,6 @@ final class AgentScreenDetectionService {
                 state: targetActivityState,
                 sourceType: "screenHeuristic"
             )
-        }
-    }
-
-    static func resolveTargetState(
-        rawState: AgentDetectionState,
-        previousActivityState: AgentActivityState
-    ) -> AgentActivityState {
-        switch rawState {
-        case .working:
-            if previousActivityState == .idle || previousActivityState == .completed || previousActivityState == .awaiting {
-                return .running
-            }
-            return previousActivityState
-        case .blocked:
-            return .awaiting
-        case .idle:
-            if previousActivityState == .running || previousActivityState == .awaiting {
-                return .completed
-            }
-            return .idle
-        case .unknown:
-            return previousActivityState
         }
     }
 }

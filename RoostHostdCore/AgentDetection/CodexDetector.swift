@@ -5,7 +5,7 @@ public struct CodexDetector: AgentDetector {
 
     public init() {}
 
-    public func detect(screenContent: String) -> AgentDetectionState {
+    public func detectEvidence(screenContent: String) -> AgentScreenEvidence {
         let lower = screenContent.lowercased()
 
         if lower.contains("press enter to confirm or esc to cancel")
@@ -14,17 +14,17 @@ public struct CodexDetector: AgentDetector {
             || lower.contains("[y/n]")
             || lower.contains("yes (y)")
         {
-            return .blocked
+            return AgentScreenEvidence(state: .blocked, signal: .blockedPrompt)
         }
         if hasConfirmationPrompt(lower) {
-            return .blocked
+            return AgentScreenEvidence(state: .blocked, signal: .blockedPrompt)
         }
 
         if hasInterruptPattern(lower) || hasWorkingHeader(screenContent) {
-            return .working
+            return AgentScreenEvidence(state: .working, signal: .workingIndicator)
         }
 
-        return .idle
+        return AgentScreenEvidence(state: .idle, signal: .idlePrompt)
     }
 
     private func hasConfirmationPrompt(_ lower: String) -> Bool {

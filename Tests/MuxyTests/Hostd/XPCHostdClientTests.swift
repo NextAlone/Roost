@@ -178,7 +178,7 @@ struct XPCHostdClientTests {
 
         func detectAgentActivity(_ data: Data) async throws -> Data {
             _ = try HostdXPCCodec.decode(HostdDetectAgentActivityRequest.self, from: data)
-            return try HostdXPCCodec.success(AgentDetectionResult(state: .unknown, agentLabel: nil))
+            return try HostdXPCCodec.success(AgentDetectionResult(state: .unknown, agentLabel: nil, signal: .unknown))
         }
 
         func recordedControlIDs() -> [String: UUID] {

@@ -299,6 +299,16 @@ final class AppState {
         return root.allAreas().flatMap(\.tabs)
     }
 
+    var allAgentPanes: [TerminalPaneState] {
+        var result: [TerminalPaneState] = []
+        for (_, root) in workspaceRoots {
+            for pane in root.allPanes where pane.agentKind != .terminal {
+                result.append(pane)
+            }
+        }
+        return result
+    }
+
     var agentAttentionPanes: [AwaitingPaneSummary] {
         _ = agentActivityRevision
         var results: [AwaitingPaneSummary] = []

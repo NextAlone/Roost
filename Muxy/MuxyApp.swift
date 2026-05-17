@@ -13,6 +13,7 @@ struct MuxyApp: App {
     @State private var worktreeStore: WorktreeStore
     @State private var statusStore: WorkspaceStatusStore
     @State private var hostdClient: (any RoostHostdClient)?
+    @State private var agentScreenDetectionService: AgentScreenDetectionService?
     private let initialHostdRuntimeOwnership: HostdRuntimeOwnership
     private let updateService = UpdateService.shared
 
@@ -58,6 +59,7 @@ struct MuxyApp: App {
                 .environment(ThemeService.shared)
                 .environment(\.roostHostdClient, hostdClient)
                 .task {
+                    NSLog("[RoostApp] .task fired, hostdClient=\(String(describing: hostdClient))")
                     if hostdClient == nil {
                         if let client = await RoostHostdClientFactory.make(
                             preferredOwnership: initialHostdRuntimeOwnership
@@ -70,7 +72,13 @@ struct MuxyApp: App {
                                 try? await client.markAllRunningExited()
                             }
                             hostdClient = client
+                            NSLog("[RoostApp] client created: ownership=\(String(describing: ownership))")
                             await appState.recordRestoredAgentSessions(hostdClient: client)
+                        let service = AgentScreenDetectionService(appState: appState, client: client)
+                        agentScreenDetectionService = service
+                        service.start()
+                        } else {
+                            NSLog("[RoostApp] factory returned nil, no client")
                         }
                     }
                 }
@@ -80,7 +88,8 @@ struct MuxyApp: App {
                     NotificationStore.shared.appState = appState
                     NotificationStore.shared.worktreeStore = worktreeStore
                     NotificationStore.shared.markAllAsRead()
-                    appDelegate.onTerminate = { [appState] in
+                    appDelegate.onTerminate = { [appState, agentScreenDetectionService] in
+                        agentScreenDetectionService?.stop()
                         appState.saveWorkspaces()
                     }
                     appDelegate.hasUnsavedEditorTabs = { [appState] in

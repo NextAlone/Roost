@@ -44,7 +44,7 @@ c. **`main` bookmark 已 push 到 origin**：
 
 d. **签名校验**：
    ```
-   jj log -r 'main@origin..main | main' -T 'change_id.shortest() ++ " " ++ if(signature, signature.status(), "NONE") ++ "\n"'
+   jj log -r '(main@origin..main | main) & mine()' -T 'change_id.shortest() ++ " " ++ if(signature, signature.status(), "NONE") ++ "\n"'
    ```
    出现 `UNSIGNED` / `NONE` 即停止。不允许改 `signing.behavior` 或 `--no-verify`。
 

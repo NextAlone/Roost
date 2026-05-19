@@ -64,7 +64,6 @@ final class AgentScreenDetectionService {
                 previousActivityState: previousActivityState
             )
             reconcilers[pane.id] = reconciler
-            print("[AgentScreenDetection] pane=\(pane.id) agent=\(agentLabel) raw=\(result.state) signal=\(result.signal) previous=\(previousActivityState) target=\(targetActivityState)")
             if targetActivityState == previousActivityState { continue }
 
             appState.updateAgentActivity(

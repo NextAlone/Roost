@@ -59,6 +59,14 @@ struct ExpandedProjectRow: View {
         isVcsRepo && worktrees.count > 1
     }
 
+    private var shouldShowWorkspaceContent: Bool {
+        Self.shouldShowWorkspaceContent(
+            isVcsRepo: isVcsRepo,
+            worktreeCount: worktrees.count,
+            untrackedWorkspaceCount: untrackedJjWorkspaceNames.count
+        )
+    }
+
     private var projectAgentActivitySummary: SidebarAgentActivitySummary? {
         guard !shouldShowWorktreeList else { return nil }
         _ = appState.agentActivityRevision
@@ -77,7 +85,7 @@ struct ExpandedProjectRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             projectHeader
-            if worktreesExpanded, shouldShowWorktreeList {
+            if worktreesExpanded, shouldShowWorkspaceContent {
                 worktreeList
             }
         }
@@ -176,6 +184,12 @@ struct ExpandedProjectRow: View {
             ProjectIconColorPicker(selectedID: project.iconColor) { id in
                 onSetIconColor(id)
                 showColorPicker = false
+            }
+        }
+        .popover(isPresented: $showCreateWorktreeSheet, arrowEdge: .trailing) {
+            CreateWorktreeSheet(project: project) { result in
+                showCreateWorktreeSheet = false
+                handleCreateWorktreeResult(result)
             }
         }
     }
@@ -330,12 +344,6 @@ struct ExpandedProjectRow: View {
             }
         }
         .padding(.bottom, 4)
-        .popover(isPresented: $showCreateWorktreeSheet, arrowEdge: .trailing) {
-            CreateWorktreeSheet(project: project) { result in
-                showCreateWorktreeSheet = false
-                handleCreateWorktreeResult(result)
-            }
-        }
     }
 
     private func agentActivitySummary(for worktree: Worktree, selected: Bool) -> SidebarAgentActivitySummary? {
@@ -594,6 +602,14 @@ struct ExpandedProjectRow: View {
         hasAgentTabs: Bool
     ) -> Bool {
         isVcsRepo && (isActive || hasAgentTabs)
+    }
+
+    nonisolated static func shouldShowWorkspaceContent(
+        isVcsRepo: Bool,
+        worktreeCount: Int,
+        untrackedWorkspaceCount: Int
+    ) -> Bool {
+        isVcsRepo && (worktreeCount > 1 || untrackedWorkspaceCount > 0)
     }
 
     nonisolated static func isWorktreeSelected(

@@ -365,7 +365,10 @@ public actor HostdProcessRegistry {
         guard let confirmedState = stateMachine.observe(rawState: evidence.state, agentLabel: agentLabel) else {
             detectionStates[id] = stateMachine
             if stateMachine.currentState != .unknown {
-                HostdLogger.log("[HostdDetection] pending \(agentLabel): raw=\(evidence.state.label) current=\(stateMachine.currentState.label) signal=\(evidence.signal.rawValue)")
+                HostdLogger
+                    .log(
+                        "[HostdDetection] pending \(agentLabel): raw=\(evidence.state.label) current=\(stateMachine.currentState.label) signal=\(evidence.signal.rawValue)"
+                    )
             }
             return AgentDetectionResult(state: stateMachine.currentState, agentLabel: detector.agentLabel, signal: evidence.signal)
         }

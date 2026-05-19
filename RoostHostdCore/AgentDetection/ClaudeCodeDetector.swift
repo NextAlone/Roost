@@ -98,7 +98,10 @@ public struct ClaudeCodeDetector: AgentDetector {
     }
 
     private func isFinishedStatusLine(_ line: String) -> Bool {
-        line.range(of: #"^\S+\s+\S+(?:ed|lt|nt|pt|ught)\s+for\s+\d+(?:\.\d+)?\s*(?:ms|s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours)\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        line.range(
+            of: #"^\S+\s+\S+(?:ed|lt|nt|pt|ught)\s+for\s+\d+(?:\.\d+)?\s*(?:ms|s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours)\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil
     }
 
     private func hasBlockedPrompt(_ content: String, _ lower: String) -> Bool {

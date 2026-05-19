@@ -97,4 +97,18 @@ struct ExpandedProjectRowSelectionTests {
             hasAgentTabs: true
         ))
     }
+
+    @Test("single tracked workspace still shows untracked jj workspace hint")
+    func singleTrackedWorkspaceStillShowsUntrackedJjWorkspaceHint() {
+        #expect(ExpandedProjectRow.shouldShowWorkspaceContent(
+            isVcsRepo: true,
+            worktreeCount: 1,
+            untrackedWorkspaceCount: 1
+        ))
+        #expect(!ExpandedProjectRow.shouldShowWorkspaceContent(
+            isVcsRepo: true,
+            worktreeCount: 1,
+            untrackedWorkspaceCount: 0
+        ))
+    }
 }

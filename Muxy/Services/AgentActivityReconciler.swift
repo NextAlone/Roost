@@ -138,7 +138,8 @@ struct AgentActivityReconciler {
 
     private mutating func updateEvidenceCounts(signal: AgentScreenSignal) {
         switch signal {
-        case .idlePrompt, .interruptedPrompt:
+        case .idlePrompt,
+             .interruptedPrompt:
             idleEvidenceCount += 1
             workingEvidenceCount = 0
         case .workingIndicator:

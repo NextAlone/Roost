@@ -9,15 +9,8 @@ protocol AIProviderIntegration {
     var socketTypeKey: String { get }
     var iconName: String { get }
     var executableNames: [String] { get }
-    var hookScriptName: String { get }
 
     func isToolInstalled() -> Bool
-    func install(hookScriptPath: String) throws
-    func uninstall() throws
-}
-
-extension AIProviderIntegration {
-    var hookScriptName: String { "roost-claude-hook" }
 }
 
 extension AIProviderIntegration {
@@ -72,69 +65,14 @@ final class AIProviderRegistry {
 
     private init() {}
 
-    func installAll() {
-        #if DEBUG
-        guard ProcessInfo.processInfo.environment["FF_AI_HOOKS"] != nil else {
-            logger.info("Skipping AI hooks install in dev mode (set FF_AI_HOOKS=true to enable)")
-            return
-        }
-        #endif
-
-        for provider in providers {
-            guard provider.isEnabled else {
-                try? provider.uninstall()
-                continue
-            }
-            guard provider.isToolInstalled() else { continue }
-            #if !DEV_MODE
-            guard let hookScript = MuxyNotificationHooks.scriptPath(named: provider.hookScriptName, extension: "sh") else {
-                logger.info("Hook script \(provider.hookScriptName) not found, skipping \(provider.displayName)")
-                continue
-            }
-            do {
-                try provider.install(hookScriptPath: hookScript)
-                logger.info("Installed \(provider.displayName) integration")
-            } catch {
-                logger.error("Failed to install \(provider.displayName): \(error.localizedDescription)")
-            }
-            #endif
-        }
-    }
-
-    func forceInstall(_ provider: AIProviderIntegration) {
-        #if !DEV_MODE
-        guard let hookScript = MuxyNotificationHooks.scriptPath(named: provider.hookScriptName, extension: "sh") else {
-            logger.info("Hook script \(provider.hookScriptName) not found, skipping force install")
-            return
-        }
-
-        do {
-            try provider.uninstall()
-            try provider.install(hookScriptPath: hookScript)
-            logger.info("Force-installed \(provider.displayName) integration")
-        } catch {
-            logger.error("Failed to force-install \(provider.displayName): \(error.localizedDescription)")
-        }
-        #endif
-    }
-
-    func uninstallAll() {
-        #if DEBUG
-        guard ProcessInfo.processInfo.environment["FF_AI_HOOKS"] != nil else { return }
-        #endif
-
-        for provider in providers {
-            do {
-                try provider.uninstall()
-            } catch {
-                logger.error("Failed to uninstall \(provider.displayName): \(error.localizedDescription)")
-            }
-        }
-    }
-
     func notificationSource(for socketType: String) -> MuxyNotification.Source {
-        let event = AgentActivitySocketEvent.parse(type: socketType)
-        for provider in providers where provider.socketTypeKey == event.sourceType {
+        let baseType: String
+        if let idx = socketType.lastIndex(of: ":") {
+            baseType = String(socketType[..<idx])
+        } else {
+            baseType = socketType
+        }
+        for provider in providers where provider.socketTypeKey == baseType {
             return .aiProvider(provider.id)
         }
         return .socket

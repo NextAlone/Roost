@@ -37,20 +37,6 @@ struct VisibleBrandingTests {
         #expect(!source.contains("managed outside Muxy"))
     }
 
-    @Test("provider backup filenames use Roost")
-    func providerBackupFilenamesUseRoost() throws {
-        let claude = try resourceText("Muxy/Services/Providers/ClaudeCodeProvider.swift")
-        let codex = try resourceText("Muxy/Services/Providers/CodexProvider.swift")
-        let cursor = try resourceText("Muxy/Services/Providers/CursorProvider.swift")
-
-        #expect(claude.contains(".roost-backup"))
-        #expect(codex.contains(".roost-backup"))
-        #expect(cursor.contains(".roost-backup"))
-        #expect(!claude.contains(".muxy-backup"))
-        #expect(!codex.contains(".muxy-backup"))
-        #expect(!cursor.contains(".muxy-backup"))
-    }
-
     @Test("editor performance debug environment uses Roost primary name")
     func editorPerformanceDebugEnvironmentUsesRoostPrimaryName() throws {
         let source = try resourceText("Muxy/Views/Editor/CodeEditorRepresentable.swift")

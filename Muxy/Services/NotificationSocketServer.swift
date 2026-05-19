@@ -166,15 +166,9 @@ final class NotificationSocketServer: @unchecked Sendable {
     private func dispatchNotification(type: String, title: String, body: String, paneIDString: String?) {
         guard let appState = NotificationStore.shared.appState else { return }
 
-        let activityEvent = AgentActivitySocketEvent.parse(type: type)
-        let source = AIProviderRegistry.shared.notificationSource(for: activityEvent.sourceType)
+        let source = AIProviderRegistry.shared.notificationSource(for: type)
 
         if let paneIDString, let paneID = UUID(uuidString: paneIDString) {
-            if let state = activityEvent.activityState,
-               !appState.updateAgentActivity(paneID: paneID, state: state, sourceType: activityEvent.sourceType)
-            {
-                return
-            }
             NotificationStore.shared.add(
                 paneID: paneID,
                 source: source,

@@ -276,7 +276,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UpdateService.shared.start()
         ModifierKeyMonitor.shared.start()
         NotificationSocketServer.shared.start()
-        AIProviderRegistry.shared.installAll()
         _ = AIUsageSettingsStore.isUsageEnabled()
         requestLocalNetworkAccess()
 

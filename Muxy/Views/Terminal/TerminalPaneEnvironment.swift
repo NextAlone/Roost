@@ -30,10 +30,6 @@ enum TerminalPaneEnvironment {
         vars["MUXY_PROJECT_ID"] = vars["ROOST_PROJECT_ID"]
         vars["MUXY_WORKTREE_ID"] = vars["ROOST_WORKTREE_ID"]
         vars["MUXY_SOCKET_PATH"] = vars["ROOST_SOCKET_PATH"]
-        if let hookPath = MuxyNotificationHooks.hookScriptPath {
-            vars["ROOST_HOOK_SCRIPT"] = hookPath
-            vars["MUXY_HOOK_SCRIPT"] = hookPath
-        }
         return vars
     }
 

@@ -66,6 +66,7 @@ final class AwaitingPanesTests: XCTestCase {
         needInputPane.activityState = .running
         _ = appState.updateAgentActivity(paneID: needInputPane.id, state: .awaiting)
         _ = appState.updateAgentActivity(paneID: waitPane.id, state: .awaiting)
+        donePane.activityState = .running
         _ = appState.updateAgentActivity(paneID: donePane.id, state: .completed)
         _ = appState.updateAgentActivity(paneID: runningPane.id, state: .running)
 

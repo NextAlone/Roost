@@ -49,6 +49,7 @@ public struct ClaudeCodeDetector: AgentDetector {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty { continue }
             if isFinishedStatusLine(trimmed) { return false }
+            guard isStatusLine(trimmed) else { return false }
             if trimmed.range(of: #"\b\p{L}*ing\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
                 return true
             }
@@ -95,6 +96,14 @@ public struct ClaudeCodeDetector: AgentDetector {
             }
         }
         return false
+    }
+
+    private func isStatusLine(_ line: String) -> Bool {
+        guard let first = line.first, first != "-" else { return false }
+        if first == "\u{2022}" {
+            return line.range(of: #"^\u{2022}\s+\p{L}*ing\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        }
+        return line.range(of: #"^[\p{So}\p{P}]\s+\S"#, options: [.regularExpression]) != nil
     }
 
     private func isFinishedStatusLine(_ line: String) -> Bool {

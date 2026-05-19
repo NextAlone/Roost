@@ -114,6 +114,21 @@ struct ClaudeCodeDetectorTests {
         #expect(detector.detect(screenContent: screen) == .working)
     }
 
+    @Test func completedAnswerTextContainingIngWordsIsIdle() {
+        let screen = "Result notes\n\n- tool calling support varies by provider\n- background routing is optional\n\n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\n\u{276F} \n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
+        #expect(detector.detect(screenContent: screen) == .idle)
+    }
+
+    @Test func bulletBulletPointsWithIngWordsAbovePromptIsIdle() {
+        let screen = "\u{2022} 结论：能用，但不稳；适合作备线/省钱/A-B，不适合替代原生 Claude Code 主力。\n\n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\n\u{276F} \n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
+        #expect(detector.detect(screenContent: screen) == .idle)
+    }
+
+    @Test func bulletPointsWithEnglishIngWordsAbovePromptIsIdle() {
+        let screen = "\u{2022} background routing is optional\n\u{2022} tool calling support varies\n\n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\n\u{276F} \n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
+        #expect(detector.detect(screenContent: screen) == .idle)
+    }
+
     @Test func completedDurationLineIsIdle() {
         let screen = "Ran 1 shell command\n\n\u{2022} pong\n\n\u{2731} Baked for 12s\n\n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\n\u{276F} \n\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}"
         #expect(detector.detect(screenContent: screen) == .idle)

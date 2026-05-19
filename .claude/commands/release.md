@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(jj *), Bash(gh *), Bash(perl *), Read
+allowed-tools: Bash(jj *), Bash(gh *), Bash(perl *), Read, AskUserQuestion
 description: 触发 GitHub Actions Release workflow 发布新版本 (默认 patch 自增；可传 X.Y.Z / minor / major / watch)
 argument-hint: "[X.Y.Z|patch|minor|major] [watch|nowatch] [draft]"
 ---
@@ -54,7 +54,23 @@ e. **tag 不存在**：
    ```
    若返回 0（已存在），停止并报错。
 
-### 3. 触发 workflow
+### 3. 发布内容确认（必须执行）
+
+在触发 workflow 前，必须展示本次 release 将基于 `main` 发布的内容，并用 `AskUserQuestion` 让用户确认；用户未确认则停止，不得触发 workflow。
+
+必须运行并汇报：
+```
+jj log -r 'latest(tags() & ::main, 1)..main' --no-graph -T 'change_id.shortest() ++ " " ++ commit_id.shortest() ++ " " ++ description.first_line() ++ "\n"'
+jj diff --git -r 'latest(tags() & ::main, 1)..main' --stat
+```
+
+确认问题必须明确包含：
+- 目标版本 `<X.Y.Z>`
+- workflow ref 是 `main`
+- 上面列出的提交摘要
+- 若列表为空，必须提示“本次发布没有功能提交差异”，并默认推荐停止
+
+### 4. 触发 workflow
 
 ```
 gh workflow run Release --repo NextAlone/Roost --ref main \
@@ -70,7 +86,7 @@ gh run list --workflow Release --repo NextAlone/Roost --limit 1 --json databaseI
 
 > 注意：workflow 跑完会**自动 push 一个新的 `chore(release): prepare v<X.Y.Z>` commit 到 main**。本地 `main` 会落后 origin/main 一个 commit，下次开工前先 `jj git fetch && jj retrunk`。
 
-### 4. Watch（默认）
+### 5. Watch（默认）
 
 后台跑：
 ```

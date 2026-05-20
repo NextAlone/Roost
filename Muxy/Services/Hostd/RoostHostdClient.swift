@@ -1,5 +1,6 @@
 import Foundation
 import MuxyShared
+import os
 import RoostHostdCore
 import SwiftUI
 
@@ -107,7 +108,10 @@ extension RoostHostdClient {
     }
 
     func subscribeAgentActivity(subscriptions: [UUID: String]) -> AsyncThrowingStream<HostdAgentActivityEvent, Error> {
-        AsyncThrowingStream { $0.finish() }
+        let typeName = String(describing: type(of: self))
+        Logger(subsystem: "app.roost", category: "RoostHostdClient")
+            .warning("subscribeAgentActivity default impl invoked on \(typeName, privacy: .public); returning empty stream")
+        return AsyncThrowingStream { $0.finish() }
     }
 
     func readSessionOutput(id: UUID, timeout: TimeInterval = 0) async throws -> Data {

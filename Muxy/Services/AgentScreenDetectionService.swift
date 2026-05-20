@@ -1,6 +1,9 @@
 import Foundation
 import MuxyShared
+import os
 import RoostHostdCore
+
+private let logger = Logger(subsystem: "app.roost", category: "AgentScreenDetection")
 
 @MainActor
 final class AgentScreenDetectionService {
@@ -49,6 +52,7 @@ final class AgentScreenDetectionService {
         reconcilers = reconcilers.filter { paneIDs.contains($0.key) }
         for pane in panes {
             if pane.hostdRuntimeOwnership != .hostdOwnedProcess {
+                logger.debug("[poll] skip \(pane.id) ownership=\(String(describing: pane.hostdRuntimeOwnership))")
                 continue
             }
             let agentLabel = pane.agentKind.detectionLabel
@@ -64,6 +68,9 @@ final class AgentScreenDetectionService {
                 previousActivityState: previousActivityState
             )
             reconcilers[pane.id] = reconciler
+            let detect = "\(result.state.label)/\(result.signal.rawValue)"
+            let states = "prev=\(previousActivityState.rawValue) target=\(targetActivityState.rawValue)"
+            logger.debug("[poll] \(pane.id) \(agentLabel) detect=\(detect) \(states)")
             if targetActivityState == previousActivityState { continue }
 
             appState.updateAgentActivity(

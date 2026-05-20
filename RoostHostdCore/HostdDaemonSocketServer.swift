@@ -191,18 +191,44 @@ public final class HostdDaemonSocketServer: @unchecked Sendable {
 
     private func handleClient(_ fd: CInt) async {
         do {
-            let requestData = try HostdSocketIO.readAll(from: fd)
+            let requestData = try await Self.readBlocking(fd: fd)
             let request = try JSONDecoder().decode(HostdAttachSocketRequest.self, from: requestData)
             let response = try await handle(request)
             let responseData = try JSONEncoder().encode(response)
-            try HostdSocketIO.writeAll(responseData, to: fd)
+            try await Self.writeBlocking(responseData, fd: fd)
         } catch {
             let response = HostdAttachSocketResponse(payload: HostdXPCCodec.failure(error.localizedDescription))
             if let data = try? JSONEncoder().encode(response) {
-                try? HostdSocketIO.writeAll(data, to: fd)
+                try? await Self.writeBlocking(data, fd: fd)
             }
         }
         close(fd)
+    }
+
+    private static func readBlocking(fd: CInt) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                do {
+                    let data = try HostdSocketIO.readAll(from: fd)
+                    continuation.resume(returning: data)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    private static func writeBlocking(_ data: Data, fd: CInt) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            DispatchQueue.global(qos: .utility).async {
+                do {
+                    try HostdSocketIO.writeAll(data, to: fd)
+                    continuation.resume(returning: ())
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 
     private func cleanup() {

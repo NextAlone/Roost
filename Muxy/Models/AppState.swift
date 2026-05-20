@@ -1311,6 +1311,11 @@ final class AppState {
 
         for paneID in effects.paneIDsToRemove {
             terminalViews.removeView(for: paneID)
+            if hostdClient != nil {
+                Task { [hostdClient] in
+                    try? await hostdClient?.terminateSession(id: paneID)
+                }
+            }
         }
 
         if !effects.projectIDsToRemove.isEmpty {

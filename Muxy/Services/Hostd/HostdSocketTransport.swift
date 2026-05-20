@@ -95,18 +95,25 @@ final class HostdSocketTransport: HostdXPCTransport, @unchecked Sendable {
     }
 
     private func call(_ operation: HostdAttachSocketOperation, payload: Data = Data()) async throws -> Data {
-        try await Task.detached { [socketPath] in
-            let fd = try HostdSocketIO.connect(path: socketPath)
-            defer {
-                close(fd)
+        let socketPath = self.socketPath
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                do {
+                    let fd = try HostdSocketIO.connect(path: socketPath)
+                    defer {
+                        close(fd)
+                    }
+                    let request = HostdAttachSocketRequest(operation: operation, payload: payload)
+                    let requestData = try JSONEncoder().encode(request)
+                    try HostdSocketIO.writeAll(requestData, to: fd)
+                    shutdown(fd, SHUT_WR)
+                    let responseData = try HostdSocketIO.readAll(from: fd)
+                    let response = try JSONDecoder().decode(HostdAttachSocketResponse.self, from: responseData)
+                    continuation.resume(returning: response.payload)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
-            let request = HostdAttachSocketRequest(operation: operation, payload: payload)
-            let requestData = try JSONEncoder().encode(request)
-            try HostdSocketIO.writeAll(requestData, to: fd)
-            shutdown(fd, SHUT_WR)
-            let responseData = try HostdSocketIO.readAll(from: fd)
-            let response = try JSONDecoder().decode(HostdAttachSocketResponse.self, from: responseData)
-            return response.payload
-        }.value
+        }
     }
 }

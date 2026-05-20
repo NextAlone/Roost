@@ -135,4 +135,8 @@ private struct RuntimeHintHostdClient: RoostHostdClient {
     func detectAgentActivity(id: UUID, agentLabel: String) async -> AgentDetectionResult {
         await client.detectAgentActivity(id: id, agentLabel: agentLabel)
     }
+
+    func subscribeAgentActivity(subscriptions: [UUID: String]) -> AsyncThrowingStream<HostdAgentActivityEvent, Error> {
+        client.subscribeAgentActivity(subscriptions: subscriptions)
+    }
 }

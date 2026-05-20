@@ -16,6 +16,8 @@ protocol RoostHostdClient: Sendable {
     func waitForSessionExit(id: UUID, timeoutMs: Int) async throws -> HostdWaitForSessionExitResponse
     func sendTmuxKeys(id: UUID, keys: [String]) async throws
     func detectAgentActivity(id: UUID, agentLabel: String) async -> AgentDetectionResult
+    func subscribeAgentActivity(subscriptions: [UUID: String]) -> AsyncThrowingStream<HostdAgentActivityEvent, Error>
+
     func readSessionOutput(id: UUID, timeout: TimeInterval) async throws -> Data
     func readSessionOutputStream(
         id: UUID,
@@ -102,6 +104,10 @@ extension RoostHostdClient {
 
     func detectAgentActivity(id: UUID, agentLabel: String) async -> AgentDetectionResult {
         AgentDetectionResult(state: .unknown, agentLabel: nil, signal: .unknown)
+    }
+
+    func subscribeAgentActivity(subscriptions: [UUID: String]) -> AsyncThrowingStream<HostdAgentActivityEvent, Error> {
+        AsyncThrowingStream { $0.finish() }
     }
 
     func readSessionOutput(id: UUID, timeout: TimeInterval = 0) async throws -> Data {

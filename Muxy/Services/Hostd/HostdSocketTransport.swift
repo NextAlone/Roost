@@ -94,26 +94,70 @@ final class HostdSocketTransport: HostdXPCTransport, @unchecked Sendable {
         try await call(.detectAgentActivity, payload: request)
     }
 
-    private func call(_ operation: HostdAttachSocketOperation, payload: Data = Data()) async throws -> Data {
+    func subscribeAgentActivity(subscriptions: [UUID: String]) -> AsyncThrowingStream<HostdAgentActivityEvent, Error> {
         let socketPath = self.socketPath
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
+        return AsyncThrowingStream { continuation in
+            Task {
                 do {
+                    let payload = try JSONEncoder().encode(HostdSubscribeAgentActivityRequest(subscriptions: subscriptions))
                     let fd = try HostdSocketIO.connect(path: socketPath)
-                    defer {
-                        close(fd)
-                    }
-                    let request = HostdAttachSocketRequest(operation: operation, payload: payload)
-                    let requestData = try JSONEncoder().encode(request)
-                    try HostdSocketIO.writeAll(requestData, to: fd)
+                    let req = HostdAttachSocketRequest(operation: .subscribeAgentActivity, payload: payload)
+                    try HostdSocketIO.writeAll(try JSONEncoder().encode(req), to: fd)
                     shutdown(fd, SHUT_WR)
-                    let responseData = try HostdSocketIO.readAll(from: fd)
-                    let response = try JSONDecoder().decode(HostdAttachSocketResponse.self, from: responseData)
-                    continuation.resume(returning: response.payload)
+                    var buf = Data()
+                    let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .global(qos: .utility))
+                    source.setEventHandler {
+                        var tmp = [UInt8](repeating: 0, count: 4096)
+                        let n = read(fd, &tmp, tmp.count)
+                        if n <= 0 { source.cancel()
+                            continuation.finish()
+                            return
+                        }
+                        buf.append(contentsOf: tmp[0 ..< n])
+                        while let nl = buf.firstIndex(of: 0x0A) {
+                            let line = Data(buf[buf.startIndex ..< nl])
+                            buf = Data(buf[buf.index(after: nl)...])
+                            if let event = try? JSONDecoder().decode(HostdAgentActivityEvent.self, from: line) {
+                                continuation.yield(event)
+                            }
+                        }
+                    }
+                    source.setCancelHandler { close(fd)
+                        _ = source
+                    }
+                    source.resume()
+                    continuation.onTermination = { _ in source.cancel() }
                 } catch {
-                    continuation.resume(throwing: error)
+                    continuation.finish(throwing: error)
                 }
             }
         }
+    }
+
+    private func call(_ operation: HostdAttachSocketOperation, payload: Data = Data()) async throws -> Data {
+        try await withThrowingTaskGroup(of: Data.self) { group in
+            group.addTask { try await self.doCall(operation, payload: payload) }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 10_000_000_000)
+                throw HostdSocketIOError.readFailed("timeout")
+            }
+            let result = try await group.next()
+            group.cancelAll()
+            guard let result else { throw HostdSocketIOError.readFailed("timeout") }
+            return result
+        }
+    }
+
+    private func doCall(_ operation: HostdAttachSocketOperation, payload: Data) async throws -> Data {
+        let socketPath = self.socketPath
+        let fd = try HostdSocketIO.connect(path: socketPath)
+        defer { close(fd) }
+        let request = HostdAttachSocketRequest(operation: operation, payload: payload)
+        let requestData = try JSONEncoder().encode(request)
+        try HostdSocketIO.writeAll(requestData, to: fd)
+        shutdown(fd, SHUT_WR)
+        let responseData = try await HostdSocketIO.readAllAsync(from: fd)
+        let response = try JSONDecoder().decode(HostdAttachSocketResponse.self, from: responseData)
+        return response.payload
     }
 }

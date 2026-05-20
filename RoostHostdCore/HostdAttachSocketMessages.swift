@@ -23,6 +23,25 @@ public enum HostdAttachSocketOperation: String, Sendable, Codable, Equatable {
     case waitForSessionExit
     case sendTmuxKeys
     case detectAgentActivity
+    case subscribeAgentActivity
+}
+
+public struct HostdSubscribeAgentActivityRequest: Sendable, Codable, Equatable {
+    public let subscriptions: [UUID: String]
+
+    public init(subscriptions: [UUID: String]) {
+        self.subscriptions = subscriptions
+    }
+}
+
+public struct HostdAgentActivityEvent: Sendable, Codable, Equatable {
+    public let paneID: UUID
+    public let detection: AgentDetectionResult
+
+    public init(paneID: UUID, detection: AgentDetectionResult) {
+        self.paneID = paneID
+        self.detection = detection
+    }
 }
 
 public struct HostdInterruptSessionRequest: Sendable, Codable, Equatable {
@@ -82,7 +101,7 @@ public struct HostdAttachSocketResponse: Sendable, Codable, Equatable {
 }
 
 public struct HostdDaemonRuntimeIdentity: Sendable, Codable, Equatable {
-    public static let currentProtocolVersion = 10
+    public static let currentProtocolVersion = 11
 
     public let protocolVersion: Int
 

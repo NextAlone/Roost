@@ -71,6 +71,32 @@ public enum HostdSocketIO {
         }
     }
 
+    public static func readAllAsync(from fd: CInt) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            var accumulated = Data()
+            let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .global(qos: .utility))
+            source.setEventHandler {
+                var buffer = [UInt8](repeating: 0, count: 4096)
+                let n = read(fd, &buffer, buffer.count)
+                if n > 0 {
+                    accumulated.append(contentsOf: buffer[0 ..< n])
+                    if accumulated.count > maxMessageSize {
+                        source.cancel()
+                        continuation.resume(throwing: HostdSocketIOError.messageTooLarge)
+                    }
+                } else if n == 0 {
+                    source.cancel()
+                    continuation.resume(returning: accumulated)
+                } else if errno != EINTR {
+                    source.cancel()
+                    continuation.resume(throwing: HostdSocketIOError.readFailed(errnoMessage()))
+                }
+            }
+            source.setCancelHandler { _ = source }
+            source.resume()
+        }
+    }
+
     public static func readAll(from fd: CInt) throws -> Data {
         var data = Data()
         var buffer = [UInt8](repeating: 0, count: 4096)

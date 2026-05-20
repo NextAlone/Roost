@@ -90,6 +90,10 @@ public actor HostdProcessRegistry {
     private var tmuxAttachedClientCounts: [UUID: Int] = [:]
     private var pendingExitWaiters: [UUID: [WaiterEntry]] = [:]
     private var detectionStates: [UUID: AgentDetectionStateMachine] = [:]
+    private var activitySubscribers: [UUID: AsyncStream<HostdAgentActivityEvent>.Continuation] = [:]
+    private var activityDetectionTask: Task<Void, Never>?
+    private var activeSubscriptions: [UUID: String] = [:]
+    private var lastPushedStates: [UUID: AgentDetectionState] = [:]
 
     private struct WaiterEntry {
         let id: UUID
@@ -377,6 +381,51 @@ public actor HostdProcessRegistry {
         return AgentDetectionResult(state: confirmedState, agentLabel: detector.agentLabel, signal: evidence.signal)
     }
 
+    public func subscribeAgentActivity(
+        subscriptions: [UUID: String]
+    ) -> AsyncStream<HostdAgentActivityEvent> {
+        activeSubscriptions.merge(subscriptions) { _, new in new }
+        let subscriberID = UUID()
+        let (stream, continuation) = AsyncStream<HostdAgentActivityEvent>.makeStream()
+        activitySubscribers[subscriberID] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { await self?.removeActivitySubscriber(subscriberID) }
+        }
+        if activityDetectionTask == nil {
+            activityDetectionTask = Task { [weak self] in
+                await self?.runDetectionLoop()
+            }
+        }
+        return stream
+    }
+
+    private func removeActivitySubscriber(_ id: UUID) {
+        activitySubscribers.removeValue(forKey: id)
+        if activitySubscribers.isEmpty {
+            activityDetectionTask?.cancel()
+            activityDetectionTask = nil
+            activeSubscriptions.removeAll()
+            lastPushedStates.removeAll()
+        }
+    }
+
+    private func runDetectionLoop() async {
+        while !Task.isCancelled, !activitySubscribers.isEmpty {
+            for (paneID, agentLabel) in activeSubscriptions {
+                let result = await detectAgentActivity(id: paneID, agentLabel: agentLabel)
+                guard result.state != .unknown else { continue }
+                guard result.state != lastPushedStates[paneID] else { continue }
+                lastPushedStates[paneID] = result.state
+                let event = HostdAgentActivityEvent(paneID: paneID, detection: result)
+                for continuation in activitySubscribers.values {
+                    continuation.yield(event)
+                }
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+        activityDetectionTask = nil
+    }
+
     private func timeoutWaiter(sessionID: UUID, waiterID: UUID) {
         guard var waiters = pendingExitWaiters[sessionID],
               let idx = waiters.firstIndex(where: { $0.id == waiterID })
@@ -501,6 +550,8 @@ public actor HostdProcessRegistry {
             try? await store.record(updated)
         }
         tmuxAttachedClientCounts.removeValue(forKey: id)
+        activeSubscriptions.removeValue(forKey: id)
+        lastPushedStates.removeValue(forKey: id)
         resumeExitWaiters(sessionID: id, lastTail: lastTail)
     }
 

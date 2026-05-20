@@ -23,6 +23,7 @@ protocol HostdXPCTransport: Sendable {
     func waitForSessionExit(_ request: Data) async throws -> Data
     func sendTmuxKeys(_ request: Data) async throws -> Data
     func detectAgentActivity(_ request: Data) async throws -> Data
+    func subscribeAgentActivity(subscriptions: [UUID: String]) -> AsyncThrowingStream<HostdAgentActivityEvent, Error>
 }
 
 enum XPCHostdClientError: Error, LocalizedError {
@@ -177,6 +178,10 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
         }
     }
 
+    func subscribeAgentActivity(subscriptions: [UUID: String]) -> AsyncThrowingStream<HostdAgentActivityEvent, Error> {
+        HostdSocketTransport().subscribeAgentActivity(subscriptions: subscriptions)
+    }
+
     private func call(
         _ body: @escaping @Sendable (RoostHostdXPCProtocol, @escaping @Sendable (Data) -> Void) -> Void
     ) async throws -> Data {
@@ -213,10 +218,12 @@ final class NSXPCHostdTransport: HostdXPCTransport, @unchecked Sendable {
 
 struct XPCHostdClient: RoostHostdClient {
     private let transport: any HostdXPCTransport
+    private let socketTransport: HostdSocketTransport
     private let requestTimeout: TimeInterval
 
     init(transport: any HostdXPCTransport = NSXPCHostdTransport(), requestTimeout: TimeInterval = 8) {
         self.transport = transport
+        self.socketTransport = HostdSocketTransport()
         self.requestTimeout = requestTimeout
     }
 
@@ -370,6 +377,10 @@ struct XPCHostdClient: RoostHostdClient {
             return AgentDetectionResult(state: .unknown, agentLabel: nil)
         }
         return result
+    }
+
+    func subscribeAgentActivity(subscriptions: [UUID: String]) -> AsyncThrowingStream<HostdAgentActivityEvent, Error> {
+        socketTransport.subscribeAgentActivity(subscriptions: subscriptions)
     }
 
     func markExited(sessionID: UUID) async throws {

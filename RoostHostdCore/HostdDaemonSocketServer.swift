@@ -122,6 +122,8 @@ public final class HostdDaemonSocketServer: @unchecked Sendable {
             let request = try HostdXPCCodec.decode(HostdDetectAgentActivityRequest.self, from: request.payload)
             let response = await registry.detectAgentActivity(id: request.id, agentLabel: request.agentLabel)
             payload = try HostdXPCCodec.success(response)
+        case .subscribeAgentActivity:
+            payload = HostdXPCCodec.failure("subscribeAgentActivity must use the streaming path")
         }
         return HostdAttachSocketResponse(payload: payload)
     }
@@ -193,6 +195,10 @@ public final class HostdDaemonSocketServer: @unchecked Sendable {
         do {
             let requestData = try await Self.readBlocking(fd: fd)
             let request = try JSONDecoder().decode(HostdAttachSocketRequest.self, from: requestData)
+            if request.operation == .subscribeAgentActivity {
+                await handleSubscription(request, fd: fd)
+                return
+            }
             let response = try await handle(request)
             let responseData = try JSONEncoder().encode(response)
             try await Self.writeBlocking(responseData, fd: fd)
@@ -205,17 +211,26 @@ public final class HostdDaemonSocketServer: @unchecked Sendable {
         close(fd)
     }
 
-    private static func readBlocking(fd: CInt) async throws -> Data {
-        try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                do {
-                    let data = try HostdSocketIO.readAll(from: fd)
-                    continuation.resume(returning: data)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
+    private func handleSubscription(_ request: HostdAttachSocketRequest, fd: CInt) async {
+        guard let req = try? JSONDecoder().decode(
+            HostdSubscribeAgentActivityRequest.self, from: request.payload
+        )
+        else { close(fd)
+            return
         }
+        let stream = await registry.subscribeAgentActivity(subscriptions: req.subscriptions)
+        let encoder = JSONEncoder()
+        for await event in stream {
+            guard let data = try? encoder.encode(event) else { continue }
+            var line = data
+            line.append(0x0A)
+            guard (try? HostdSocketIO.writeAll(line, to: fd)) != nil else { break }
+        }
+        close(fd)
+    }
+
+    private static func readBlocking(fd: CInt) async throws -> Data {
+        try await HostdSocketIO.readAllAsync(from: fd)
     }
 
     private static func writeBlocking(_ data: Data, fd: CInt) async throws {

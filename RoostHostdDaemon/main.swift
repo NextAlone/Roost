@@ -1,7 +1,10 @@
 import Darwin
 import Dispatch
 import Foundation
+import os
 import RoostHostdCore
+
+private let logger = Logger(subsystem: "app.roost.hostd", category: "Daemon")
 
 let socketPath = {
     let arguments = CommandLine.arguments
@@ -13,9 +16,32 @@ let socketPath = {
 
 signal(SIGPIPE, SIG_IGN)
 
-let instanceLock = try HostdDaemonInstanceLock()
-let registry = try await HostdProcessRegistry(databaseURL: HostdStorage.defaultDatabaseURL())
-try await registry.recoverRunningSessions()
+func fail(_ message: String) -> Never {
+    logger.error("\(message, privacy: .public)")
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+    exit(1)
+}
+
+let instanceLock: HostdDaemonInstanceLock
+do {
+    instanceLock = try HostdDaemonInstanceLock()
+} catch {
+    fail("hostd daemon failed to acquire instance lock: \(error.localizedDescription)")
+}
+
+let registry: HostdProcessRegistry
+do {
+    registry = try await HostdProcessRegistry(databaseURL: HostdStorage.defaultDatabaseURL())
+} catch {
+    fail("hostd daemon failed to open registry database: \(error.localizedDescription)")
+}
+
+do {
+    try await registry.recoverRunningSessions()
+} catch {
+    logger.warning("hostd daemon failed to recover running sessions: \(error.localizedDescription, privacy: .public)")
+}
+
 let server = HostdDaemonSocketServer(socketPath: socketPath, registry: registry)
 server.start()
 while true {

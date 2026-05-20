@@ -410,18 +410,29 @@ public actor HostdProcessRegistry {
     }
 
     private func runDetectionLoop() async {
+        let activeInterval: UInt64 = 500_000_000
+        let maxIdleInterval: UInt64 = 1_500_000_000
+        var interval: UInt64 = activeInterval
         while !Task.isCancelled, !activitySubscribers.isEmpty {
+            var changed = false
             for (paneID, agentLabel) in activeSubscriptions {
                 let result = await detectAgentActivity(id: paneID, agentLabel: agentLabel)
                 guard result.state != .unknown else { continue }
                 guard result.state != lastPushedStates[paneID] else { continue }
                 lastPushedStates[paneID] = result.state
+                changed = true
                 let event = HostdAgentActivityEvent(paneID: paneID, detection: result)
                 for continuation in activitySubscribers.values {
                     continuation.yield(event)
                 }
             }
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            let stabilizing = activeSubscriptions.keys.contains { detectionStates[$0]?.isStabilizing == true }
+            if changed || stabilizing {
+                interval = activeInterval
+            } else {
+                interval = min(interval + activeInterval, maxIdleInterval)
+            }
+            try? await Task.sleep(nanoseconds: interval)
         }
         activityDetectionTask = nil
     }

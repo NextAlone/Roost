@@ -11,6 +11,10 @@ public struct AgentDetectionStateMachine: Sendable {
 
     public init() {}
 
+    public var isStabilizing: Bool {
+        pendingState != nil
+    }
+
     public mutating func observe(rawState: AgentDetectionState, agentLabel: String?, now: Date = Date()) -> AgentDetectionState? {
         let stabilized = stabilize(rawState, agentLabel: agentLabel, now: now)
         if stabilized == currentState {

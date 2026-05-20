@@ -6,11 +6,11 @@
 
 stdenvNoCC.mkDerivation rec {
   pname = "roost";
-  version = "1.4.5";
+  version = "1.4.6";
 
   src = fetchurl {
     url = "https://github.com/NextAlone/Roost/releases/download/v${version}/Roost-${version}-arm64.zip";
-    hash = "sha256-KH4H1WnU+QdO1OPTFAI3q2lBLZ+b0xs/f/7lgRYiyn8=";
+    hash = "sha256-y0E02r0pdmPqjNg4p4waTJnwhAS31bmkR/i2+VaHFf0=";
   };
 
   sourceRoot = ".";

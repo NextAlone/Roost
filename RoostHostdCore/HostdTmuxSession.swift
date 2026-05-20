@@ -133,37 +133,42 @@ public struct HostdTmuxController: HostdTmuxControlling {
 
     private func run(arguments: [String], environment: [String: String]) async throws -> HostdTmuxCommandResult {
         let executableName = executableName
-        return try await Task.detached {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = [executableName] + arguments
-            process.environment = Self.mergedEnvironment(environment)
+        let mergedEnv = Self.mergedEnvironment(environment)
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = [executableName] + arguments
+                process.environment = mergedEnv
 
-            let outputPipe = Pipe()
-            let errorPipe = Pipe()
-            process.standardOutput = outputPipe
-            process.standardError = errorPipe
+                let outputPipe = Pipe()
+                let errorPipe = Pipe()
+                process.standardOutput = outputPipe
+                process.standardError = errorPipe
 
-            do {
-                try process.run()
-            } catch {
-                throw HostdProcessRegistryError.tmuxUnavailable(message: error.localizedDescription)
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(throwing: HostdProcessRegistryError.tmuxUnavailable(message: error.localizedDescription))
+                    return
+                }
+                process.waitUntilExit()
+
+                let stdout = outputPipe.fileHandleForReading.readDataToEndOfFile()
+                let stderr = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                let outputText = String(decoding: stdout, as: UTF8.self)
+                let errorText = String(decoding: stderr, as: UTF8.self)
+                if process.terminationStatus == 127 {
+                    continuation.resume(throwing: HostdProcessRegistryError.tmuxUnavailable(message: "\(executableName) not found on PATH"))
+                    return
+                }
+                continuation.resume(returning: HostdTmuxCommandResult(
+                    status: process.terminationStatus,
+                    output: outputText,
+                    error: errorText
+                ))
             }
-            process.waitUntilExit()
-
-            let stdout = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            let stderr = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let outputText = String(decoding: stdout, as: UTF8.self)
-            let errorText = String(decoding: stderr, as: UTF8.self)
-            if process.terminationStatus == 127 {
-                throw HostdProcessRegistryError.tmuxUnavailable(message: "\(executableName) not found on PATH")
-            }
-            return HostdTmuxCommandResult(
-                status: process.terminationStatus,
-                output: outputText,
-                error: errorText
-            )
-        }.value
+        }
     }
 
     private static func mergedEnvironment(_ environment: [String: String]) -> [String: String] {
